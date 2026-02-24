@@ -74,7 +74,7 @@ const Login: React.FC = () => {
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 sm:px-6 md:px-8 py-6 sm:py-8 md:py-12 gap-6 sm:gap-8">
         {/* Title */}
         <h1 className="text-center font-['Playfair_Display'] text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-transparent bg-clip-text bg-linear-to-b from-white to-[#d0d0d0] drop-shadow-lg px-2">
-          TruGear
+          TrueGear
         </h1>
 
         {/* Glass Card */}
