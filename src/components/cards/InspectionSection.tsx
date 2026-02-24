@@ -12,7 +12,7 @@ interface InspectionSectionProps {
   onPhotoUpload?: (itemId: string, file: File) => Promise<void>;
 }
 
-export function InspectionSection({ title, description, progress, items, status = {}, onStatusChange, onPhotoUpload }: InspectionSectionProps) {
+export function InspectionSection({ title, description: _description, progress: _progress, items, status = {}, onStatusChange, onPhotoUpload }: InspectionSectionProps) {
   const handleStatusChange = (index: number, newStatus: ChecklistStatus) => {
     if (onStatusChange) {
       const updatedStatus = { ...status, [index]: newStatus };

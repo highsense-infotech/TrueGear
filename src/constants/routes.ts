@@ -18,6 +18,7 @@ export const ROUTES = {
   VEHICLE_ENTRY_SUCCESS: '/security-dashboard/vehicle-entry-success',
   CREATE_JOB_CARD: '/service-advisor-dashboard/job-card/:vehicleId',
   FINANCE_BILLING_DASHBOARD: '/finance-billing-dashboard',
+  POST_SERVICE_QC_DASHBOARD: '/post-service-qc-dashboard',
   SETTINGS: '/settings',
 };
 

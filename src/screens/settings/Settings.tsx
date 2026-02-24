@@ -1,11 +1,8 @@
-import { Loader2 } from "lucide-react";
-import { useCurrency, CURRENCIES, BASE_CURRENCY } from "../../context/CurrencyContext";
+import { useCurrency, CURRENCIES } from "../../context/CurrencyContext";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 
 const Settings: React.FC = () => {
-  const { currency, setCurrency, formatCurrency, ratesLoading } = useCurrency();
-
-  const selectedOption = CURRENCIES.find((c) => c.code === currency);
+  const { currency, setCurrency, taxConfig } = useCurrency();
 
   return (
     <>
@@ -22,7 +19,7 @@ const Settings: React.FC = () => {
               Currency
             </label>
             <p className="text-xs text-[#999] mb-3">
-              Choose the currency used across all billing and estimates. Amounts are converted using live exchange rates.
+              Choose the currency used across all billing and estimates.
             </p>
             <select
               value={currency}
@@ -37,30 +34,13 @@ const Settings: React.FC = () => {
             </select>
           </div>
 
-          {/* Live rate preview */}
-          {currency !== BASE_CURRENCY && (
-            <div className="bg-[#f9f9f9] border border-[#e5e7eb] rounded-[10px] p-4">
-              <p className="text-sm text-[#333] font-medium mb-2">Exchange Rate Preview</p>
-              {ratesLoading ? (
-                <div className="flex items-center gap-2 text-[#999] text-xs">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Fetching live rates...</span>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1.5 text-sm text-[#666]">
-                  <p>
-                    ₹1,000 = {formatCurrency(1000)}
-                  </p>
-                  <p>
-                    ₹10,000 = {formatCurrency(10000)}
-                  </p>
-                  <p className="text-xs text-[#999] mt-1">
-                    Rates from exchangerate-api.com ({selectedOption?.code}/{BASE_CURRENCY})
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Tax Info */}
+          <div className="bg-[#f9f9f9] border border-[#e5e7eb] rounded-[10px] p-4">
+            <p className="text-sm text-[#333] font-medium mb-2">Tax Configuration</p>
+            <p className="text-sm text-[#666]">
+              {taxConfig.label} ({taxConfig.percentage}%) will be applied to estimates.
+            </p>
+          </div>
         </div>
       </div>
     </>
