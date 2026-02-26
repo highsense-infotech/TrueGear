@@ -7,9 +7,10 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & {
   prefix?: React.ReactNode;
   rightIcon?: React.ReactNode;
   onRightIconClick?: () => void;
+  error?: string;
 };
 
-const Input = forwardRef<HTMLInputElement, Props>(({ label, labelClassName, prefix, rightIcon, onRightIconClick, className, ...rest }, ref) => (
+const Input = forwardRef<HTMLInputElement, Props>(({ label, labelClassName, prefix, rightIcon, onRightIconClick, error, className, ...rest }, ref) => (
   <div className="w-full space-y-[8px] font-['Poppins']">
     {label && (
       <label className={cn("block text-base font-medium text-white leading-[25px]", labelClassName)}>
@@ -27,6 +28,7 @@ const Input = forwardRef<HTMLInputElement, Props>(({ label, labelClassName, pref
         className={cn(
           "flex w-full rounded-[20px] border border-white bg-transparent px-[20px] py-[19.5px] text-base font-medium text-white placeholder:text-white focus:outline-none focus:ring-2 focus:ring-white/20 disabled:cursor-not-allowed disabled:opacity-50",
           prefix && "pl-8",
+          error && "border-red-500",
           className
         )}
         {...rest}
@@ -40,6 +42,9 @@ const Input = forwardRef<HTMLInputElement, Props>(({ label, labelClassName, pref
         </div>
       )}
     </div>
+    {error && (
+      <p className="text-red-500 text-xs mt-1">{error}</p>
+    )}
   </div>
 ));
 

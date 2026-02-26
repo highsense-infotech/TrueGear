@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import Button from "../../components/common/Button";
 import { useNavigate, useParams } from "react-router-dom";
 import imgPlan from "../../assets/plan.png";
@@ -70,6 +71,7 @@ export const SendEstimate = () => {
         }
       } catch (error) {
         console.error("Failed to fetch send estimate data:", error);
+        toast.error("Failed to load estimate data");
       } finally {
         setLoading(false);
       }
@@ -85,10 +87,12 @@ export const SendEstimate = () => {
     try {
       const res = await shareEstimate(latestJobCardId);
       if (res.status) {
+        toast.success("Estimate sent successfully");
         setIsEstimateSent(true);
       }
     } catch (error) {
       console.error("Failed to share estimate:", error);
+      toast.error("Failed to send estimate");
     } finally {
       setSending(false);
     }

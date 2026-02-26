@@ -12,15 +12,23 @@ export interface Job {
   quantity: number;
 }
 
+export interface JobErrors {
+  jobDescription?: string;
+  partsCost?: string;
+  labourCost?: string;
+  quantity?: string;
+}
+
 interface JobRowProps {
   job: Job;
   index: number;
   onUpdate: (id: number, field: keyof Job, value: string | number) => void;
   onRemove: (id: number) => void;
   calculateLineTotal: (job: Job) => number;
+  errors?: JobErrors;
 }
 
-export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal }: JobRowProps) {
+export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal, errors }: JobRowProps) {
   const { formatCurrency, currencyOption } = useCurrency();
   const symbol = currencyOption.symbol;
 
@@ -57,6 +65,7 @@ export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal }: J
             value={job.jobDescription}
             onChange={(e) => onUpdate(job.id, "jobDescription", e.target.value)}
             placeholder="Enter job description"
+            error={errors?.jobDescription}
             className="w-full h-10 px-4 md:px-5 py-2 bg-white border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-medium"
           />
         </div>
@@ -84,6 +93,7 @@ export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal }: J
             value={job.partsCost}
             onChange={(e) => onUpdate(job.id, "partsCost", Number(e.target.value))}
             placeholder="0"
+            error={errors?.partsCost}
             className="w-full h-10 px-4 md:px-5 py-2 bg-white border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-semibold"
           />
         </div>
@@ -96,6 +106,7 @@ export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal }: J
             value={job.labourCost}
             onChange={(e) => onUpdate(job.id, "labourCost", Number(e.target.value))}
             placeholder="0"
+            error={errors?.labourCost}
             className="w-full h-10 px-4 md:px-5 py-2 bg-white border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-semibold"
           />
         </div>
@@ -107,6 +118,7 @@ export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal }: J
             value={job.quantity}
             onChange={(e) => onUpdate(job.id, "quantity", Number(e.target.value))}
             min={1}
+            error={errors?.quantity}
             className="w-full h-10 px-4 md:px-5 py-2 bg-white border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-semibold"
           />
         </div>

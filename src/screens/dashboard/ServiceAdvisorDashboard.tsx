@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { Truck, Clock, CheckCircle, Calendar, Loader2 } from "lucide-react";
 import { ServiceAdvisorTable } from "../../components/cards/ServiceAdvisorTable.tsx";
@@ -40,6 +41,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to fetch SA dashboard:", err);
+      toast.error("Failed to load dashboard");
     } finally {
       setLoading(false);
     }

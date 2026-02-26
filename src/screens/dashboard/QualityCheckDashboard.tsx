@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
+import toast from "react-hot-toast";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { Truck } from "lucide-react";
 import { QCTable } from "../../components/cards/QCTable.tsx";
@@ -39,6 +40,7 @@ const QualityCheckDashboard: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to fetch QC dashboard:", err);
+      toast.error("Failed to load QC dashboard");
     } finally {
       setLoading(false);
     }
@@ -71,6 +73,7 @@ const QualityCheckDashboard: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to start inspection:", err);
+      toast.error("Failed to start inspection");
     }
   };
 

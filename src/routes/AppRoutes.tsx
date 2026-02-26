@@ -20,6 +20,7 @@ import AddCustomer from '../screens/customers/AddCustomer.tsx';
 import AddVehicle from '../screens/vehicles/AddVehicle';
 import VehicleEntrySuccess from '../screens/vehicles/VehicleEntrySuccess';
 import CreateJobCard from '../screens/vehicles/CreateJobCard';
+import JobCardDetail from '../screens/vehicles/JobCardDetail';
 import Settings from '../screens/settings/Settings';
 import MainLayout from '../layouts/MainLayout.tsx';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
@@ -96,6 +97,7 @@ const AppRoutes: React.FC = () => (
         >
           <Route path="vehicle/:id" element={<ServiceAdvisorVehicleDetail />} />
           <Route path="job-card/:vehicleId" element={<CreateJobCard />} />
+          <Route path="job-card-detail/:jobCardId" element={<JobCardDetail />} />
           <Route path="send-estimate/:vehicleId?" element={<SendEstimate />} />
         </Route>
         <Route path={ROUTES.PROFILE.slice(1)} element={<Profile />} />

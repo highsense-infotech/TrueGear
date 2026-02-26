@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
@@ -53,6 +54,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to fetch vehicle detail:", err);
+      toast.error("Failed to load vehicle details");
     } finally {
       setLoading(false);
     }
@@ -69,6 +71,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to fetch QC report:", err);
+      toast.error("Failed to load QC report");
     } finally {
       setQcLoading(false);
     }
@@ -85,6 +88,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to fetch vehicle history:", err);
+      toast.error("Failed to load vehicle history");
     } finally {
       setHistoryLoading(false);
     }
@@ -101,6 +105,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to fetch job cards:", err);
+      toast.error("Failed to load job cards");
     } finally {
       setJobCardsLoading(false);
     }
@@ -266,12 +271,17 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
           );
         }
         return (
-          <JobCardSummary
-            jobCard={jobCards[0]}
-            onViewClick={() =>
-              navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card/${id}`)
-            }
-          />
+          <div className="flex flex-col gap-4">
+            {jobCards.map((jobCard) => (
+              <JobCardSummary
+                key={jobCard.id}
+                jobCard={jobCard}
+                onViewClick={() =>
+                  navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card-detail/${jobCard.id}`)
+                }
+              />
+            ))}
+          </div>
         );
 
       default:

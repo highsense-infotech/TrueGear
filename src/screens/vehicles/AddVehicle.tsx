@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import { CheckCircle, FileCheckCorner, User, Car, ArrowLeft, Loader2 } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
@@ -245,6 +246,7 @@ const AddVehicle: React.FC = () => {
         }
       } catch (err) {
         console.error("Image upload failed:", err);
+        toast.error("Image upload failed");
         // Keep the local preview, clear uploading state
         setPhotoSlots((prev) => {
           const updated = [...prev];
@@ -274,6 +276,7 @@ const AddVehicle: React.FC = () => {
         await deleteVehicleImage(vehicleId, slot.imageId);
       } catch (err) {
         console.error("Image delete failed:", err);
+        toast.error("Failed to delete image");
       }
     }
 
@@ -300,6 +303,7 @@ const AddVehicle: React.FC = () => {
     try {
       const res = await confirmVehicleEntry(vehicleId);
       if (res.status) {
+        toast.success("Vehicle entry confirmed");
         setIsModalOpen(false);
         sessionStorage.removeItem("customerData");
         sessionStorage.removeItem("isEditing");
@@ -310,15 +314,18 @@ const AddVehicle: React.FC = () => {
           navigate(ROUTES.VEHICLE_ENTRY_SUCCESS);
         }
       } else {
-        setConfirmError(res.message || "Failed to confirm entry.");
+        const msg = res.message || "Failed to confirm entry.";
+        setConfirmError(msg);
+        toast.error(msg);
       }
     } catch (err: unknown) {
+      let msg = "Failed to confirm entry.";
       if (err && typeof err === "object" && "response" in err) {
         const axiosErr = err as { response?: { data?: { message?: string } } };
-        setConfirmError(axiosErr.response?.data?.message || "Failed to confirm entry.");
-      } else {
-        setConfirmError("Failed to confirm entry.");
+        msg = axiosErr.response?.data?.message || msg;
       }
+      setConfirmError(msg);
+      toast.error(msg);
     } finally {
       setIsConfirming(false);
     }

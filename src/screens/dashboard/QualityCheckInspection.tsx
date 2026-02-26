@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import truck from "../../assets/truck.png";
 import { InspectionSection } from "../../components/cards/InspectionSection";
 import ProgressSteps from "../../components/cards/ProgressSteps";
@@ -171,6 +172,7 @@ const QualityCheckInspection: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to fetch inspection details:", err);
+      toast.error("Failed to load inspection details");
     } finally {
       setLoading(false);
     }
@@ -354,6 +356,7 @@ const QualityCheckInspection: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to save step:", err);
+      toast.error("Failed to save inspection step");
     } finally {
       setSaving(false);
     }

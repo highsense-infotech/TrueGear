@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import Button from "../common/Button";
-import { type Job, JobRow } from "./JobRow";
+import { type Job, type JobErrors, JobRow } from "./JobRow";
 
 interface JobDetailsProps {
   jobs: Job[];
@@ -8,14 +8,16 @@ interface JobDetailsProps {
   onUpdateJob: (id: number, field: keyof Job, value: string | number) => void;
   onRemoveJob: (id: number) => void;
   calculateLineTotal: (job: Job) => number;
+  jobErrors?: Record<number, JobErrors>;
 }
 
-export function JobDetails({ 
-  jobs, 
-  onAddJob, 
-  onUpdateJob, 
+export function JobDetails({
+  jobs,
+  onAddJob,
+  onUpdateJob,
   onRemoveJob,
-  calculateLineTotal 
+  calculateLineTotal,
+  jobErrors,
 }: JobDetailsProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 shadow-sm">
@@ -55,6 +57,7 @@ export function JobDetails({
             onUpdate={onUpdateJob}
             onRemove={onRemoveJob}
             calculateLineTotal={calculateLineTotal}
+            errors={jobErrors?.[job.id]}
           />
         ))}
       </div>

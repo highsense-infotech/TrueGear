@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { ArrowRight, User, Car, Phone, Mail, Search, Plus, X, Check, Loader2 } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
@@ -293,6 +294,7 @@ const AddCustomer: React.FC = () => {
       });
 
       if (res.status) {
+        toast.success("Vehicle added successfully");
         // Store customer + vehicle data for AddVehicle screen
         sessionStorage.setItem("customerData", JSON.stringify({
           firstName: formData.firstName,
@@ -306,15 +308,18 @@ const AddCustomer: React.FC = () => {
         sessionStorage.setItem("vehicleId", res.data.id);
         navigate(ROUTES.ADD_VEHICLE);
       } else {
-        setSubmitError(res.message || "Failed to add vehicle");
+        const msg = res.message || "Failed to add vehicle";
+        setSubmitError(msg);
+        toast.error(msg);
       }
     } catch (err: unknown) {
+      let msg = "Failed to add vehicle. Please try again.";
       if (err && typeof err === "object" && "response" in err) {
         const axiosErr = err as { response?: { data?: { message?: string } } };
-        setSubmitError(axiosErr.response?.data?.message || "Failed to add vehicle. Please try again.");
-      } else {
-        setSubmitError("Failed to add vehicle. Please try again.");
+        msg = axiosErr.response?.data?.message || msg;
       }
+      setSubmitError(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }

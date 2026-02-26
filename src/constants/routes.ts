@@ -17,6 +17,7 @@ export const ROUTES = {
   ADD_VEHICLE: '/security-dashboard/add-vehicle',
   VEHICLE_ENTRY_SUCCESS: '/security-dashboard/vehicle-entry-success',
   CREATE_JOB_CARD: '/service-advisor-dashboard/job-card/:vehicleId',
+  JOB_CARD_DETAIL: '/service-advisor-dashboard/job-card-detail/:jobCardId',
   FINANCE_BILLING_DASHBOARD: '/finance-billing-dashboard',
   POST_SERVICE_QC_DASHBOARD: '/post-service-qc-dashboard',
   SETTINGS: '/settings',
