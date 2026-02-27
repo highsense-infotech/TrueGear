@@ -124,7 +124,7 @@ const AddVehicle: React.FC = () => {
                   if (slotIndex !== -1) {
                     updated[slotIndex] = {
                       ...updated[slotIndex],
-                      capturedImage: `/${img.imagePath}`,
+                      capturedImage: img.imagePath,
                       imageId: img.id,
                     };
                   }
@@ -231,7 +231,7 @@ const AddVehicle: React.FC = () => {
               updated[slotIndex] = {
                 ...updated[slotIndex],
                 imageId: res.data.id,
-                capturedImage: `/${res.data.imagePath}`,
+                capturedImage: res.data.imagePath,
                 isUploading: false,
               };
               return updated;
@@ -247,7 +247,7 @@ const AddVehicle: React.FC = () => {
               updated[slotIndex] = {
                 ...updated[slotIndex],
                 imageId: uploaded.id,
-                capturedImage: `/${uploaded.imagePath}`,
+                capturedImage: uploaded.imagePath,
                 isUploading: false,
               };
               return updated;

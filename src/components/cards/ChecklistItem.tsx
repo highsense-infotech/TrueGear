@@ -127,7 +127,7 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
           {uploading ? (
             <Loader2 size={20} className="animate-spin text-[#CACACA]" />
           ) : localPreview || photoUrl ? (
-            <img src={localPreview || `/${photoUrl}`} alt={label} className="w-full h-full object-cover" />
+            <img src={localPreview || photoUrl} alt={label} className="w-full h-full object-cover" />
           ) : (
             <Camera size={20} color="#CACACA" />
           )}

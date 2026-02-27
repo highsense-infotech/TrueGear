@@ -9,6 +9,7 @@ interface Props {
 }
 
 const ROLE_DEFAULT_ROUTES: Record<string, string> = {
+  'super-admin': ROUTES.SECURITY_DASHBOARD,
   'security-gate-keeper': ROUTES.SECURITY_DASHBOARD,
   'qc-inspector': ROUTES.QUALITY_CHECK_DASHBOARD,
   'customer': ROUTES.SERVICE_ADVISOR_DASHBOARD,
@@ -24,10 +25,9 @@ const ProtectedRoute: React.FC<Props> = ({ children, allowedRoles }) => {
     return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
   }
 
-  // Role check — if allowedRoles specified, verify user has one
+  // Role check — if allowedRoles specified, verify user has one (super-admin bypasses)
   if (allowedRoles && allowedRoles.length > 0 && user?.role?.slug) {
-    if (!allowedRoles.includes(user.role.slug)) {
-      // Redirect to user's own default dashboard
+    if (user.role.slug !== 'super-admin' && !allowedRoles.includes(user.role.slug)) {
       const fallback = ROLE_DEFAULT_ROUTES[user.role.slug] || ROUTES.LOGIN;
       return <Navigate to={fallback} replace />;
     }

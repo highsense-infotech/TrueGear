@@ -36,8 +36,10 @@ export function Sidebar({ open, setOpen }: Props) {
     setOpen(false);
   };
 
-  // Filter nav items by user's role
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(roleSlug));
+  // Filter nav items by user's role (super-admin sees all)
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => roleSlug === 'super-admin' || item.roles.includes(roleSlug)
+  );
 
   return (
     <>

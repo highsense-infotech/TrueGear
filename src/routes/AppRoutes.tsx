@@ -29,6 +29,7 @@ import { ROUTES } from '../constants/routes';
 import { SendEstimate } from '../screens/vehicles/SendEstimate.tsx';
 
 const ROLE_DEFAULT_ROUTES: Record<string, string> = {
+  'super-admin': ROUTES.SECURITY_DASHBOARD,
   'security-gate-keeper': ROUTES.SECURITY_DASHBOARD,
   'qc-inspector': ROUTES.QUALITY_CHECK_DASHBOARD,
   'customer': ROUTES.SERVICE_ADVISOR_DASHBOARD,

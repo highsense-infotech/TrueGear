@@ -116,7 +116,7 @@ export function ServiceAdvisorTable({
                         {vehicle.frontImage ? (
                           <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
                             <img
-                              src={`/${vehicle.frontImage}`}
+                              src={vehicle.frontImage}
                               alt="Vehicle"
                               className="w-full h-full object-cover"
                             />
@@ -192,7 +192,7 @@ export function ServiceAdvisorTable({
                     {vehicle.frontImage ? (
                       <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
                         <img
-                          src={`/${vehicle.frontImage}`}
+                          src={vehicle.frontImage}
                           alt="Vehicle"
                           className="w-full h-full object-cover"
                         />

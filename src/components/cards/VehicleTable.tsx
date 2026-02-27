@@ -78,7 +78,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
     date,
     status: v.status,
     customerName: v.customerName,
-    frontImage: v.frontImage ? `/${v.frontImage}` : null,
+    frontImage: v.frontImage || null,
   };
 }
 
