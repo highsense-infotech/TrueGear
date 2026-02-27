@@ -10,6 +10,8 @@ export interface VehicleListParams {
   vin?: string;
 }
 
+export type VehicleStatus = "Entry (Draft)" | "Vehicle IN" | "Inspection (Draft)" | "Inspection Done" | "Job Card (Draft)" | "Job Card (Pending Parts Approval)" | "Job Card (Parts Approval Done)" | "Job Card (Pending Cust. Approval)" | "Job Card (Partial Cust. Approval)" | "Job Card (Full Cust. Approval)" | "In Service" | "Ready for Billing" | "Completed" | "Cancelled";
+
 export interface VehicleItem {
   id: string;
   vin: string;
@@ -18,7 +20,7 @@ export interface VehicleItem {
   model: string;
   manufacturingYear: number;
   odometerLast: number;
-  status: "In Queue" | "Ready" | "Completed" | "In Service";
+  status: VehicleStatus;
   entryTime: string;
   customerName: string;
   imageCount: number;
@@ -62,7 +64,7 @@ export interface SearchVehicleItem {
     model: string;
     manufacturingYear: number;
     odometerLast: number | null;
-    status: "In Queue" | "Ready" | "Completed" | "In Service";
+    status: VehicleStatus;
     entryTime: string;
   };
   customer: {

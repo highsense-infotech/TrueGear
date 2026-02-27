@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import Button from "../common/Button";
 import Input from "../common/Input";
 
 interface VehicleLookupProps {
   onSearch?: (query: string) => void;
+  value?: string;
 }
 
-export function VehicleLookup({ onSearch }: VehicleLookupProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+export function VehicleLookup({ onSearch, value }: VehicleLookupProps) {
+  const [searchQuery, setSearchQuery] = useState(value ?? "");
+
+  useEffect(() => {
+    if (value !== undefined) {
+      setSearchQuery(value);
+    }
+  }, [value]);
 
   const handleSearch = () => {
     if (onSearch) {

@@ -23,16 +23,23 @@ interface DisplayVehicle {
   brand: string;
   entryTime: string;
   date: string;
-  status: "In Queue" | "Ready" | "Completed" | "In Service";
+  status: string;
   customerName?: string;
   frontImage?: string | null;
 }
 
-const statusConfig = {
-  "In Queue": { color: "text-[#0066FF]", bg: "bg-[#0066FF]" },
-  Ready: { color: "text-[#FF8800]", bg: "bg-[#FF8800]" },
-  Completed: { color: "text-[#00C853]", bg: "bg-[#00C853]" },
-  "In Service": { color: "text-[#FF8800]", bg: "bg-[#FF8800]" },
+const statusConfig: Record<string, { color: string; bg: string }> = {
+  "Entry (Draft)": { color: "text-[#0066FF]", bg: "bg-[#0066FF]" },
+  "Vehicle IN": { color: "text-[#FF8800]", bg: "bg-[#FF8800]" },
+  "Inspection (Draft)": { color: "text-[#9C27B0]", bg: "bg-[#9C27B0]" },
+  "Inspection Done": { color: "text-[#00BF06]", bg: "bg-[#00BF06]" },
+  "Job Card (Draft)": { color: "text-[#607D8B]", bg: "bg-[#607D8B]" },
+  "Job Card (Pending Cust. Approval)": { color: "text-[#DA5A00]", bg: "bg-[#DA5A00]" },
+  "Job Card (Partial Cust. Approval)": { color: "text-[#E91E63]", bg: "bg-[#E91E63]" },
+  "Job Card (Full Cust. Approval)": { color: "text-[#4CAF50]", bg: "bg-[#4CAF50]" },
+  "In Service": { color: "text-[#0061FF]", bg: "bg-[#0061FF]" },
+  "Ready for Billing": { color: "text-[#FE306C]", bg: "bg-[#FE306C]" },
+  "Completed": { color: "text-[#00C853]", bg: "bg-[#00C853]" },
 };
 
 type StatusFilter = "All" | "Inside" | "Pending Exit";

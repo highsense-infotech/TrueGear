@@ -12,6 +12,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }>
   DRAFT: { label: "Draft", bg: "bg-gray-100", text: "text-gray-600" },
   SHARED: { label: "Shared", bg: "bg-blue-50", text: "text-blue-600" },
   APPROVED: { label: "Approved", bg: "bg-green-50", text: "text-green-600" },
+  PARTIALLY_APPROVED: { label: "Partially Approved", bg: "bg-amber-50", text: "text-amber-600" },
   IN_SERVICE: { label: "In Service", bg: "bg-orange-50", text: "text-orange-600" },
   COMPLETED: { label: "Completed", bg: "bg-emerald-50", text: "text-emerald-600" },
 };

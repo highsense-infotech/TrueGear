@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { VehicleLookup } from "../../components/cards/VehicleLookup.tsx";
@@ -45,10 +45,20 @@ const SecurityDashboard: React.FC = () => {
   };
 
   const isIndexRoute = location.pathname === ROUTES.SECURITY_DASHBOARD;
+  const wasOnChildRoute = useRef(false);
+
+  // Clear search query when returning from a child route (e.g. VehicleEntrySuccess)
+  useEffect(() => {
+    if (isIndexRoute && wasOnChildRoute.current) {
+      setSearchQuery("");
+      wasOnChildRoute.current = false;
+    } else if (!isIndexRoute) {
+      wasOnChildRoute.current = true;
+    }
+  }, [isIndexRoute]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    console.log("Search triggered with query:", query);
   };
 
   return (
@@ -87,6 +97,7 @@ const SecurityDashboard: React.FC = () => {
           {/* Vehicle Lookup */}
           <div className="mb-6 lg:mb-7.5">
             <VehicleLookup
+              value={searchQuery}
               onSearch={handleSearch}
             />
           </div>

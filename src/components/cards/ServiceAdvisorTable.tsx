@@ -8,16 +8,20 @@ import type { SAVehicle, SAPagination, SAFilterStatus } from "../../api/serviceA
 // Map API filter enum to display label
 const FILTER_OPTIONS: { key: SAFilterStatus; label: string }[] = [
   { key: "ALL", label: "All" },
-  { key: "AWAITING_APPROVAL", label: "Awaiting Approval" },
+  { key: "INSPECTION_DONE", label: "Inspection Done" },
+  { key: "JOB_CARD_DRAFT", label: "Job Card Draft" },
+  { key: "PENDING_APPROVAL", label: "Pending Approval" },
   { key: "IN_SERVICE", label: "In Service" },
-  { key: "QC_COMPLETE", label: "QC Complete" },
   { key: "READY_FOR_BILLING", label: "Ready for Billing" },
 ];
 
 const statusConfig: Record<string, { color: string; bg: string }> = {
+  "Inspection Done": { color: "text-[#00BF06]", bg: "bg-[#00BF06]" },
+  "Job Card (Draft)": { color: "text-[#607D8B]", bg: "bg-[#607D8B]" },
+  "Job Card (Pending Cust. Approval)": { color: "text-[#DA5A00]", bg: "bg-[#DA5A00]" },
+  "Job Card (Partial Cust. Approval)": { color: "text-[#E91E63]", bg: "bg-[#E91E63]" },
+  "Job Card (Full Cust. Approval)": { color: "text-[#4CAF50]", bg: "bg-[#4CAF50]" },
   "In Service": { color: "text-[#0061FF]", bg: "bg-[#0061FF]" },
-  "Awaiting Approval": { color: "text-[#DA5A00]", bg: "bg-[#DA5A00]" },
-  "QC Complete": { color: "text-[#00BF06]", bg: "bg-[#00BF06]" },
   "Ready for Billing": { color: "text-[#FE306C]", bg: "bg-[#FE306C]" },
 };
 
@@ -109,13 +113,23 @@ export function ServiceAdvisorTable({
                   <tr key={vehicle.vehicleId} className="border-b border-[#E5E7EB] last:border-0 hover:bg-[#fafafa]">
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                          <img
-                            src={truck}
-                            alt="Vehicle"
-                            className="max-w-17.5 object-contain "
-                          />
-                        </div>
+                        {vehicle.frontImage ? (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                            <img
+                              src={`/${vehicle.frontImage}`}
+                              alt="Vehicle"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                            <img
+                              src={truck}
+                              alt="Vehicle"
+                              className="max-w-17.5 object-contain"
+                            />
+                          </div>
+                        )}
                         <div>
                           <p
                             className="text-[16px] mb-0.5 text-[#0061FF] cursor-pointer hover:underline"
@@ -140,7 +154,7 @@ export function ServiceAdvisorTable({
                       <StatusBadge status={vehicle.status} />
                     </td>
                     <td className="px-2">
-                      {vehicle.status === "QC Complete" && !vehicle.hasJobCard && (
+                      {vehicle.status === "Inspection Done" && !vehicle.hasJobCard && (
                         <Button
                           variant="custom"
                           customStyles={{
@@ -175,13 +189,23 @@ export function ServiceAdvisorTable({
                 {/* Top Row */}
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                      <img
-                        src={truck}
-                        alt="Vehicle"
-                        className="max-w-15 object-contain"
-                      />
-                    </div>
+                    {vehicle.frontImage ? (
+                      <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                        <img
+                          src={`/${vehicle.frontImage}`}
+                          alt="Vehicle"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                        <img
+                          src={truck}
+                          alt="Vehicle"
+                          className="max-w-15 object-contain"
+                        />
+                      </div>
+                    )}
                     <div>
                       <p
                         className="text-sm font-medium text-[#0061FF] cursor-pointer hover:underline"
@@ -219,7 +243,7 @@ export function ServiceAdvisorTable({
 
                 {/* Action Buttons */}
                 <div className="mt-4 flex flex-col gap-2">
-                  {vehicle.status === "QC Complete" && !vehicle.hasJobCard && (
+                  {vehicle.status === "Inspection Done" && !vehicle.hasJobCard && (
                     <Button
                       variant="custom"
                       customStyles={{

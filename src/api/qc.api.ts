@@ -5,7 +5,7 @@ import api from "./axios";
 export interface QCDashboardParams {
   page?: number;
   limit?: number;
-  filter?: "ALL" | "URGENT" | "DELAYED";
+  filter?: "ALL" | "URGENT" | "DELAYED" | "COMPLETED";
   sortOrder?: "asc" | "desc";
 }
 
@@ -32,6 +32,7 @@ export interface QCQueueItem {
   status: string;
   priority: string;
   checkInTime: string;
+  frontImage: string | null;
 }
 
 export interface QCPagination {

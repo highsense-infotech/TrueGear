@@ -2,7 +2,7 @@ import api from "./axios";
 
 // ─── Dashboard ──────────────────────────────────────────────────────────────
 
-export type SAFilterStatus = "ALL" | "QC_COMPLETE" | "AWAITING_APPROVAL" | "IN_SERVICE" | "READY_FOR_BILLING";
+export type SAFilterStatus = "ALL" | "INSPECTION_DONE" | "JOB_CARD_DRAFT" | "PENDING_APPROVAL" | "IN_SERVICE" | "READY_FOR_BILLING";
 
 export interface SADashboardParams {
   page?: number;
@@ -12,8 +12,10 @@ export interface SADashboardParams {
 }
 
 export interface SAStats {
-  qcComplete: number;
-  qcCompleteYesterday: number;
+  inspectionDone: number;
+  inspectionDoneYesterday: number;
+  jobCardDraft: number;
+  jobCardDraftYesterday: number;
   pendingApproval: number;
   pendingApprovalYesterday: number;
   totalActive: number;
@@ -33,6 +35,7 @@ export interface SAVehicle {
   waitingTime: string;
   status: string;
   hasJobCard: boolean;
+  frontImage: string | null;
 }
 
 export interface SAPagination {

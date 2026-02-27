@@ -51,7 +51,7 @@ const QualityCheckDashboard: React.FC = () => {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"ALL" | "URGENT" | "DELAYED">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "URGENT" | "DELAYED" | "COMPLETED">("ALL");
   const [page, setPage] = useState(1);
 
   const fetchDashboard = useCallback(async () => {
@@ -77,7 +77,7 @@ const QualityCheckDashboard: React.FC = () => {
     }
   }, [isIndexRoute, fetchDashboard]);
 
-  const handleFilterChange = (newFilter: "ALL" | "URGENT" | "DELAYED") => {
+  const handleFilterChange = (newFilter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED") => {
     setFilter(newFilter);
     setPage(1);
   };

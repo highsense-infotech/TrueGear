@@ -75,9 +75,9 @@ const ServiceAdvisorDashboard: React.FC = () => {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-7.5">
             <StatCard
-              title="QC Complete"
-              value={stats ? String(stats.qcComplete).padStart(2, "0") : "--"}
-              change={stats ? formatChange(stats.qcComplete, stats.qcCompleteYesterday) : ""}
+              title="Inspection Done"
+              value={stats ? String(stats.inspectionDone).padStart(2, "0") : "--"}
+              change={stats ? formatChange(stats.inspectionDone, stats.inspectionDoneYesterday) : ""}
               icon={
                 <CheckCircle
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -86,7 +86,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
               }
             />
             <StatCard
-              title="Awaiting Approval"
+              title="Pending Approval"
               value={stats ? String(stats.pendingApproval).padStart(2, "0") : "--"}
               change={stats ? formatChange(stats.pendingApproval, stats.pendingApprovalYesterday) : ""}
               icon={

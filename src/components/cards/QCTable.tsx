@@ -4,23 +4,32 @@ import Button from '../common/Button';
 import { Pagination } from "../common/Pagination";
 import type { QCQueueItem, QCPagination } from '../../api/qc.api';
 
-type StatusFilter = "All" | "Urgent" | "Delayed";
+type StatusFilter = "All" | "Urgent" | "Delayed" | "Completed";
 
-const statusFilterToApi: Record<StatusFilter, "ALL" | "URGENT" | "DELAYED"> = {
+const statusFilterToApi: Record<StatusFilter, "ALL" | "URGENT" | "DELAYED" | "COMPLETED"> = {
   All: "ALL",
   Urgent: "URGENT",
   Delayed: "DELAYED",
+  Completed: "COMPLETED",
 };
 
-type DisplayStatus = 'QC In Progress' | 'QC Completed' | 'Ready' | 'Pending';
+type DisplayStatus = 'Inspection (Draft)' | 'Inspection Done' | 'Ready' | 'Pending';
 type DisplayPriority = 'Standard' | 'Urgent' | 'Express' | 'Basic';
 
 function mapStatus(apiStatus: string): DisplayStatus {
   switch (apiStatus) {
-    case 'QC In Progress': return 'QC In Progress';
-    case 'QC Completed': return 'QC Completed';
-    case 'Ready':
-    case 'In Queue': return 'Ready';
+    case 'Inspection (Draft)': return 'Inspection (Draft)';
+    case 'Inspection Done':
+    case 'Job Card (Draft)':
+    case 'Job Card (Pending Cust. Approval)':
+    case 'Job Card (Partial Cust. Approval)':
+    case 'Job Card (Full Cust. Approval)':
+    case 'In Service':
+    case 'Ready for Billing':
+    case 'Completed':
+      return 'Inspection Done';
+    case 'Vehicle IN':
+    case 'Entry (Draft)': return 'Ready';
     default: return 'Pending';
   }
 }
@@ -37,15 +46,15 @@ function mapPriority(apiPriority: string): DisplayPriority {
 
 function StatusBadge({ status }: { status: DisplayStatus }) {
   const styles = {
-    'QC In Progress': ' text-[#0066cc] ',
-    'QC Completed': ' text-[#00a651]',
+    'Inspection (Draft)': ' text-[#0066cc] ',
+    'Inspection Done': ' text-[#00a651]',
     'Ready': ' text-[#ff9500] ',
     'Pending': ' text-[#ff0000] ',
   };
 
   const dotColors = {
-    'QC In Progress': 'bg-[#0066cc]',
-    'QC Completed': 'bg-[#00a651]',
+    'Inspection (Draft)': 'bg-[#0066cc]',
+    'Inspection Done': 'bg-[#00a651]',
     'Ready': 'bg-[#ff9500]',
     'Pending': 'bg-[#ff0000]',
   };
@@ -77,15 +86,15 @@ interface QCTableProps {
   queue: QCQueueItem[];
   pagination: QCPagination;
   loading: boolean;
-  filter: "ALL" | "URGENT" | "DELAYED";
-  onFilterChange: (filter: "ALL" | "URGENT" | "DELAYED") => void;
+  filter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED";
+  onFilterChange: (filter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED") => void;
   onPageChange: (page: number) => void;
   onStartInspection: (vehicle: QCQueueItem) => void;
   onResumeInspection: (vehicle: QCQueueItem) => void;
 }
 
 export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onStartInspection, onResumeInspection }: QCTableProps) {
-  const statusFilter: StatusFilter = filter === "ALL" ? "All" : filter === "URGENT" ? "Urgent" : "Delayed";
+  const statusFilter: StatusFilter = filter === "ALL" ? "All" : filter === "URGENT" ? "Urgent" : filter === "COMPLETED" ? "Completed" : "Delayed";
 
   const handleStatusFilterChange = (f: StatusFilter) => {
     onFilterChange(statusFilterToApi[f]);
@@ -137,6 +146,17 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
           >
             Delayed
           </Button>
+          <Button
+            onClick={() => handleStatusFilterChange("Completed")}
+            variant="secondary"
+            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
+              statusFilter === "Completed"
+                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
+                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
+          }`}
+          >
+            Completed
+          </Button>
         </div>
         <Button variant="outline" icon={<SlidersHorizontal className="w-4 h-4" />} className="text-[#333]">
           Filter
@@ -172,13 +192,23 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
                   <tr key={vehicle.vehicleCheckInId} className="border-b border-[#E5E7EB] last:border-0 hover:bg-[#fafafa]">
                     <td className="py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                          <img
-                            src={truck}
-                            alt="Vehicle"
-                            className="max-w-17.5 object-contain "
-                          />
-                        </div>
+                        {vehicle.frontImage ? (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                            <img
+                              src={`/${vehicle.frontImage}`}
+                              alt="Vehicle"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                            <img
+                              src={truck}
+                              alt="Vehicle"
+                              className="max-w-17.5 object-contain"
+                            />
+                          </div>
+                        )}
                         <div>
                           <p className="text-[#333] text-[16px] mb-0.5">{vehicle.registrationNumber}</p>
                           <p className="text-[#999] text-[12px]">{vehicle.brand} {vehicle.model}</p>
@@ -201,11 +231,11 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
                       <PriorityBadge priority={mapPriority(vehicle.priority)} />
                     </td>
                     <td>
-                      {vehicle.status === 'In Queue' || vehicle.status === 'Ready' ? (
+                      {vehicle.status === 'Vehicle IN' ? (
                         <Button variant="gradient" onClick={() => onStartInspection(vehicle)}>
                           Start Inspection
                         </Button>
-                      ) : vehicle.status === 'QC In Progress' && vehicle.inspectionId ? (
+                      ) : vehicle.status === 'Inspection (Draft)' && vehicle.inspectionId ? (
                         <Button variant="gradient" onClick={() => onResumeInspection(vehicle)}>
                           Resume Inspection
                         </Button>
@@ -225,13 +255,23 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
               <div key={vehicle.vehicleCheckInId} className="border rounded-xl p-3">
                 {/* Top Row */}
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                    <img
-                      src={truck}
-                      alt="Vehicle"
-                      className="max-w-15 object-contain"
-                    />
-                  </div>
+                  {vehicle.frontImage ? (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                      <img
+                        src={`/${vehicle.frontImage}`}
+                        alt="Vehicle"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                      <img
+                        src={truck}
+                        alt="Vehicle"
+                        className="max-w-15 object-contain"
+                      />
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm font-medium text-[#333]">{vehicle.registrationNumber}</p>
                     <p className="text-xs text-[#999]">{vehicle.brand} {vehicle.model}</p>
@@ -266,11 +306,11 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
 
                 {/* Action Button */}
                 <div className="mt-4">
-                  {vehicle.status === 'In Queue' || vehicle.status === 'Ready' ? (
+                  {vehicle.status === 'Vehicle IN' ? (
                     <Button variant="gradient" onClick={() => onStartInspection(vehicle)}>
                       Start Inspection
                     </Button>
-                  ) : vehicle.status === 'QC In Progress' && vehicle.inspectionId ? (
+                  ) : vehicle.status === 'Inspection (Draft)' && vehicle.inspectionId ? (
                     <Button variant="gradient" onClick={() => onResumeInspection(vehicle)}>
                       Resume Inspection
                     </Button>
