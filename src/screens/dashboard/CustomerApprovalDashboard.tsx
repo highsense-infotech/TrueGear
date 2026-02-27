@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CustomerInfo } from "../../components/cards/CustomerInfo";
 import { JobCard } from "../../components/cards/JobCard";
 import { PricingSummary } from "../../components/cards/PricingSummary";
 import { ActionButtons } from "../../components/cards/ActionButtons";
@@ -170,7 +169,7 @@ function CustomerApprovalDashboard() {
 
   if (!estimateData) return null;
 
-  const { jobCard, vehicle, customerName, customerPhone } = estimateData;
+  const { jobCard, vehicle } = estimateData;
   const vehicleNumber = vehicle?.registrationNumber || "—";
   const vehicleModel = vehicle ? `${vehicle.brand} ${vehicle.model}` : "—";
 
