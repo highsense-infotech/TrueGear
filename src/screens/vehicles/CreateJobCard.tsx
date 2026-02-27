@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { JobCardActions } from "../../components/cards/JobCardActions";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
@@ -12,6 +12,8 @@ import {
   getVehicleDetail,
   getSuggestedJobs,
   createJobCard,
+  getJobCardDetail,
+  updateJobCard,
   type SASuggestedJob,
 } from "../../api/serviceAdvisor.api";
 import { useCurrency } from "../../context/CurrencyContext";
@@ -19,6 +21,9 @@ import { useCurrency } from "../../context/CurrencyContext";
 const CreateJobCard: React.FC = () => {
   const navigate = useNavigate();
   const { vehicleId } = useParams<{ vehicleId: string }>();
+  const [searchParams] = useSearchParams();
+  const editJobCardId = searchParams.get("editJobCardId");
+  const isEditMode = !!editJobCardId;
   const { taxConfig } = useCurrency();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [suggestedJobs, setSuggestedJobs] = useState<string[]>([]);
@@ -60,8 +65,22 @@ const CreateJobCard: React.FC = () => {
         const suggestions = suggestedRes.data.suggestedJobs;
         setSuggestedJobs(suggestions.map((s: SASuggestedJob) => s.suggestedDescription));
 
-        // Pre-populate jobs from failed QC items
-        if (suggestions.length > 0) {
+        // Edit mode: load existing job card data
+        if (editJobCardId) {
+          const jobCardRes = await getJobCardDetail(editJobCardId);
+          const existingItems = jobCardRes.data.items;
+          if (existingItems.length > 0) {
+            setJobs(existingItems.map((item, idx) => ({
+              id: Date.now() + idx,
+              jobDescription: item.jobDescription,
+              partsRequired: item.partsRequired || "",
+              partsCost: Number(item.partsCost),
+              labourCost: Number(item.labourCost),
+              quantity: item.quantity,
+            })));
+          }
+        } else if (suggestions.length > 0) {
+          // Create mode: pre-populate from failed QC items
           const prefilledJobs: Job[] = suggestions.map((s: SASuggestedJob, idx: number) => ({
             id: Date.now() + idx,
             jobDescription: s.suggestedDescription,
@@ -81,7 +100,7 @@ const CreateJobCard: React.FC = () => {
     };
 
     fetchData();
-  }, [vehicleId]);
+  }, [vehicleId, editJobCardId]);
 
   const addJob = () => {
     const newJob: Job = {
@@ -203,26 +222,38 @@ const CreateJobCard: React.FC = () => {
 
     setSaving(true);
     try {
-      const payload = {
-        inspectionId: inspectionId,
-        items: jobs.map((job) => ({
-          jobDescription: job.jobDescription,
-          partsRequired: job.partsRequired || null,
-          partsCost: job.partsCost,
-          labourCost: job.labourCost,
-          quantity: job.quantity,
-        })),
-        taxLabel: taxConfig.label,
-        taxPercentage: taxConfig.percentage,
-      };
+      const items = jobs.map((job) => ({
+        jobDescription: job.jobDescription,
+        partsRequired: job.partsRequired || null,
+        partsCost: job.partsCost,
+        labourCost: job.labourCost,
+        quantity: job.quantity,
+      }));
 
-      const res = await createJobCard(vehicleId, payload);
-      if (res.status) {
-        toast.success("Job card saved as draft");
-        navigate(`../send-estimate/${vehicleId}`);
+      if (isEditMode) {
+        const res = await updateJobCard(editJobCardId, {
+          items,
+          taxLabel: taxConfig.label,
+          taxPercentage: taxConfig.percentage,
+        });
+        if (res.status) {
+          toast.success("Job card updated successfully");
+          navigate(`/service-advisor-dashboard/job-card-detail/${editJobCardId}`);
+        }
+      } else {
+        const res = await createJobCard(vehicleId, {
+          inspectionId,
+          items,
+          taxLabel: taxConfig.label,
+          taxPercentage: taxConfig.percentage,
+        });
+        if (res.status) {
+          toast.success("Job card saved as draft");
+          navigate(`../send-estimate/${vehicleId}`);
+        }
       }
     } catch (error) {
-      console.error("Failed to create job card:", error);
+      console.error("Failed to save job card:", error);
       toast.error("Failed to save job card");
     } finally {
       setSaving(false);
@@ -235,27 +266,39 @@ const CreateJobCard: React.FC = () => {
 
     setSaving(true);
     try {
-      const payload = {
-        inspectionId: inspectionId,
-        items: jobs.map((job) => ({
-          jobDescription: job.jobDescription,
-          partsRequired: job.partsRequired || null,
-          partsCost: job.partsCost,
-          labourCost: job.labourCost,
-          quantity: job.quantity,
-        })),
-        taxLabel: taxConfig.label,
-        taxPercentage: taxConfig.percentage,
-      };
+      const items = jobs.map((job) => ({
+        jobDescription: job.jobDescription,
+        partsRequired: job.partsRequired || null,
+        partsCost: job.partsCost,
+        labourCost: job.labourCost,
+        quantity: job.quantity,
+      }));
 
-      const res = await createJobCard(vehicleId, payload);
-      if (res.status) {
-        toast.success("Job card created successfully");
-        navigate(`../send-estimate/${vehicleId}`);
+      if (isEditMode) {
+        const res = await updateJobCard(editJobCardId, {
+          items,
+          taxLabel: taxConfig.label,
+          taxPercentage: taxConfig.percentage,
+        });
+        if (res.status) {
+          toast.success("Job card updated successfully");
+          navigate(`../send-estimate/${vehicleId}`);
+        }
+      } else {
+        const res = await createJobCard(vehicleId, {
+          inspectionId,
+          items,
+          taxLabel: taxConfig.label,
+          taxPercentage: taxConfig.percentage,
+        });
+        if (res.status) {
+          toast.success("Job card created successfully");
+          navigate(`../send-estimate/${vehicleId}`);
+        }
       }
     } catch (error) {
-      console.error("Failed to create job card:", error);
-      toast.error("Failed to create job card");
+      console.error("Failed to save job card:", error);
+      toast.error("Failed to save job card");
     } finally {
       setSaving(false);
     }
@@ -273,7 +316,7 @@ const CreateJobCard: React.FC = () => {
     <>
       <div className="flex flex-col gap-6 md:gap-8 w-full pb-8">
         {/* Header Section */}
-        <JobCardHeader onBackClick={handleBackClick} />
+        <JobCardHeader onBackClick={handleBackClick} edit={isEditMode} />
 
         {/* Vehicle Summary Card */}
         <VehicleSummaryCard

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2, Clock, Send, CheckCircle2 } from "lucide-react";
+import { Loader2, Clock, Send, CheckCircle2, Pencil } from "lucide-react";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
@@ -234,17 +234,27 @@ const JobCardDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Share Estimate Action - Only for DRAFT */}
+      {/* Actions - Only for DRAFT */}
       {jobCard.status === "DRAFT" && (
-        <Button
-          variant="gradient"
-          className="w-full"
-          icon={<Send size={18} />}
-          onClick={handleShareEstimate}
-          disabled={sharing}
-        >
-          {sharing ? "Sharing..." : "Share Estimate with Customer"}
-        </Button>
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+          <Button
+            variant="outline"
+            className="w-full md:w-auto"
+            icon={<Pencil size={18} />}
+            onClick={() => navigate(`/service-advisor-dashboard/job-card/${jobCard.vehicleId}?editJobCardId=${jobCard.id}`)}
+          >
+            Edit Job Card
+          </Button>
+          <Button
+            variant="gradient"
+            className="w-full md:flex-1"
+            icon={<Send size={18} />}
+            onClick={handleShareEstimate}
+            disabled={sharing}
+          >
+            {sharing ? "Sharing..." : "Share Estimate with Customer"}
+          </Button>
+        </div>
       )}
     </div>
   );
