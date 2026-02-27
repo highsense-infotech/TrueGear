@@ -13,10 +13,14 @@ export interface SADashboardParams {
 
 export interface SAStats {
   qcComplete: number;
+  qcCompleteYesterday: number;
   pendingApproval: number;
+  pendingApprovalYesterday: number;
   totalActive: number;
   inService: number;
+  inServiceYesterday: number;
   readyForBilling: number;
+  readyForBillingYesterday: number;
 }
 
 export interface SAVehicle {

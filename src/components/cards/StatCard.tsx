@@ -18,7 +18,7 @@ export function StatCard({ title, value, change, icon }: StatCardProps) {
           </div>
           {change && (
           <p className="text-[10px] sm:text-[11px] md:text-[12px]">
-            <span className="text-[#3aa400]">{change}</span>{' '}
+            <span className={change.startsWith("-") ? "text-[#e53e3e]" : "text-[#3aa400]"}>{change}</span>{' '}
             <span className="text-[#999] font-light">vs yesterday</span>
           </p>
           )}

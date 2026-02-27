@@ -138,7 +138,7 @@ const CreateJobCard: React.FC = () => {
   };
 
   const calculateLineTotal = (job: Job) => {
-    return (job.partsCost + job.labourCost) * job.quantity;
+    return (job.partsCost * job.quantity) + job.labourCost;
   };
 
   const subtotal = jobs.reduce((sum, job) => sum + calculateLineTotal(job), 0);

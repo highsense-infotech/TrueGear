@@ -32,10 +32,16 @@ export interface VehiclePagination {
 }
 
 export interface VehicleStats {
+  vehiclesEnteredToday: number;
+  vehiclesEnteredYesterday: number;
+  currentlyInside: number;
+  currentlyInsideYesterday: number;
   pendingInspection: number;
+  pendingExitYesterday: number;
   inProgress: number;
   completed: number;
   avgTimeInside: string;
+  avgTimeInsideYesterday: string;
 }
 
 export interface VehicleListResponse {
@@ -106,6 +112,7 @@ export interface AddVehiclePayload {
   noOfPassengers?: number;
   condition?: string;
   priority?: string;
+  serviceType?: string;
 }
 
 export interface AddVehicleResponse {
@@ -154,6 +161,8 @@ export interface VehicleDetailData {
     registrationNumber: string;
     odometerLast: number;
     status: string;
+    priority: string;
+    serviceType: string;
     entryTime: string;
   };
   customer: VehicleDetailCustomer;

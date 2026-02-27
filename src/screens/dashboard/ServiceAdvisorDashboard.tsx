@@ -17,6 +17,12 @@ const ServiceAdvisorDashboard: React.FC = () => {
   const location = useLocation();
   const isIndexRoute = location.pathname === ROUTES.SERVICE_ADVISOR_DASHBOARD;
 
+  const formatChange = (today: number, yesterday: number): string => {
+    const diff = today - yesterday;
+    if (diff === 0) return "";
+    return diff > 0 ? `+${diff}` : `${diff}`;
+  };
+
   const [stats, setStats] = useState<SAStats | null>(null);
   const [vehicles, setVehicles] = useState<SAVehicle[]>([]);
   const [pagination, setPagination] = useState<SAPagination | null>(null);
@@ -71,7 +77,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
             <StatCard
               title="QC Complete"
               value={stats ? String(stats.qcComplete).padStart(2, "0") : "--"}
-              change="+12%"
+              change={stats ? formatChange(stats.qcComplete, stats.qcCompleteYesterday) : ""}
               icon={
                 <CheckCircle
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -82,7 +88,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
             <StatCard
               title="Awaiting Approval"
               value={stats ? String(stats.pendingApproval).padStart(2, "0") : "--"}
-              change="+12%"
+              change={stats ? formatChange(stats.pendingApproval, stats.pendingApprovalYesterday) : ""}
               icon={
                 <Calendar
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -93,7 +99,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
             <StatCard
               title="In Service"
               value={stats ? String(stats.inService).padStart(2, "0") : "--"}
-              change="+12%"
+              change={stats ? formatChange(stats.inService, stats.inServiceYesterday) : ""}
               icon={
                 <Truck
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -104,7 +110,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
             <StatCard
               title="Ready for Billing"
               value={stats ? String(stats.readyForBilling).padStart(2, "0") : "--"}
-              change="+12%"
+              change={stats ? formatChange(stats.readyForBilling, stats.readyForBillingYesterday) : ""}
               icon={
                 <Clock
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"

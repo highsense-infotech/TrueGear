@@ -29,9 +29,14 @@ interface CustomerData {
   lastName: string;
   phoneNumber: string;
   email: string;
+  vin: string;
   vehicleNumber: string;
   vehicleMake: string;
   vehicleModel: string;
+  odometerLast: number;
+  priority: string;
+  serviceType: string;
+  manufacturingYear: number;
 }
 
 const AddVehicle: React.FC = () => {
@@ -62,7 +67,7 @@ const AddVehicle: React.FC = () => {
     { title: "Vehicle Registration No", required: true },
     { title: "Odometer Reading (KM)", required: true },
     { title: "Front View", required: true },
-    { title: "Rear View", required: false },
+    { title: "Rear View", required: true },
     { title: "Left View", required: false },
     { title: "Right View", required: false },
     { title: "Dashboard View", required: false },
@@ -88,9 +93,14 @@ const AddVehicle: React.FC = () => {
               lastName: customer.lastName,
               phoneNumber: customer.contactNumber || "",
               email: customer.primaryEmail || "",
+              vin: vehicle.vin,
               vehicleNumber: vehicle.registrationNumber || vehicle.vin,
               vehicleMake: vehicle.brand,
               vehicleModel: vehicle.model,
+              odometerLast: vehicle.odometerLast ?? 0,
+              priority: vehicle.priority ?? "STANDARD",
+              serviceType: vehicle.serviceType ?? "GENERAL_SERVICE",
+              manufacturingYear: vehicle.manufacturingYear ?? 0,
             });
             if (vehicle.entryTime) {
               const d = new Date(vehicle.entryTime);
@@ -422,16 +432,52 @@ const AddVehicle: React.FC = () => {
               </p>
             </div>
             <div className="bg-[#f9f9f9] rounded-[8px] p-3">
-              <p className="text-[#999] text-[11px] mb-1">Vehicle Number</p>
+              <p className="text-[#999] text-[11px] mb-1">VIN</p>
+              <p className="text-[#333] text-[14px] font-medium uppercase">
+                {customerData.vin}
+              </p>
+            </div>
+            <div className="bg-[#f9f9f9] rounded-[8px] p-3">
+              <p className="text-[#999] text-[11px] mb-1">Vehicle Registration Number</p>
               <p className="text-[#333] text-[14px] font-medium uppercase">
                 {customerData.vehicleNumber}
               </p>
             </div>
-            <div className="bg-[#f9f9f9] rounded-[8px] p-3 sm:col-span-2">
-              <p className="text-[#999] text-[11px] mb-1">Vehicle</p>
+            <div className="bg-[#f9f9f9] rounded-[8px] p-3">
+              <p className="text-[#999] text-[11px] mb-1">Vehicle Make</p>
+              <p className="text-[#333] text-[14px] font-medium">
+                {customerData.vehicleMake}
+              </p>
+            </div>
+            <div className="bg-[#f9f9f9] rounded-[8px] p-3">
+              <p className="text-[#999] text-[11px] mb-1">Vehicle Model</p>
               <p className="text-[#333] text-[14px] font-medium flex items-center gap-2">
                 <Car className="w-4 h-4 text-[#666]" />
-                {customerData.vehicleMake} {customerData.vehicleModel}
+                {customerData.vehicleModel}
+              </p>
+            </div>
+            <div className="bg-[#f9f9f9] rounded-[8px] p-3">
+              <p className="text-[#999] text-[11px] mb-1">Odometer Reading</p>
+              <p className="text-[#333] text-[14px] font-medium">
+                {customerData.odometerLast.toLocaleString()} km
+              </p>
+            </div>
+            <div className="bg-[#f9f9f9] rounded-[8px] p-3">
+              <p className="text-[#999] text-[11px] mb-1">Priority</p>
+              <p className="text-[#333] text-[14px] font-medium capitalize">
+                {customerData.priority.toLowerCase()}
+              </p>
+            </div>
+            <div className="bg-[#f9f9f9] rounded-[8px] p-3">
+              <p className="text-[#999] text-[11px] mb-1">Service Type</p>
+              <p className="text-[#333] text-[14px] font-medium capitalize">
+                {customerData.serviceType.replace(/_/g, " ").toLowerCase()}
+              </p>
+            </div>
+            <div className="bg-[#f9f9f9] rounded-[8px] p-3">
+              <p className="text-[#999] text-[11px] mb-1">Manufacturing Year</p>
+              <p className="text-[#333] text-[14px] font-medium">
+                {customerData.manufacturingYear}
               </p>
             </div>
           </div>

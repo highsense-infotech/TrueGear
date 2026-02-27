@@ -11,9 +11,13 @@ export interface QCDashboardParams {
 
 export interface QCStats {
   pendingInspection: number;
+  pendingInspectionYesterday: number;
   inProgress: number;
+  inProgressYesterday: number;
   completed: number;
+  completedYesterday: number;
   avgTimeInside: string;
+  avgTimeInsideYesterday: string;
 }
 
 export interface QCQueueItem {

@@ -174,7 +174,7 @@ export const SendEstimate = () => {
         <Button
           variant="outline"
           className="w-full md:w-44 rounded-[5px]"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(`/service-advisor-dashboard/vehicle/${vehicleId}`)}
         >
           Cancel
         </Button>

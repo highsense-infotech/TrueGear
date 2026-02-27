@@ -90,7 +90,7 @@ export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal, err
             labelClassName={labelClass}
             type="number"
             prefix={symbol}
-            value={job.partsCost}
+            value={job.partsCost || ""}
             onChange={(e) => onUpdate(job.id, "partsCost", Number(e.target.value))}
             placeholder="0"
             error={errors?.partsCost}
@@ -103,7 +103,7 @@ export function JobRow({ job, index, onUpdate, onRemove, calculateLineTotal, err
             labelClassName={labelClass}
             type="number"
             prefix={symbol}
-            value={job.labourCost}
+            value={job.labourCost || ""}
             onChange={(e) => onUpdate(job.id, "labourCost", Number(e.target.value))}
             placeholder="0"
             error={errors?.labourCost}

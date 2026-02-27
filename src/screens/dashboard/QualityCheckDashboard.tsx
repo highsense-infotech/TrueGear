@@ -14,10 +14,35 @@ const QualityCheckDashboard: React.FC = () => {
 
   const [stats, setStats] = useState<QCStats>({
     pendingInspection: 0,
+    pendingInspectionYesterday: 0,
     inProgress: 0,
+    inProgressYesterday: 0,
     completed: 0,
+    completedYesterday: 0,
     avgTimeInside: "0h 0m",
+    avgTimeInsideYesterday: "0h 0m",
   });
+
+  const formatChange = (today: number, yesterday: number): string => {
+    const diff = today - yesterday;
+    if (diff === 0) return "";
+    return diff > 0 ? `+${diff}` : `${diff}`;
+  };
+
+  const formatTimeChange = (today: string, yesterday: string): string => {
+    const parseMinutes = (t: string) => {
+      const hMatch = t.match(/(\d+)h/);
+      const mMatch = t.match(/(\d+)m/);
+      return (hMatch ? parseInt(hMatch[1]) * 60 : 0) + (mMatch ? parseInt(mMatch[1]) : 0);
+    };
+    const diff = parseMinutes(today) - parseMinutes(yesterday);
+    if (diff === 0) return "";
+    const sign = diff > 0 ? "+" : "-";
+    const absDiff = Math.abs(diff);
+    const h = Math.floor(absDiff / 60);
+    const m = absDiff % 60;
+    return h > 0 ? `${sign}${h}h ${m}m` : `${sign}${m}m`;
+  };
   const [queue, setQueue] = useState<QCQueueItem[]>([]);
   const [pagination, setPagination] = useState<QCPagination>({
     page: 1,
@@ -91,25 +116,25 @@ const QualityCheckDashboard: React.FC = () => {
             <StatCard
               title="Pending Inspection"
               value={String(stats.pendingInspection).padStart(2, "0")}
-              change=""
+              change={formatChange(stats.pendingInspection, stats.pendingInspectionYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
             <StatCard
               title="In Progress"
               value={String(stats.inProgress).padStart(2, "0")}
-              change=""
+              change={formatChange(stats.inProgress, stats.inProgressYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
             <StatCard
               title="Completed Today"
               value={String(stats.completed).padStart(2, "0")}
-              change=""
+              change={formatChange(stats.completed, stats.completedYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
             <StatCard
               title="Avg. Time Inside"
               value={stats.avgTimeInside}
-              change=""
+              change={formatTimeChange(stats.avgTimeInside, stats.avgTimeInsideYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
           </div>

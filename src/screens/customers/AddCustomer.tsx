@@ -20,6 +20,7 @@ interface CustomerData {
   manufacturingYear: string;
   odometerLast: string;
   priority: string;
+  serviceType: string;
 }
 
 const AddCustomer: React.FC = () => {
@@ -56,6 +57,7 @@ const AddCustomer: React.FC = () => {
     manufacturingYear: "",
     odometerLast: "",
     priority: "STANDARD",
+    serviceType: "GENERAL_SERVICE",
   });
 
   const [errors, setErrors] = useState<Partial<CustomerData>>({});
@@ -219,6 +221,7 @@ const AddCustomer: React.FC = () => {
       manufacturingYear: "",
       odometerLast: "",
       priority: "STANDARD",
+      serviceType: "GENERAL_SERVICE",
     });
   };
 
@@ -246,6 +249,11 @@ const AddCustomer: React.FC = () => {
     }
     if (!formData.vin.trim()) {
       newErrors.vin = "VIN is required";
+    } else if (formData.vin.trim().length > 7) {
+      newErrors.vin = "VIN must be 7 digits or less";
+    }
+    if (!formData.vehicleNumber.trim()) {
+      newErrors.vehicleNumber = "Registration number is required";
     }
     if (!formData.vehicleMake.trim()) {
       newErrors.vehicleMake = "Vehicle make is required";
@@ -262,6 +270,9 @@ const AddCustomer: React.FC = () => {
       newErrors.odometerLast = "Odometer reading is required";
     } else if (isNaN(Number(formData.odometerLast))) {
       newErrors.odometerLast = "Enter a valid number";
+    }
+    if (!formData.serviceType.trim()) {
+      newErrors.serviceType = "Service type is required";
     }
 
     setErrors(newErrors);
@@ -291,22 +302,12 @@ const AddCustomer: React.FC = () => {
         odometerLast: parseInt(formData.odometerLast, 10),
         registrationNumber: formData.vehicleNumber.trim() || formData.vin.trim(),
         priority: formData.priority,
+        serviceType: formData.serviceType,
       });
 
       if (res.status) {
         toast.success("Vehicle added successfully");
-        // Store customer + vehicle data for AddVehicle screen
-        sessionStorage.setItem("customerData", JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phoneNumber: formData.phoneNumber,
-          email: formData.email,
-          vehicleNumber: res.data.vin || formData.vehicleNumber,
-          vehicleMake: formData.vehicleMake,
-          vehicleModel: formData.vehicleModel,
-        }));
-        sessionStorage.setItem("vehicleId", res.data.id);
-        navigate(ROUTES.ADD_VEHICLE);
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${res.data.id}`);
       } else {
         const msg = res.message || "Failed to add vehicle";
         setSubmitError(msg);
@@ -348,6 +349,7 @@ const AddCustomer: React.FC = () => {
       manufacturingYear: "",
       odometerLast: "",
       priority: "STANDARD",
+      serviceType: "GENERAL_SERVICE",
     });
   };
 
@@ -618,7 +620,8 @@ const AddCustomer: React.FC = () => {
                   name="vin"
                   value={formData.vin}
                   onChange={handleChange}
-                  placeholder="e.g., WBAPH5C52BA123456"
+                  maxLength={7}
+                  placeholder="e.g., ABC1234"
                   className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors uppercase ${
                     errors.vin
                       ? "border-red-500 focus:border-red-500"
@@ -633,7 +636,7 @@ const AddCustomer: React.FC = () => {
               {/* Vehicle Number / Registration */}
               <div>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
-                  Registration Number <span className="text-[#999]">(Optional)</span>
+                  Registration Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -641,8 +644,15 @@ const AddCustomer: React.FC = () => {
                   value={formData.vehicleNumber}
                   onChange={handleChange}
                   placeholder="e.g., BL 00 MY ZN"
-                  className="w-full h-11 sm:h-12 border border-[#e5e7eb] rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none focus:border-[#04c397] transition-colors uppercase"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors uppercase ${
+                    errors.vehicleNumber
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
                 />
+                {errors.vehicleNumber && (
+                  <p className="text-red-500 text-[11px] mt-1">{errors.vehicleNumber}</p>
+                )}
               </div>
 
               {/* Vehicle Make / Brand */}
@@ -752,6 +762,36 @@ const AddCustomer: React.FC = () => {
                 />
                 {errors.odometerLast && (
                   <p className="text-red-500 text-[11px] mt-1">{errors.odometerLast}</p>
+                )}
+              </div>
+
+              {/* Service Type */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Service Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="serviceType"
+                  value={formData.serviceType}
+                  onChange={(e) => {
+                    setFormData((prev) => ({ ...prev, serviceType: e.target.value }));
+                    if (errors.serviceType) {
+                      setErrors((prev) => ({ ...prev, serviceType: "" }));
+                    }
+                  }}
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] outline-none transition-colors bg-white ${
+                    errors.serviceType
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                >
+                  <option value="GENERAL_SERVICE">General Service</option>
+                  <option value="REPAIR">Repair</option>
+                  <option value="WARRANTY">Warranty</option>
+                  <option value="INSPECTION">Inspection</option>
+                </select>
+                {errors.serviceType && (
+                  <p className="text-red-500 text-[11px] mt-1">{errors.serviceType}</p>
                 )}
               </div>
 
