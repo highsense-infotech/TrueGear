@@ -1,10 +1,12 @@
-import { Camera, Image, Trash2 } from "lucide-react";
+import { Camera, Image, Loader2, Trash2 } from "lucide-react";
 import Button from '../common/Button';
 
 interface PhotoCaptureCardProps {
   title: string;
   required?: boolean;
   capturedImage?: string;
+  isUploading?: boolean;
+  disabled?: boolean;
   onCapture?: () => void;
   onDelete?: () => void;
 }
@@ -13,11 +15,13 @@ export function PhotoCaptureCard({
   title,
   required = false,
   capturedImage,
+  isUploading = false,
+  disabled = false,
   onCapture,
   onDelete,
 }: PhotoCaptureCardProps) {
   return (
-    <div className="bg-[#eff1f5] rounded-[10px] p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 items-center w-full ">
+    <div className={`bg-[#eff1f5] rounded-[10px] p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 items-center w-full ${disabled && !isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
       {/* Title */}
       <p className="text-[14px] sm:text-[16px] text-[#333] text-center">
         {title}
@@ -36,13 +40,23 @@ export function PhotoCaptureCard({
               className="absolute inset-0 w-full h-full object-cover rounded-[10px]"
             />
 
-            {/* Delete Button */}
-            <button
-              onClick={onDelete}
-              className="absolute top-2 right-2 bg-white rounded-md p-2 shadow-md hover:bg-gray-100 z-10"
-            >
-              <Trash2 className="w-4 h-4 text-[#DE2020]" />
-            </button>
+            {/* Uploading Overlay */}
+            {isUploading && (
+              <div className="absolute inset-0 bg-black/40 rounded-[10px] flex flex-col items-center justify-center z-10">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+                <p className="text-white text-[12px] mt-2">Uploading...</p>
+              </div>
+            )}
+
+            {/* Delete Button - hidden while uploading */}
+            {!isUploading && (
+              <button
+                onClick={onDelete}
+                className="absolute top-2 right-2 bg-white rounded-md p-2 shadow-md hover:bg-gray-100 z-10"
+              >
+                <Trash2 className="w-4 h-4 text-[#DE2020]" />
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -50,6 +64,7 @@ export function PhotoCaptureCard({
             {/* Capture Button */}
             <Button
               onClick={onCapture}
+              disabled={disabled}
               variant="gradient"
               gradient={{ from: '#04C397', to: '#158E86', direction: 'to-r' }}
               icon={<Camera className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={1.5} />}

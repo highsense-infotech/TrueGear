@@ -174,6 +174,7 @@ const AddVehicle: React.FC = () => {
   const isValid = capturedRequiredCount === requiredSlots.length;
   const missingCount = requiredSlots.length - capturedRequiredCount;
   const capturedCount = photoSlots.filter((slot) => slot.capturedImage).length;
+  const isAnyUploading = photoSlots.some((slot) => slot.isUploading);
 
   const handleConfirmEntry = () => {
     if (!isValid) {
@@ -502,6 +503,8 @@ const AddVehicle: React.FC = () => {
               title={slot.title}
               required={slot.required}
               capturedImage={slot.capturedImage}
+              isUploading={slot.isUploading}
+              disabled={isAnyUploading}
               onCapture={() => handleCapture(index)}
               onDelete={() => handleDelete(index)}
             />
