@@ -67,7 +67,11 @@ const JobCardDetail: React.FC = () => {
     try {
       const res = await shareEstimate(jobCardId);
       if (res.status) {
-        toast.success("Estimate shared with customer");
+        toast.success(
+          res.data.whatsappSent
+            ? "Estimate sent via WhatsApp"
+            : "Estimate shared with customer"
+        );
         setData((prev) =>
           prev
             ? {

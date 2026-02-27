@@ -87,7 +87,11 @@ export const SendEstimate = () => {
     try {
       const res = await shareEstimate(latestJobCardId);
       if (res.status) {
-        toast.success("Estimate sent successfully");
+        toast.success(
+          res.data.whatsappSent
+            ? "Estimate sent via WhatsApp"
+            : "Estimate shared successfully"
+        );
         setIsEstimateSent(true);
       }
     } catch (error) {

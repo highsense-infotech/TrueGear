@@ -10,7 +10,7 @@ import QualityCheckInspection from '../screens/dashboard/QualityCheckInspection.
 // import InvoiceDetail from '../screens/dashboard/InvoiceDetail.tsx';
 import ServiceAdvisorDashboard from '../screens/dashboard/ServiceAdvisorDashboard.tsx';
 import ServiceAdvisorVehicleDetail from '../screens/dashboard/ServiceAdvisorVehicleDetail.tsx';
-// import CustomerApprovalDashboard from '../screens/dashboard/CustomerApprovalDashboard.tsx';
+import CustomerApprovalDashboard from '../screens/dashboard/CustomerApprovalDashboard.tsx';
 // import CustomerProfileDashboard from '../screens/dashboard/CustomerProfileDashboard.tsx';
 // import SparePartsDashboard from '../screens/dashboard/SparePartsDashboard.tsx';
 // import TechnicianDashboard from '../screens/dashboard/TechnicianDashboard.tsx';
@@ -107,6 +107,7 @@ const AppRoutes: React.FC = () => (
       {/* Public routes */}
       <Route path={ROUTES.LOGIN} element={<Login />} />
       <Route path={ROUTES.REGISTER} element={<Register />} />
+      <Route path="/customer-approval/:token" element={<CustomerApprovalDashboard />} />
     </Routes>
   </BrowserRouter>
 );

@@ -341,6 +341,7 @@ export interface ShareEstimateResponse {
     status: string;
     sharedAt: string;
     vehicleStatus: string;
+    whatsappSent: boolean;
   };
 }
 

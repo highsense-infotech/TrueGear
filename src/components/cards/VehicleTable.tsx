@@ -25,6 +25,7 @@ interface DisplayVehicle {
   date: string;
   status: "In Queue" | "Ready" | "Completed" | "In Service";
   customerName?: string;
+  frontImage?: string | null;
 }
 
 const statusConfig = {
@@ -70,6 +71,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
     date,
     status: v.status,
     customerName: v.customerName,
+    frontImage: v.frontImage ? `/${v.frontImage}` : null,
   };
 }
 
@@ -325,13 +327,23 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
                   >
                     <td className="py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                          <img
-                            src={truck}
-                            alt="Vehicle"
-                            className="max-w-17.5 object-contain "
-                          />
-                        </div>
+                        {vehicle.frontImage ? (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                            <img
+                              src={vehicle.frontImage}
+                              alt="Vehicle"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                            <img
+                              src={truck}
+                              alt="Vehicle"
+                              className="max-w-17.5 object-contain"
+                            />
+                          </div>
+                        )}
                         <div>
                           <p className="text-[#333]">{vehicle.registration}</p>
                           <p className="text-[#999] text-xs">{vehicle.model}</p>
@@ -395,13 +407,23 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
                 {/* Top Row */}
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                      <img
-                        src={truck}
-                        alt="Vehicle"
-                        className="max-w-15 object-contain"
-                      />
-                    </div>
+                    {vehicle.frontImage ? (
+                      <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                        <img
+                          src={vehicle.frontImage}
+                          alt="Vehicle"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                        <img
+                          src={truck}
+                          alt="Vehicle"
+                          className="max-w-15 object-contain"
+                        />
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-medium">
                         {vehicle.registration}

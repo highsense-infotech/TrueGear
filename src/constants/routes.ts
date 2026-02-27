@@ -21,6 +21,7 @@ export const ROUTES = {
   FINANCE_BILLING_DASHBOARD: '/finance-billing-dashboard',
   POST_SERVICE_QC_DASHBOARD: '/post-service-qc-dashboard',
   SETTINGS: '/settings',
+  CUSTOMER_APPROVAL: '/customer-approval/:token',
 };
 
 export default ROUTES;

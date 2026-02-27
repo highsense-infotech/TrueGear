@@ -22,6 +22,7 @@ export interface VehicleItem {
   entryTime: string;
   customerName: string;
   imageCount: number;
+  frontImage: string | null;
 }
 
 export interface VehiclePagination {
