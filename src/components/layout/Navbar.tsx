@@ -34,6 +34,10 @@ export function Header({ toggleSidebar }: Props) {
       title: "Service Advisor Dashboard",
       description: "Manage vehicle service and job cards",
     },
+    [ROUTES.SPARE_PARTS_DASHBOARD]: {
+      title: "Spare Parts Manager",
+      description: "Manage parts availability and dispatch",
+    },
   };
 
   const currentRoute = routeTitles[location.pathname] || {

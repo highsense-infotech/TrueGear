@@ -22,6 +22,8 @@ export const ROUTES = {
   POST_SERVICE_QC_DASHBOARD: '/post-service-qc-dashboard',
   SETTINGS: '/settings',
   CUSTOMER_APPROVAL: '/customer-approval/:token',
+  USER_MANAGEMENT: '/user-management',
+  NO_ACCESS: '/no-access',
 };
 
 export default ROUTES;

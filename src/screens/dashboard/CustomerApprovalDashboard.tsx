@@ -9,6 +9,7 @@ import { Clock, Loader2, XCircle } from "lucide-react";
 import {
   getEstimateByToken,
   approveEstimate,
+  requestModification,
   type EstimateData,
 } from "../../api/customerApproval.api";
 
@@ -21,7 +22,7 @@ interface Job {
   selected: boolean;
 }
 
-type ScreenType = "dashboard" | "requestModification" | "approve";
+type ScreenType = "dashboard" | "requestModification" | "approve" | "modificationSubmitted";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "";
@@ -47,6 +48,7 @@ function CustomerApprovalDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("dashboard");
   const [approving, setApproving] = useState(false);
+  const [submittingModification, setSubmittingModification] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -131,12 +133,19 @@ function CustomerApprovalDashboard() {
     }
   }
 
-  function handleModificationSubmit(notes: string) {
-    alert(
-      "Modification request submitted with notes: " +
-        (notes || "No notes provided")
-    );
-    setCurrentScreen("dashboard");
+  async function handleModificationSubmit(notes: string) {
+    if (!token || submittingModification) return;
+    setSubmittingModification(true);
+    try {
+      const res = await requestModification(token, notes);
+      if (res.status) {
+        setCurrentScreen("modificationSubmitted");
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to submit modification request");
+    } finally {
+      setSubmittingModification(false);
+    }
   }
 
   function handleBackToDashboard() {
@@ -173,6 +182,25 @@ function CustomerApprovalDashboard() {
   const vehicleNumber = vehicle?.registrationNumber || "—";
   const vehicleModel = vehicle ? `${vehicle.brand} ${vehicle.model}` : "—";
 
+  // Modification submitted success screen
+  if (currentScreen === "modificationSubmitted") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
+        <div className="bg-white rounded-[10px] border border-[#e5e7eb] p-8 sm:p-10 max-w-sm w-full text-center shadow-sm">
+          <div className="flex justify-center mb-5">
+            <div className="bg-[#fff8e6] rounded-full w-16 h-16 flex items-center justify-center">
+              <Clock className="w-8 h-8 text-[#e89d00]" />
+            </div>
+          </div>
+          <h1 className="text-[18px] font-bold text-[#333] mb-2">Modification Requested</h1>
+          <p className="text-[13px] text-[#999]">
+            Your modification request has been submitted. The service advisor will review and get back to you.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Request Modification screen
   if (currentScreen === "requestModification") {
     return (
@@ -181,6 +209,7 @@ function CustomerApprovalDashboard() {
           <RequestModificationScreen
             onBack={handleBackToDashboard}
             onSubmit={handleModificationSubmit}
+            submitting={submittingModification}
           />
         </div>
       </div>

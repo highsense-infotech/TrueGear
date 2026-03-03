@@ -216,7 +216,7 @@ const CreateJobCard: React.FC = () => {
     return !hasError;
   };
 
-  const handleSaveDraft = async () => {
+  const saveAndNavigate = async () => {
     if (!vehicleId || saving) return;
     if (!validateJobs()) return;
 
@@ -249,56 +249,12 @@ const CreateJobCard: React.FC = () => {
         });
         if (res.status) {
           toast.success("Job card saved as draft");
-          navigate(`../send-estimate/${vehicleId}`);
+          navigate(`/service-advisor-dashboard/job-card-detail/${res.data.jobCard.id}`);
         }
       }
-    } catch (error) {
-      console.error("Failed to save job card:", error);
-      toast.error("Failed to save job card");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleShareEstimate = async () => {
-    if (!vehicleId || saving) return;
-    if (!validateJobs()) return;
-
-    setSaving(true);
-    try {
-      const items = jobs.map((job) => ({
-        jobDescription: job.jobDescription,
-        partsRequired: job.partsRequired || null,
-        partsCost: job.partsCost,
-        labourCost: job.labourCost,
-        quantity: job.quantity,
-      }));
-
-      if (isEditMode) {
-        const res = await updateJobCard(editJobCardId, {
-          items,
-          taxLabel: taxConfig.label,
-          taxPercentage: taxConfig.percentage,
-        });
-        if (res.status) {
-          toast.success("Job card updated successfully");
-          navigate(`../send-estimate/${vehicleId}`);
-        }
-      } else {
-        const res = await createJobCard(vehicleId, {
-          inspectionId,
-          items,
-          taxLabel: taxConfig.label,
-          taxPercentage: taxConfig.percentage,
-        });
-        if (res.status) {
-          toast.success("Job card created successfully");
-          navigate(`../send-estimate/${vehicleId}`);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to save job card:", error);
-      toast.error("Failed to save job card");
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || "Failed to save job card";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -353,8 +309,8 @@ const CreateJobCard: React.FC = () => {
         <JobCardActions
           jobCount={jobs.length}
           total={total}
-          onSaveDraft={handleSaveDraft}
-          onShareEstimate={handleShareEstimate}
+          onSaveDraft={saveAndNavigate}
+          onShareEstimate={saveAndNavigate}
         />
       </div>
     </>

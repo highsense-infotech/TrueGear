@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (data: AuthData) => void;
   logout: () => void;
   hasRole: (roleSlug: string) => boolean;
+  hasPermission: (resource: string, action: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,10 +49,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [user],
   );
 
+  const hasPermission = useCallback(
+    (resource: string, action: string) => {
+      if (!user) return false;
+      if (user.role?.slug === 'super-admin') return true;
+      return user.permissions?.includes(`${resource}:${action}`) ?? false;
+    },
+    [user],
+  );
+
   const isAuthenticated = !!token && !!user;
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout, hasRole, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

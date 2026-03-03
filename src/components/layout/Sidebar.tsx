@@ -1,8 +1,9 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings } from "lucide-react";
-// import { BadgeCheck, User, Package, Wrench, Receipt } from "lucide-react";
+import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users } from "lucide-react";
+// import { BadgeCheck, User, Wrench, Receipt } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../context/AuthContext";
+import { MODULES, ACTIONS } from "../../constants/permissions";
 import type { LucideIcon } from "lucide-react";
 
 interface Props {
@@ -13,21 +14,22 @@ interface Props {
 interface NavItem {
   route: string;
   icon: LucideIcon;
-  roles: string[];
+  resource: string;
+  action: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { route: ROUTES.SECURITY_DASHBOARD, icon: ShieldUser, roles: ['security-gate-keeper'] },
-  { route: ROUTES.QUALITY_CHECK_DASHBOARD, icon: CheckCircle, roles: ['qc-inspector'] },
-  { route: ROUTES.SERVICE_ADVISOR_DASHBOARD, icon: ClipboardList, roles: ['customer', 'service-advisor'] },
+  { route: ROUTES.SECURITY_DASHBOARD, icon: ShieldUser, resource: MODULES.GATE_ENTRY, action: ACTIONS.VIEW },
+  { route: ROUTES.QUALITY_CHECK_DASHBOARD, icon: CheckCircle, resource: MODULES.QC_INSPECTION, action: ACTIONS.VIEW },
+  { route: ROUTES.SERVICE_ADVISOR_DASHBOARD, icon: ClipboardList, resource: MODULES.JOB_CARD, action: ACTIONS.VIEW },
+  { route: ROUTES.SPARE_PARTS_DASHBOARD, icon: Package, resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW },
+  { route: ROUTES.USER_MANAGEMENT, icon: Users, resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
 ];
 
 export function Sidebar({ open, setOpen }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
-
-  const roleSlug = user?.role?.slug || '';
+  const { hasPermission } = useAuth();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -36,10 +38,8 @@ export function Sidebar({ open, setOpen }: Props) {
     setOpen(false);
   };
 
-  // Filter nav items by user's role (super-admin sees all)
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => roleSlug === 'super-admin' || item.roles.includes(roleSlug)
-  );
+  // Filter nav items by permission
+  const visibleItems = NAV_ITEMS.filter((item) => hasPermission(item.resource, item.action));
 
   return (
     <>
@@ -79,7 +79,7 @@ export function Sidebar({ open, setOpen }: Props) {
           </button>
         )}
 
-        {/* Role-based nav items */}
+        {/* Permission-based nav items */}
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.route);

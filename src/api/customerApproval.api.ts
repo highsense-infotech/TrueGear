@@ -55,6 +55,15 @@ export interface ApprovalActionResponse {
   };
 }
 
+export interface RequestModificationResponse {
+  status: boolean;
+  message: string;
+  data: {
+    jobCardId: string;
+    status: string;
+  };
+}
+
 // ─── API Functions ──────────────────────────────────────────────────────────
 
 export const getEstimateByToken = async (
@@ -68,6 +77,14 @@ export const approveEstimate = async (
   token: string
 ): Promise<ApprovalActionResponse> => {
   const { data } = await publicApi.post(`/customer-approval/estimate/${token}/approve`);
+  return data;
+};
+
+export const requestModification = async (
+  token: string,
+  note: string
+): Promise<RequestModificationResponse> => {
+  const { data } = await publicApi.post(`/customer-approval/estimate/${token}/request-modification`, { note });
   return data;
 };
 

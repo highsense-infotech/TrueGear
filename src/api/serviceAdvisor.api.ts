@@ -205,6 +205,8 @@ export interface SAJobCard {
   totalEstimate: string;
   sharedAt: string | null;
   approvedAt: string | null;
+  approvalToken: string | null;
+  modificationNote: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -301,6 +303,9 @@ export interface SAJobCardDetailResponse {
       quantity: number;
       lineTotal: string;
       sortOrder: number;
+      isApprovedByCustomer: boolean | null;
+      partStatus: 'pending' | 'available' | 'unavailable' | 'dispatched' | null;
+      partExpectedTime: string | null;
     }[];
     vehicle: {
       registrationNumber: string;
@@ -345,6 +350,7 @@ export interface ShareEstimateResponse {
     sharedAt: string;
     vehicleStatus: string;
     whatsappSent: boolean;
+    approvalUrl: string;
   };
 }
 
@@ -372,5 +378,25 @@ export const approveJobCard = async (
   jobCardId: string
 ): Promise<ApproveJobCardResponse> => {
   const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/approve`);
+  return data;
+};
+
+
+// ─── Request Parts Confirmation ────────────────────────────────────────────
+
+export interface RequestPartsConfirmationResponse {
+  status: boolean;
+  message: string;
+  data: {
+    jobCardId: string;
+    status: string;
+    partsRequestsCreated: number;
+  };
+}
+
+export const requestPartsConfirmation = async (
+  jobCardId: string
+): Promise<RequestPartsConfirmationResponse> => {
+  const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/request-parts`);
   return data;
 };

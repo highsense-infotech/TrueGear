@@ -7,6 +7,7 @@ interface PartRequestCardProps {
   status: "pending" | "available" | "unavailable" | "dispatched";
   requestTime: string;
   onMarkAvailable?: () => void;
+  onSetETA?: () => void;
   onDispatch?: () => void;
   showDispatchInfo?: boolean;
   expectedTime?: string;
@@ -44,6 +45,7 @@ export function PartRequestCard({
   status,
   requestTime,
   onMarkAvailable,
+  onSetETA,
   onDispatch,
   showDispatchInfo,
   expectedTime,
@@ -95,9 +97,14 @@ export function PartRequestCard({
                 >
                   Mark as Available
                 </button>
-                <button className=" bg-[#E5E7EB] border border-[#e5e7eb] text-[#999] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-50 transition-colors shadow-[2px_4px_8px_0px_#00000026]">
-                  ETA if available
-                </button>
+                {onSetETA && (
+                  <button
+                    onClick={onSetETA}
+                    className="bg-[#E5E7EB] border border-[#e5e7eb] text-[#555] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-200 transition-colors shadow-[2px_4px_8px_0px_#00000026]"
+                  >
+                    ETA if available
+                  </button>
+                )}
               </>
             )}
 
@@ -115,7 +122,7 @@ export function PartRequestCard({
           </div>
 
           {/* Special Messages */}
-          {showDispatchInfo && (
+          {(showDispatchInfo || status === "dispatched") && (
             <div className="bg-[#F6F6F6] px-5 py-1.5 mt-2.5 sm:mt-3 flex items-center gap-2 text-[11px] sm:text-[12px] text-[#0061FF] shadow-[2px_4px_8px_0px_#00000026]">
               <svg className="size-3.5 sm:size-4 shrink-0" fill="none" viewBox="0 0 16 16">
                 <path d="M13.3333 5.33333L6 12.6667L2.66667 9.33333" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>

@@ -28,9 +28,10 @@ interface RequestModificationScreenProps {
   total?: number;
   onBack: () => void;
   onSubmit: (notes: string) => void;
+  submitting?: boolean;
 }
 
-export function RequestModificationScreen({ onBack, onSubmit }: RequestModificationScreenProps) {
+export function RequestModificationScreen({ onBack, onSubmit, submitting }: RequestModificationScreenProps) {
   const [notes, setNotes] = useState("");
 
   return (
@@ -51,8 +52,8 @@ export function RequestModificationScreen({ onBack, onSubmit }: RequestModificat
         <Button variant="outline" className="flex-1 rounded-[5px]" onClick={onBack}>
           Cancel
         </Button>
-        <Button variant="gradient" className="flex-1 rounded-[10px]" onClick={() => onSubmit(notes)}>
-          Submit Request
+        <Button variant="gradient" className="flex-1 rounded-[10px]" onClick={() => onSubmit(notes)} disabled={submitting}>
+          {submitting ? "Submitting..." : "Submit Request"}
         </Button>
       </div>
     </div>

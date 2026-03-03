@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import Button from "../../components/common/Button";
 import { useNavigate, useParams } from "react-router-dom";
 import imgPlan from "../../assets/plan.png";
+import { Copy, Check } from "lucide-react";
 import {
   getVehicleDetail,
   getVehicleJobCards,
@@ -41,6 +42,8 @@ export const SendEstimate = () => {
   const [totalJobs, setTotalJobs] = useState(0);
   const [estimateTotal, setEstimateTotal] = useState("₹0");
   const [latestJobCardId, setLatestJobCardId] = useState<string | null>(null);
+  const [approvalUrl, setApprovalUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const { vehicleId } = useParams<{ vehicleId: string }>();
 
@@ -92,6 +95,7 @@ export const SendEstimate = () => {
             ? "Estimate sent via WhatsApp"
             : "Estimate shared successfully"
         );
+        setApprovalUrl(res.data.approvalUrl);
         setIsEstimateSent(true);
       }
     } catch (error) {
@@ -100,6 +104,13 @@ export const SendEstimate = () => {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleCopy = async () => {
+    if (!approvalUrl) return;
+    await navigator.clipboard.writeText(approvalUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) {
@@ -139,6 +150,29 @@ export const SendEstimate = () => {
           Status: Awaiting Customer Approval
         </span>
       </div>
+
+      {/* Approval URL — manual copy */}
+      {approvalUrl && (
+        <div className="w-full max-w-83.5 mb-6">
+          <p className="text-[12px] text-[#999] mb-2 text-center">
+            Share this link manually if needed
+          </p>
+          <div className="flex items-center gap-2 bg-[#f5f5f5] border border-[#e5e7eb] rounded-lg px-3 py-2.5">
+            <span className="flex-1 text-[12px] text-[#555] truncate">{approvalUrl}</span>
+            <button
+              onClick={handleCopy}
+              className="shrink-0 p-1 rounded hover:bg-[#e5e7eb] transition-colors"
+              title="Copy link"
+            >
+              {copied ? (
+                <Check size={15} className="text-green-500" />
+              ) : (
+                <Copy size={15} className="text-[#999]" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Action Button */}
       <Button

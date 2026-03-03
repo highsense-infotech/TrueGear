@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../screens/auth/Login';
 import Register from '../screens/auth/Register';
+import NoAccess from '../screens/auth/NoAccess';
 import SecurityDashboard from '../screens/dashboard/SecurityDashboard.tsx';
 import QualityCheckDashboard from '../screens/dashboard/QualityCheckDashboard.tsx';
 import QualityCheckInspection from '../screens/dashboard/QualityCheckInspection.tsx';
@@ -12,7 +13,7 @@ import ServiceAdvisorDashboard from '../screens/dashboard/ServiceAdvisorDashboar
 import ServiceAdvisorVehicleDetail from '../screens/dashboard/ServiceAdvisorVehicleDetail.tsx';
 import CustomerApprovalDashboard from '../screens/dashboard/CustomerApprovalDashboard.tsx';
 // import CustomerProfileDashboard from '../screens/dashboard/CustomerProfileDashboard.tsx';
-// import SparePartsDashboard from '../screens/dashboard/SparePartsDashboard.tsx';
+import SparePartsDashboard from '../screens/dashboard/SparePartsDashboard.tsx';
 // import TechnicianDashboard from '../screens/dashboard/TechnicianDashboard.tsx';
 // import TechnicianJobDetail from '../screens/dashboard/TechnicianJobDetail.tsx';
 import Profile from '../screens/profile/Profile';
@@ -26,26 +27,28 @@ import MainLayout from '../layouts/MainLayout.tsx';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../constants/routes';
+import { MODULES, ACTIONS } from '../constants/permissions';
 import { SendEstimate } from '../screens/vehicles/SendEstimate.tsx';
+import UserManagement from '../screens/admin/UserManagement.tsx';
 
-const ROLE_DEFAULT_ROUTES: Record<string, string> = {
-  'super-admin': ROUTES.SECURITY_DASHBOARD,
-  'security-gate-keeper': ROUTES.SECURITY_DASHBOARD,
-  'qc-inspector': ROUTES.QUALITY_CHECK_DASHBOARD,
-  'customer': ROUTES.SERVICE_ADVISOR_DASHBOARD,
-  'service-advisor': ROUTES.SERVICE_ADVISOR_DASHBOARD,
-};
+// Ordered list of routes — first one the user has view permission for becomes their home
+const PERMISSION_ROUTES = [
+  { resource: MODULES.GATE_ENTRY, action: ACTIONS.VIEW, path: ROUTES.SECURITY_DASHBOARD },
+  { resource: MODULES.QC_INSPECTION, action: ACTIONS.VIEW, path: ROUTES.QUALITY_CHECK_DASHBOARD },
+  { resource: MODULES.JOB_CARD, action: ACTIONS.VIEW, path: ROUTES.SERVICE_ADVISOR_DASHBOARD },
+  { resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW, path: ROUTES.SPARE_PARTS_DASHBOARD },
+  { resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW, path: ROUTES.USER_MANAGEMENT },
+];
 
 function RootRedirect() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, hasPermission } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} replace />;
   }
 
-  const roleSlug = user?.role?.slug || '';
-  const target = ROLE_DEFAULT_ROUTES[roleSlug] || ROUTES.SECURITY_DASHBOARD;
-  return <Navigate to={target} replace />;
+  const target = PERMISSION_ROUTES.find((r) => hasPermission(r.resource, r.action));
+  return <Navigate to={target?.path ?? ROUTES.NO_ACCESS} replace />;
 }
 
 const AppRoutes: React.FC = () => (
@@ -66,7 +69,7 @@ const AppRoutes: React.FC = () => (
         <Route
           path={ROUTES.SECURITY_DASHBOARD.slice(1)}
           element={
-            <ProtectedRoute allowedRoles={['security-gate-keeper']}>
+            <ProtectedRoute requiredPermission={{ resource: MODULES.GATE_ENTRY, action: ACTIONS.VIEW }}>
               <SecurityDashboard />
             </ProtectedRoute>
           }
@@ -80,18 +83,19 @@ const AppRoutes: React.FC = () => (
         <Route
           path={ROUTES.QUALITY_CHECK_DASHBOARD.slice(1)}
           element={
-            <ProtectedRoute allowedRoles={['qc-inspector']}>
+            <ProtectedRoute requiredPermission={{ resource: MODULES.QC_INSPECTION, action: ACTIONS.VIEW }}>
               <QualityCheckDashboard />
             </ProtectedRoute>
           }
         >
           <Route path="quality-check-inspection/:inspectionId" element={<QualityCheckInspection />} />
         </Route>
+
         {/* Service Advisor / Customer routes */}
         <Route
           path={ROUTES.SERVICE_ADVISOR_DASHBOARD.slice(1)}
           element={
-            <ProtectedRoute allowedRoles={['customer', 'service-advisor']}>
+            <ProtectedRoute requiredPermission={{ resource: MODULES.JOB_CARD, action: ACTIONS.VIEW }}>
               <ServiceAdvisorDashboard />
             </ProtectedRoute>
           }
@@ -101,8 +105,30 @@ const AppRoutes: React.FC = () => (
           <Route path="job-card-detail/:jobCardId" element={<JobCardDetail />} />
           <Route path="send-estimate/:vehicleId?" element={<SendEstimate />} />
         </Route>
+
+        {/* Parts Manager routes */}
+        <Route
+          path={ROUTES.SPARE_PARTS_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW }}>
+              <SparePartsDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* User Management — ROLE_MANAGEMENT:view required */}
+        <Route
+          path={ROUTES.USER_MANAGEMENT.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
+              <UserManagement />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path={ROUTES.PROFILE.slice(1)} element={<Profile />} />
         <Route path={ROUTES.SETTINGS.slice(1)} element={<Settings />} />
+        <Route path={ROUTES.NO_ACCESS.slice(1)} element={<NoAccess />} />
       </Route>
 
       {/* Public routes */}

@@ -1,4 +1,4 @@
-import { Save, Share2 } from "lucide-react";
+import { Save, ArrowRight } from "lucide-react";
 import Button from "../common/Button";
 import { useCurrency } from "../../context/CurrencyContext";
 
@@ -21,7 +21,7 @@ export function JobCardActions({
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
       <div>
         <h3 className="text-base font-semibold text-gray-800">
-          Ready to share estimate?
+          Ready to save job card?
         </h3>
         <p className="text-xs text-gray-400 mt-1">
           {jobCount} job(s) - Total: {formatCurrency(total)}
@@ -47,10 +47,10 @@ export function JobCardActions({
         <Button
           variant="gradient"
           onClick={onShareEstimate}
-          icon={<Share2 size={20} className="text-white" />}
+          icon={<ArrowRight size={20} className="text-white" />}
         >
           <span className="text-sm md:text-base font-medium">
-            Share Estimate with Customer
+            Save & Continue
           </span>
         </Button>
       </div>
