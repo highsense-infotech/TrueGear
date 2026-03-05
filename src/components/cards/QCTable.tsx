@@ -95,7 +95,6 @@ interface QCTableProps {
 }
 
 export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onStartInspection, onResumeInspection, actionLoadingId = null }: QCTableProps) {
-  console.log("🚀 ~ QCTable ~ actionLoadingId:", actionLoadingId)
   const statusFilter: StatusFilter = filter === "ALL" ? "All" : filter === "URGENT" ? "Urgent" : filter === "COMPLETED" ? "Completed" : "Delayed";
 
   const handleStatusFilterChange = (f: StatusFilter) => {
