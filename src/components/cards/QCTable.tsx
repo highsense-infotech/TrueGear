@@ -91,9 +91,10 @@ interface QCTableProps {
   onPageChange: (page: number) => void;
   onStartInspection: (vehicle: QCQueueItem) => void;
   onResumeInspection: (vehicle: QCQueueItem) => void;
+  actionLoadingId?: string | null;
 }
 
-export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onStartInspection, onResumeInspection }: QCTableProps) {
+export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onStartInspection, onResumeInspection, actionLoadingId = null }: QCTableProps) {
   const statusFilter: StatusFilter = filter === "ALL" ? "All" : filter === "URGENT" ? "Urgent" : filter === "COMPLETED" ? "Completed" : "Delayed";
 
   const handleStatusFilterChange = (f: StatusFilter) => {
@@ -232,12 +233,22 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
                     </td>
                     <td>
                       {vehicle.status === 'Vehicle IN' ? (
-                        <Button variant="gradient" onClick={() => onStartInspection(vehicle)}>
-                          Start Inspection
+                        <Button variant="gradient" onClick={() => onStartInspection(vehicle)} disabled={!!actionLoadingId}>
+                          {actionLoadingId === vehicle.vehicleCheckInId ? (
+                            <span className="flex items-center gap-2">
+                              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Starting...
+                            </span>
+                          ) : 'Start Inspection'}
                         </Button>
                       ) : vehicle.status === 'Inspection (Draft)' && vehicle.inspectionId ? (
-                        <Button variant="gradient" onClick={() => onResumeInspection(vehicle)}>
-                          Resume Inspection
+                        <Button variant="gradient" onClick={() => onResumeInspection(vehicle)} disabled={!!actionLoadingId}>
+                          {actionLoadingId === vehicle.vehicleCheckInId ? (
+                            <span className="flex items-center gap-2">
+                              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Resuming...
+                            </span>
+                          ) : 'Resume Inspection'}
                         </Button>
                       ) : (
                         ""
@@ -307,12 +318,23 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
                 {/* Action Button */}
                 <div className="mt-4">
                   {vehicle.status === 'Vehicle IN' ? (
-                    <Button variant="gradient" onClick={() => onStartInspection(vehicle)}>
-                      Start Inspection
+                    <Button variant="gradient" onClick={() => onStartInspection(vehicle)} disabled={!!actionLoadingId}>
+                      {actionLoadingId === vehicle.vehicleCheckInId ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Starting...
+                        </span>
+                      ) : 'Start Inspection'}
                     </Button>
                   ) : vehicle.status === 'Inspection (Draft)' && vehicle.inspectionId ? (
-                    <Button variant="gradient" onClick={() => onResumeInspection(vehicle)}>
-                      Resume Inspection
+                    <Button variant="gradient" onClick={() => onResumeInspection(vehicle)} disabled={!!actionLoadingId}>
+                      {actionLoadingId === vehicle.vehicleCheckInId ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Resuming...
+                        </span>
+                      ) : 'Resume Inspection'}
+
                     </Button>
                   ) : (
                     <StatusBadge status={mapStatus(vehicle.status)} />

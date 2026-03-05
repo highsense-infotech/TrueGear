@@ -162,7 +162,7 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
                 {onPhotoDelete && deletingId !== photo.id && (
                   <button
                     onClick={() => handleDelete(photo.id)}
-                    className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                   >
                     <X size={12} color="white" />
                   </button>

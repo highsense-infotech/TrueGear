@@ -96,7 +96,7 @@ export function PartRequestCard({
                 <button
                   onClick={onMarkAvailable}
                   disabled={!!loadingAction}
-                  className="bg-white border border-[#e5e7eb] text-[#333] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-50 transition-colors shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="bg-white border border-[#e5e7eb] text-[#333] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-50 transition-colors shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {loadingAction === 'markAvailable' && (
                     <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
@@ -107,7 +107,7 @@ export function PartRequestCard({
                   <button
                     onClick={onSetETA}
                     disabled={!!loadingAction}
-                    className="bg-[#E5E7EB] border border-[#e5e7eb] text-[#555] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-200 transition-colors shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="bg-[#E5E7EB] border border-[#e5e7eb] text-[#555] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-200 transition-colors shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {loadingAction === 'eta' && (
                       <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
@@ -122,7 +122,7 @@ export function PartRequestCard({
               <button
                 onClick={onDispatch}
                 disabled={!!loadingAction}
-                className="bg-[#1DB401] ml-auto text-white px-4 sm:px-6 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-[#45a049] transition-colors flex items-center justify-center gap-2 shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed"
+                className="bg-[#1DB401] ml-auto text-white px-4 sm:px-6 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-[#45a049] transition-colors flex items-center justify-center gap-2 shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loadingAction === 'dispatch' ? (
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

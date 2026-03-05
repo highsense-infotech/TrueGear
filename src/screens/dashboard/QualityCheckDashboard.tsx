@@ -51,6 +51,7 @@ const QualityCheckDashboard: React.FC = () => {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"ALL" | "URGENT" | "DELAYED" | "COMPLETED">("ALL");
   const [page, setPage] = useState(1);
 
@@ -87,6 +88,7 @@ const QualityCheckDashboard: React.FC = () => {
   };
 
   const handleStartInspection = async (vehicle: QCQueueItem) => {
+    setActionLoadingId(vehicle.vehicleCheckInId);
     try {
       const res = await startInspection({
         vehicleId: vehicle.vehicleId,
@@ -99,10 +101,13 @@ const QualityCheckDashboard: React.FC = () => {
     } catch (err) {
       console.error("Failed to start inspection:", err);
       toast.error("Failed to start inspection");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const handleResumeInspection = (vehicle: QCQueueItem) => {
+    setActionLoadingId(vehicle.vehicleCheckInId);
     navigate(ROUTES.QUALITY_CHECK_INSPECTION.replace(':inspectionId', vehicle.inspectionId!));
   };
 
@@ -150,6 +155,7 @@ const QualityCheckDashboard: React.FC = () => {
               onPageChange={handlePageChange}
               onStartInspection={handleStartInspection}
               onResumeInspection={handleResumeInspection}
+              actionLoadingId={actionLoadingId}
             />
           </div>
         </>

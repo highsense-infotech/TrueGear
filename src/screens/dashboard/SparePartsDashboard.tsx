@@ -29,7 +29,7 @@ const SparePartsDashboard = () => {
     dispatched: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Action loading state: maps requestId -> action type
