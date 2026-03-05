@@ -108,7 +108,6 @@ const QualityCheckDashboard: React.FC = () => {
   };
 
   const handleResumeInspection = (vehicle: QCQueueItem) => {
-    setActionLoadingId(vehicle.vehicleCheckInId);
     navigate(ROUTES.QUALITY_CHECK_INSPECTION.replace(':inspectionId', vehicle.inspectionId!));
   };
 
