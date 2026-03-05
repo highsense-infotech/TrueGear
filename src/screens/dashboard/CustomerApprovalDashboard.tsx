@@ -297,6 +297,7 @@ function CustomerApprovalDashboard() {
           total={total}
           onRequestModification={handleRequestModification}
           onApprove={handleApprove}
+          approving={approving}
         />
       </div>
     </div>
