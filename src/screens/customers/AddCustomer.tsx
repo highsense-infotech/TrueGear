@@ -5,7 +5,7 @@ import { ArrowRight, User, Car, Phone, Mail, Search, Plus, X, Check, Loader2 } f
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
-import { searchCustomers, type CustomerSearchItem } from "../../api/customer.api";
+import { searchCustomers, createCustomer, type CustomerSearchItem } from "../../api/customer.api";
 import { addVehicle, listMakes, listModelsByMake, type VehicleMake, type VehicleModel } from "../../api/vehicle.api";
 
 interface CustomerData {
@@ -285,16 +285,44 @@ const AddCustomer: React.FC = () => {
 
     if (!validateForm()) return;
 
-    // Must have a selected customer (from search) to get customerId
-    if (!selectedCustomer) {
-      setSubmitError("Please search and select a customer first.");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
+      let customerId = selectedCustomer?.id;
+
+      // If adding a new customer, create them first
+      if (!customerId && showNewCustomerForm) {
+        const customerRes = await createCustomer({
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          contactNumber: formData.phoneNumber.trim(),
+          primaryEmail: formData.email.trim() || undefined,
+          crmReferenceNo: `CRM-${Date.now()}`,
+          custSequenceId: `CUST-${Date.now()}`,
+          customerType: "I",
+          activeCustomer: true,
+          leadType: "WALK_IN",
+          leadSource: "DIRECT",
+        });
+
+        if (!customerRes.status) {
+          const msg = customerRes.message || "Failed to create customer";
+          setSubmitError(msg);
+          toast.error(msg);
+          setIsSubmitting(false);
+          return;
+        }
+
+        customerId = customerRes.data.id;
+      }
+
+      if (!customerId) {
+        setSubmitError("Please search and select a customer or add a new one.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const res = await addVehicle({
-        customerId: selectedCustomer.id,
+        customerId,
         vin: formData.vin.trim(),
         brand: formData.vehicleMake.trim(),
         model: formData.vehicleModel.trim(),
