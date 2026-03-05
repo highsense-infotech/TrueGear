@@ -77,7 +77,7 @@ const QualityCheckDashboard: React.FC = () => {
       setActionLoadingId(null);
       fetchDashboard();
     }
-  }, [isIndexRoute, fetchDashboard]);
+  }, [isIndexRoute, fetchDashboard, location.pathname]);
 
   const handleFilterChange = (newFilter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED") => {
     setFilter(newFilter);
