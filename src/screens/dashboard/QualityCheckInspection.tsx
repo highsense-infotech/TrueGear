@@ -19,6 +19,7 @@ import {
   saveFindings,
   submitInspection,
   uploadItemPhoto,
+  deleteItemPhoto,
   type InspectionItem,
   type InspectionVehicle,
   type InspectionSummary,
@@ -194,6 +195,15 @@ const QualityCheckInspection: React.FC = () => {
             break;
           }
         }
+        if (isValid) {
+          const failedWithoutPhoto = exteriorItems.some(
+            (item, i) => bodyPaintStatus[i] === "fail" && item.photos.length === 0
+          );
+          if (failedWithoutPhoto) {
+            newErrors["bodyPaint"] = "Please upload a photo for all failed items";
+            isValid = false;
+          }
+        }
         break;
       case 2:
         for (let i = 0; i < interiorItems.length; i++) {
@@ -204,6 +214,15 @@ const QualityCheckInspection: React.FC = () => {
             break;
           }
         }
+        if (isValid) {
+          const failedWithoutPhoto = interiorItems.some(
+            (item, i) => seatsStatus[i] === "fail" && item.photos.length === 0
+          );
+          if (failedWithoutPhoto) {
+            newErrors["seats"] = "Please upload a photo for all failed items";
+            isValid = false;
+          }
+        }
         break;
       case 3:
         for (let i = 0; i < brakeItems.length; i++) {
@@ -211,6 +230,15 @@ const QualityCheckInspection: React.FC = () => {
             newErrors["brake"] = "Please complete all Brake items";
             isValid = false;
             break;
+          }
+        }
+        if (isValid) {
+          const failedWithoutPhoto = brakeItems.some(
+            (item, i) => brakeStatus[i] === "fail" && item.photos.length === 0
+          );
+          if (failedWithoutPhoto) {
+            newErrors["brake"] = "Please upload a photo for all failed items";
+            isValid = false;
           }
         }
         break;
@@ -370,7 +398,7 @@ const QualityCheckInspection: React.FC = () => {
       const updatePhotos = (items: InspectionItem[]) =>
         items.map((item) =>
           item.id === itemId
-            ? { ...item, photos: [...item.photos, res.data] }
+            ? { ...item, photos: [...item.photos, res.data.photo] }
             : item
         );
       setExteriorItems((prev) => updatePhotos(prev));
@@ -379,21 +407,38 @@ const QualityCheckInspection: React.FC = () => {
     }
   };
 
+  // Photo delete handler
+  const handlePhotoDelete = async (itemId: string, photoId: string) => {
+    if (!inspectionId) return;
+    const res = await deleteItemPhoto(inspectionId, itemId, photoId);
+    if (res.status) {
+      const removePhoto = (items: InspectionItem[]) =>
+        items.map((item) =>
+          item.id === itemId
+            ? { ...item, photos: item.photos.filter((p) => p.id !== photoId) }
+            : item
+        );
+      setExteriorItems((prev) => removePhoto(prev));
+      setInteriorItems((prev) => removePhoto(prev));
+      setBrakeItemsList((prev) => removePhoto(prev));
+    }
+  };
+
   // Convert API items to display format
   const exteriorDisplayItems = exteriorItems.map((item) => ({
     id: item.id,
     label: item.itemLabel,
-    photoUrl: item.photos.length > 0 ? item.photos[item.photos.length - 1].imageUrl : undefined,
+    photos: item.photos,
   }));
   const interiorDisplayItems = interiorItems.map((item) => ({
     id: item.id,
     label: item.itemLabel,
-    photoUrl: item.photos.length > 0 ? item.photos[item.photos.length - 1].imageUrl : undefined,
+    photos: item.photos,
   }));
   const brakeDisplayItems = brakeItems.map((item) => ({
     id: item.id,
     label: item.itemLabel,
-    photoUrl: item.photos.length > 0 ? item.photos[item.photos.length - 1].imageUrl : undefined,
+    photos: item.photos,
   }));
 
   // Calculate progress strings
@@ -445,6 +490,8 @@ const QualityCheckInspection: React.FC = () => {
               status={bodyPaintStatus}
               onStatusChange={setBodyPaintStatus}
               onPhotoUpload={handlePhotoUpload}
+              onPhotoDelete={handlePhotoDelete}
+              showPhotoError={!!errors["bodyPaint"]?.includes("photo")}
             />
           </>
         );
@@ -470,6 +517,8 @@ const QualityCheckInspection: React.FC = () => {
               status={seatsStatus}
               onStatusChange={setSeatsStatus}
               onPhotoUpload={handlePhotoUpload}
+              onPhotoDelete={handlePhotoDelete}
+              showPhotoError={!!errors["seats"]?.includes("photo")}
             />
           </>
         );
@@ -495,6 +544,8 @@ const QualityCheckInspection: React.FC = () => {
               status={brakeStatus}
               onStatusChange={setBrakeStatus}
               onPhotoUpload={handlePhotoUpload}
+              onPhotoDelete={handlePhotoDelete}
+              showPhotoError={!!errors["brake"]?.includes("photo")}
             />
           </>
         );
@@ -621,7 +672,12 @@ const QualityCheckInspection: React.FC = () => {
                 onClick={handleSaveAndContinue}
                 disabled={saving || loading}
               >
-                {saving ? "Saving..." : "Save & Continue"}
+                {saving ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </span>
+                ) : "Save & Continue"}
               </Button>
             </div>
           )}

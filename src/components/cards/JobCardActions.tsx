@@ -7,13 +7,15 @@ interface JobCardActionsProps {
   total: number;
   onSaveDraft?: () => void;
   onShareEstimate?: () => void;
+  savingType?: 'draft' | 'estimate' | null;
 }
 
-export function JobCardActions({ 
-  jobCount, 
-  total, 
-  onSaveDraft, 
-  onShareEstimate 
+export function JobCardActions({
+  jobCount,
+  total,
+  onSaveDraft,
+  onShareEstimate,
+  savingType = null
 }: JobCardActionsProps) {
   const { formatCurrency } = useCurrency();
 
@@ -37,20 +39,32 @@ export function JobCardActions({
             hoverBg: "#f9fafb",
           }}
           onClick={onSaveDraft}
+          disabled={!!savingType}
           icon={<Save size={20} className="text-gray-800" />}
           className="px-4 md:px-5 py-3 rounded-md shadow-sm"
         >
           <span className="text-sm md:text-base font-medium text-gray-800">
-            Save Draft
+            {savingType === 'draft' ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
+                Saving...
+              </span>
+            ) : "Save Draft"}
           </span>
         </Button>
         <Button
           variant="gradient"
           onClick={onShareEstimate}
-          icon={<ArrowRight size={20} className="text-white" />}
+          disabled={!!savingType}
+          icon={savingType !== 'estimate' ? <ArrowRight size={20} className="text-white" /> : undefined}
         >
           <span className="text-sm md:text-base font-medium">
-            Save & Continue
+            {savingType === 'estimate' ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Saving...
+              </span>
+            ) : "Save & Continue"}
           </span>
         </Button>
       </div>

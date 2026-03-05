@@ -135,7 +135,7 @@ export function ServiceAdvisorTable({
                             className="text-[16px] mb-0.5 text-[#0061FF] cursor-pointer hover:underline"
                             onClick={() => handleVehicleClick(vehicle.vehicleId)}
                           >
-                            {vehicle.registrationNumber}
+                            {vehicle.registrationNumber.toUpperCase()}
                           </p>
                           <p className="text-[#999] text-[12px]">{vehicle.brand} {vehicle.model}</p>
                         </div>

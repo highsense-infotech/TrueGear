@@ -32,6 +32,9 @@ const SparePartsDashboard = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  // Action loading state: maps requestId -> action type
+  const [actionLoading, setActionLoading] = useState<Record<string, 'markAvailable' | 'eta' | 'dispatch'>>({});
+
   // ETA modal state
   const [etaModalOpen, setEtaModalOpen] = useState(false);
   const [etaPartId, setEtaPartId] = useState<string | null>(null);
@@ -55,22 +58,28 @@ const SparePartsDashboard = () => {
   }, []);
 
   const handleMarkAvailable = async (id: string) => {
+    setActionLoading((prev) => ({ ...prev, [id]: 'markAvailable' }));
     try {
       await markPartAvailable(id);
       toast.success("Part marked as available");
       await fetchDashboard();
     } catch {
       toast.error("Failed to update part status");
+    } finally {
+      setActionLoading((prev) => { const next = { ...prev }; delete next[id]; return next; });
     }
   };
 
   const handleDispatch = async (id: string) => {
+    setActionLoading((prev) => ({ ...prev, [id]: 'dispatch' }));
     try {
       await markPartDispatched(id);
       toast.success("Part dispatched to bay");
       await fetchDashboard();
     } catch {
       toast.error("Failed to dispatch part");
+    } finally {
+      setActionLoading((prev) => { const next = { ...prev }; delete next[id]; return next; });
     }
   };
 
@@ -278,6 +287,7 @@ const SparePartsDashboard = () => {
                 }
                 showDispatchInfo={request.showDispatchInfo}
                 expectedTime={request.expectedTime ?? undefined}
+                loadingAction={actionLoading[request.id] || null}
               />
             ))}
           </div>

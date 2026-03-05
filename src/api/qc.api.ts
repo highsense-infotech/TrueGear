@@ -220,8 +220,11 @@ export interface UploadItemPhotoResponse {
   status: boolean;
   message: string;
   data: {
-    id: string;
-    imageUrl: string;
+    photo: {
+      id: string;
+      imageUrl: string;
+    };
+    photoCount: number;
   };
 }
 
@@ -236,6 +239,19 @@ export const uploadItemPhoto = async (
     `/qc-inspections/${inspectionId}/items/${itemId}/photos`,
     formData,
     { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return data;
+};
+
+// --- Delete Item Photo API ---
+
+export const deleteItemPhoto = async (
+  inspectionId: string,
+  itemId: string,
+  photoId: string
+): Promise<{ status: boolean; message: string }> => {
+  const { data } = await api.delete(
+    `/qc-inspections/${inspectionId}/items/${itemId}/photos/${photoId}`
   );
   return data;
 };

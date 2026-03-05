@@ -210,7 +210,7 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
                           </div>
                         )}
                         <div>
-                          <p className="text-[#333] text-[16px] mb-0.5">{vehicle.registrationNumber}</p>
+                          <p className="text-[#333] text-[16px] mb-0.5">{vehicle.registrationNumber.toUpperCase()}</p>
                           <p className="text-[#999] text-[12px]">{vehicle.brand} {vehicle.model}</p>
                         </div>
                       </div>

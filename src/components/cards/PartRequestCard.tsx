@@ -11,6 +11,7 @@ interface PartRequestCardProps {
   onDispatch?: () => void;
   showDispatchInfo?: boolean;
   expectedTime?: string;
+  loadingAction?: 'markAvailable' | 'eta' | 'dispatch' | null;
 }
 
 const statusConfig = {
@@ -49,6 +50,7 @@ export function PartRequestCard({
   onDispatch,
   showDispatchInfo,
   expectedTime,
+  loadingAction = null,
 }: PartRequestCardProps) {
   const statusStyle = statusConfig[status];
 
@@ -93,16 +95,24 @@ export function PartRequestCard({
               <>
                 <button
                   onClick={onMarkAvailable}
-                  className=" bg-white border border-[#e5e7eb] text-[#333] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-50 transition-colors shadow-[2px_4px_8px_0px_#00000026]"
+                  disabled={!!loadingAction}
+                  className="bg-white border border-[#e5e7eb] text-[#333] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-50 transition-colors shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Mark as Available
+                  {loadingAction === 'markAvailable' && (
+                    <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
+                  )}
+                  {loadingAction === 'markAvailable' ? 'Updating...' : 'Mark as Available'}
                 </button>
                 {onSetETA && (
                   <button
                     onClick={onSetETA}
-                    className="bg-[#E5E7EB] border border-[#e5e7eb] text-[#555] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-200 transition-colors shadow-[2px_4px_8px_0px_#00000026]"
+                    disabled={!!loadingAction}
+                    className="bg-[#E5E7EB] border border-[#e5e7eb] text-[#555] px-3 sm:px-4 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-gray-200 transition-colors shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    ETA if available
+                    {loadingAction === 'eta' && (
+                      <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                    )}
+                    {loadingAction === 'eta' ? 'Setting...' : 'ETA if available'}
                   </button>
                 )}
               </>
@@ -111,12 +121,17 @@ export function PartRequestCard({
             {status === "available" && onDispatch && (
               <button
                 onClick={onDispatch}
-                className="bg-[#1DB401] ml-auto text-white px-4 sm:px-6 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-[#45a049] transition-colors flex items-center justify-center gap-2 shadow-[2px_4px_8px_0px_#00000026]"
+                disabled={!!loadingAction}
+                className="bg-[#1DB401] ml-auto text-white px-4 sm:px-6 py-2 rounded-[5px] text-[12px] sm:text-[14px] font-medium hover:bg-[#45a049] transition-colors flex items-center justify-center gap-2 shadow-[2px_4px_8px_0px_#00000026] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <svg className="size-4" fill="none" viewBox="0 0 16 16">
-                  <path d="M2.66667 9.33333L9.33333 2.66667L12.6667 6L6 12.6667L2.66667 14L4 10.6667L2.66667 9.33333Z" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
-                </svg>
-                Dispatch to Bay
+                {loadingAction === 'dispatch' ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="size-4" fill="none" viewBox="0 0 16 16">
+                    <path d="M2.66667 9.33333L9.33333 2.66667L12.6667 6L6 12.6667L2.66667 14L4 10.6667L2.66667 9.33333Z" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+                  </svg>
+                )}
+                {loadingAction === 'dispatch' ? 'Dispatching...' : 'Dispatch to Bay'}
               </button>
             )}
           </div>

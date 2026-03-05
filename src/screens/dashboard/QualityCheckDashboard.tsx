@@ -57,7 +57,7 @@ const QualityCheckDashboard: React.FC = () => {
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getQCDashboard({ page, limit: 10, filter, sortOrder: "asc" });
+      const res = await getQCDashboard({ page, limit: 10, filter, sortOrder: "desc" });
       if (res.status) {
         setStats(res.data.stats);
         setQueue(res.data.queue);

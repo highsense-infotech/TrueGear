@@ -34,7 +34,7 @@ const CreateJobCard: React.FC = () => {
   });
   const [inspectionId, setInspectionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingType, setSavingType] = useState<'draft' | 'estimate' | null>(null);
   const [jobErrors, setJobErrors] = useState<Record<number, JobErrors>>({});
 
   useEffect(() => {
@@ -216,11 +216,11 @@ const CreateJobCard: React.FC = () => {
     return !hasError;
   };
 
-  const saveAndNavigate = async () => {
-    if (!vehicleId || saving) return;
+  const saveAndNavigate = async (type: 'draft' | 'estimate') => {
+    if (!vehicleId || savingType) return;
     if (!validateJobs()) return;
 
-    setSaving(true);
+    setSavingType(type);
     try {
       const items = jobs.map((job) => ({
         jobDescription: job.jobDescription,
@@ -256,7 +256,7 @@ const CreateJobCard: React.FC = () => {
       const msg = error?.response?.data?.message || "Failed to save job card";
       toast.error(msg);
     } finally {
-      setSaving(false);
+      setSavingType(null);
     }
   };
 
@@ -309,8 +309,9 @@ const CreateJobCard: React.FC = () => {
         <JobCardActions
           jobCount={jobs.length}
           total={total}
-          onSaveDraft={saveAndNavigate}
-          onShareEstimate={saveAndNavigate}
+          onSaveDraft={() => saveAndNavigate('draft')}
+          onShareEstimate={() => saveAndNavigate('estimate')}
+          savingType={savingType}
         />
       </div>
     </>

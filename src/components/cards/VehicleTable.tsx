@@ -86,7 +86,7 @@ function mapSearchItem(v: SearchVehicleItem): DisplayVehicle {
   const { time, date } = formatEntryTime(v.vehicle.entryTime);
   return {
     id: v.vehicle.id,
-    registration: v.vehicle.registrationNumber || v.vehicle.vin,
+    registration: (v.vehicle.registrationNumber || v.vehicle.vin).toUpperCase(),
     model: `${v.vehicle.brand} ${v.vehicle.model}`,
     odometer: v.vehicle.odometerLast ? `${v.vehicle.odometerLast.toLocaleString()} KM` : "N/A",
     brand: v.vehicle.brand,
@@ -352,7 +352,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
                           </div>
                         )}
                         <div>
-                          <p className="text-[#333]">{vehicle.registration}</p>
+                          <p className="text-[#333]">{vehicle.registration.toUpperCase()}</p>
                           <p className="text-[#999] text-xs">{vehicle.model}</p>
                         </div>
                       </div>
