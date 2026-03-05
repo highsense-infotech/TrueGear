@@ -74,6 +74,7 @@ const QualityCheckDashboard: React.FC = () => {
 
   useEffect(() => {
     if (isIndexRoute) {
+      setActionLoadingId(null);
       fetchDashboard();
     }
   }, [isIndexRoute, fetchDashboard]);
