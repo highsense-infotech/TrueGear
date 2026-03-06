@@ -9,6 +9,8 @@ export interface SADashboardParams {
   limit?: number;
   filter?: SAFilterStatus;
   sortOrder?: "asc" | "desc";
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface SAStats {

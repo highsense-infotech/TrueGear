@@ -1,7 +1,8 @@
-import { Clock, SlidersHorizontal } from "lucide-react";
+import { Clock } from "lucide-react";
 import truck from "../../assets/truck.png";
 import Button from '../common/Button';
 import { Pagination } from "../common/Pagination";
+import { DatePicker } from "../common/DatePicker";
 import type { QCQueueItem, QCPagination } from '../../api/qc.api';
 
 type StatusFilter = "All" | "Urgent" | "Delayed" | "Completed";
@@ -92,9 +93,11 @@ interface QCTableProps {
   onStartInspection: (vehicle: QCQueueItem) => void;
   onResumeInspection: (vehicle: QCQueueItem) => void;
   actionLoadingId?: string | null;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 }
 
-export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onStartInspection, onResumeInspection, actionLoadingId = null }: QCTableProps) {
+export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onStartInspection, onResumeInspection, actionLoadingId = null, selectedDate, onDateChange }: QCTableProps) {
   const statusFilter: StatusFilter = filter === "ALL" ? "All" : filter === "URGENT" ? "Urgent" : filter === "COMPLETED" ? "Completed" : "Delayed";
 
   const handleStatusFilterChange = (f: StatusFilter) => {
@@ -159,9 +162,12 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
             Completed
           </Button>
         </div>
-        <Button variant="outline" icon={<SlidersHorizontal className="w-4 h-4" />} className="text-[#333]">
-          Filter
-        </Button>
+        <DatePicker
+          value={selectedDate}
+          onChange={onDateChange}
+          label="Date"
+          className="cursor-pointer"
+        />
       </div>
 
       {/* Loading State */}

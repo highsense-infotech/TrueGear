@@ -7,6 +7,8 @@ export interface QCDashboardParams {
   limit?: number;
   filter?: "ALL" | "URGENT" | "DELAYED" | "COMPLETED";
   sortOrder?: "asc" | "desc";
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface QCStats {

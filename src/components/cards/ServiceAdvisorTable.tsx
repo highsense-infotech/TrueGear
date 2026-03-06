@@ -1,7 +1,8 @@
-import { Clock, SlidersHorizontal, FileText } from "lucide-react";
+import { Clock, FileText } from "lucide-react";
 import truck from "../../assets/truck.png";
 import Button from '../common/Button';
 import { Pagination } from "../common/Pagination";
+import { DatePicker } from "../common/DatePicker";
 import { useNavigate } from "react-router-dom";
 import type { SAVehicle, SAPagination, SAFilterStatus } from "../../api/serviceAdvisor.api";
 
@@ -41,6 +42,8 @@ interface ServiceAdvisorTableProps {
   filter: SAFilterStatus;
   onFilterChange: (filter: SAFilterStatus) => void;
   onPageChange: (page: number) => void;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 }
 
 export function ServiceAdvisorTable({
@@ -49,6 +52,8 @@ export function ServiceAdvisorTable({
   filter,
   onFilterChange,
   onPageChange,
+  selectedDate,
+  onDateChange,
 }: ServiceAdvisorTableProps) {
   const navigate = useNavigate();
   const isEmpty = vehicles.length === 0;
@@ -83,9 +88,12 @@ export function ServiceAdvisorTable({
             </Button>
           ))}
         </div>
-        <Button variant="outline" icon={<SlidersHorizontal className="w-4 h-4" />} className="text-[#333]">
-          Filter
-        </Button>
+        <DatePicker
+          value={selectedDate}
+          onChange={onDateChange}
+          label="Date"
+          className="cursor-pointer"
+        />
       </div>
 
       {/* Empty State or Table */}

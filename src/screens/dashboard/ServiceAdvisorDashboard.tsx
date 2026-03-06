@@ -29,6 +29,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<SAFilterStatus>("ALL");
   const [page, setPage] = useState(1);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const limit = 5;
 
   const fetchDashboard = useCallback(async () => {
@@ -39,6 +40,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
         limit,
         filter,
         sortOrder: "desc",
+        ...(selectedDate ? { dateFrom: selectedDate, dateTo: selectedDate } : {}),
       });
       if (res.status) {
         setStats(res.data.stats);
@@ -51,7 +53,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, filter]);
+  }, [page, filter, selectedDate]);
 
   useEffect(() => {
     if (isIndexRoute) {
@@ -133,6 +135,8 @@ const ServiceAdvisorDashboard: React.FC = () => {
                 filter={filter}
                 onFilterChange={handleFilterChange}
                 onPageChange={handlePageChange}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
               />
             )}
           </div>

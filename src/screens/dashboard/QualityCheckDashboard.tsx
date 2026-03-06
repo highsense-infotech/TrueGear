@@ -54,11 +54,15 @@ const QualityCheckDashboard: React.FC = () => {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"ALL" | "URGENT" | "DELAYED" | "COMPLETED">("ALL");
   const [page, setPage] = useState(1);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getQCDashboard({ page, limit: 10, filter, sortOrder: "desc" });
+      const res = await getQCDashboard({
+        page, limit: 10, filter, sortOrder: "desc",
+        ...(selectedDate ? { dateFrom: selectedDate, dateTo: selectedDate } : {}),
+      });
       if (res.status) {
         setStats(res.data.stats);
         setQueue(res.data.queue);
@@ -70,7 +74,7 @@ const QualityCheckDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, filter]);
+  }, [page, filter, selectedDate]);
 
   useEffect(() => {
     if (isIndexRoute) {
@@ -156,6 +160,8 @@ const QualityCheckDashboard: React.FC = () => {
               onStartInspection={handleStartInspection}
               onResumeInspection={handleResumeInspection}
               actionLoadingId={actionLoadingId}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
             />
           </div>
         </>
