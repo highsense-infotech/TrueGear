@@ -101,17 +101,18 @@ const QualityCheckDashboard: React.FC = () => {
         priority: vehicle.priority,
       });
       if (res.status) {
+        setActionLoadingId(null);
         navigate(ROUTES.QUALITY_CHECK_INSPECTION.replace(':inspectionId', res.data.inspection.id));
       }
     } catch (err) {
       console.error("Failed to start inspection:", err);
       toast.error("Failed to start inspection");
-    } finally {
       setActionLoadingId(null);
     }
   };
 
   const handleResumeInspection = (vehicle: QCQueueItem) => {
+    setActionLoadingId(vehicle.vehicleCheckInId);
     navigate(ROUTES.QUALITY_CHECK_INSPECTION.replace(':inspectionId', vehicle.inspectionId!));
   };
 
