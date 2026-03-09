@@ -29,12 +29,22 @@ const CURRENCY_TAX_MAP: Record<string, TaxConfig> = {
 };
 
 const STORAGE_KEY = "truegear_currency";
+const TAX_OVERRIDES_KEY = "truegear_tax_overrides";
 
 function getInitialCurrency(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY) || "INR";
+    return localStorage.getItem(STORAGE_KEY) || "USD";
   } catch {
-    return "INR";
+    return "USD";
+  }
+}
+
+function getInitialTaxOverrides(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(TAX_OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
@@ -44,15 +54,21 @@ interface CurrencyContextValue {
   formatCurrency: (amount: number) => string;
   currencyOption: CurrencyOption;
   taxConfig: TaxConfig;
+  setTaxPercentage: (percentage: number) => void;
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState(getInitialCurrency);
+  const [taxOverrides, setTaxOverrides] = useState<Record<string, number>>(getInitialTaxOverrides);
 
   const currencyOption = CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0];
-  const taxConfig = CURRENCY_TAX_MAP[currency] || { label: "Tax", percentage: 10 };
+  const defaultTax = CURRENCY_TAX_MAP[currency] || { label: "Tax", percentage: 10 };
+  const taxConfig: TaxConfig = {
+    label: defaultTax.label,
+    percentage: taxOverrides[currency] ?? defaultTax.percentage,
+  };
 
   const setCurrency = useCallback((code: string) => {
     setCurrencyState(code);
@@ -62,6 +78,18 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       // ignore
     }
   }, []);
+
+  const setTaxPercentage = useCallback((percentage: number) => {
+    setTaxOverrides((prev) => {
+      const updated = { ...prev, [currency]: percentage };
+      try {
+        localStorage.setItem(TAX_OVERRIDES_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  }, [currency]);
 
   const formatCurrency = useCallback(
     (amount: number) => {
@@ -76,7 +104,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, currencyOption, taxConfig }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, currencyOption, taxConfig, setTaxPercentage }}>
       {children}
     </CurrencyContext.Provider>
   );
