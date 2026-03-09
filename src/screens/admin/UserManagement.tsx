@@ -178,7 +178,7 @@ const UserManagement = () => {
       <div className="flex gap-2 mb-5">
         <button
           onClick={() => setActiveTab("roles")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-[8px] text-[13px] sm:text-[14px] font-medium transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-[8px] text-[13px] sm:text-[14px] font-medium transition-colors cursor-pointer ${
             activeTab === "roles"
               ? "bg-linear-to-b from-[#ff4f31] to-[#fe2b73] text-white shadow-md"
               : "bg-white border border-[#e5e7eb] text-[#555] hover:bg-gray-50"
@@ -189,7 +189,7 @@ const UserManagement = () => {
         </button>
         <button
           onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-[8px] text-[13px] sm:text-[14px] font-medium transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-[8px] text-[13px] sm:text-[14px] font-medium transition-colors cursor-pointer ${
             activeTab === "users"
               ? "bg-linear-to-b from-[#ff4f31] to-[#fe2b73] text-white shadow-md"
               : "bg-white border border-[#e5e7eb] text-[#555] hover:bg-gray-50"
