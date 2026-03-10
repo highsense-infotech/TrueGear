@@ -170,7 +170,7 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
         />
       </div>
 
-
+      {/* Loading State */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
           <p className="text-[#999] text-base">Loading...</p>
