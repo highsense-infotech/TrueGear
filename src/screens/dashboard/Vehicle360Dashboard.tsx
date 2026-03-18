@@ -101,13 +101,13 @@ const Vehicle360Dashboard: React.FC = () => {
   return (
     <>
       {/* ── single white card — only on index route ───────────────────────── */}
-      {isIndexRoute && <div className="bg-white rounded-xl border border-[#ebebeb] shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
+      {isIndexRoute && <div >
 
         {/* search section */}
-        <div className="p-5 md:p-6">
+        <div >
           <h2 className="text-[#333] text-[15px] font-semibold mb-0.5">Vehicle Lookup</h2>
           <p className="text-[#999] text-xs mb-4">Enter the vehicle registration number to search</p>
-          <div className="flex gap-3">
+          <div className="bg-white flex gap-3 p-5 md:p-6 rounded-xl border border-[#ebebeb] shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#bfbfbf]" />
               <input
@@ -131,7 +131,7 @@ const Vehicle360Dashboard: React.FC = () => {
         <div className="border-t border-[#f0f0f0]" />
 
         {/* list section */}
-        <div className="p-5 md:p-6">
+        <div className="mt-2">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-[#333] text-[15px] font-semibold">Vehicle Lookup</h2>
