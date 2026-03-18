@@ -31,9 +31,9 @@ export function ConfirmDeleteModal({
         </div>
 
         {/* Title */}
-        <h2 className="text-[#333] text-[20px] mb-2">Delete Vehicle</h2>
+        <h2 className="text-[#333] text-[20px] mb-2">Cancel Entry</h2>
         <p className="text-[#999] text-[14px] mb-7.5">
-          Are you sure you want to delete this vehicle? This action cannot be undone.
+          Are you sure you want to cancel this vehicle entry? The vehicle record will be preserved.
         </p>
 
         {/* Vehicle Info */}
@@ -70,7 +70,7 @@ export function ConfirmDeleteModal({
             disabled={isDeleting}
             icon={isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? "Cancelling..." : "Cancel Entry"}
           </Button>
         </div>
       </div>
