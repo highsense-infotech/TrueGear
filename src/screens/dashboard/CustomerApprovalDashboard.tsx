@@ -15,6 +15,7 @@ import {
 
 interface Job {
   id: number;
+  itemId: string;
   title: string;
   description: string;
   details: string;
@@ -40,6 +41,21 @@ function formatDate(dateStr: string | null): string {
   return `${date} at ${time}`;
 }
 
+const CURRENCY_LOCALES: Record<string, string> = {
+  INR: 'en-IN', USD: 'en-US', EUR: 'de-DE', GBP: 'en-GB', AED: 'ar-AE',
+};
+
+function makeFmt(currencyCode: string) {
+  const locale = CURRENCY_LOCALES[currencyCode] ?? 'en-US';
+  return (n: number) =>
+    new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n);
+}
+
 function CustomerApprovalDashboard() {
   const { token } = useParams<{ token: string }>();
   const [estimateData, setEstimateData] = useState<EstimateData | null>(null);
@@ -60,11 +76,13 @@ function CustomerApprovalDashboard() {
           setEstimateData(res.data);
 
           // Map API items to Job format
+          const fmtForMapping = makeFmt(res.data.jobCard.currencyCode);
           const mappedJobs: Job[] = res.data.items.map((item, idx) => ({
             id: idx + 1,
+            itemId: item.id,
             title: item.jobDescription,
             description: item.partsRequired || "—",
-            details: `Parts: ₹${Number(item.partsCost).toLocaleString("en-IN")} | Labour: ₹${Number(item.labourCost).toLocaleString("en-IN")}`,
+            details: `Parts: ${fmtForMapping(Number(item.partsCost))} | Labour: ${fmtForMapping(Number(item.labourCost))}`,
             price: Number(item.lineTotal),
             selected: true,
           }));
@@ -122,7 +140,8 @@ function CustomerApprovalDashboard() {
     if (selectedCount === 0 || !token || approving) return;
     setApproving(true);
     try {
-      const res = await approveEstimate(token);
+      const approvedItemIds = selectedJobs.map((j) => j.itemId);
+      const res = await approveEstimate(token, approvedItemIds);
       if (res.status) {
         setCurrentScreen("approve");
       }
@@ -179,6 +198,7 @@ function CustomerApprovalDashboard() {
   if (!estimateData) return null;
 
   const { jobCard, vehicle } = estimateData;
+  const fmt = makeFmt(jobCard.currencyCode);
   const vehicleNumber = vehicle?.registrationNumber || "—";
   const vehicleModel = vehicle ? `${vehicle.brand} ${vehicle.model}` : "—";
 
@@ -219,7 +239,7 @@ function CustomerApprovalDashboard() {
   // Approve success screen
   if (currentScreen === "approve") {
     return (
-      <ApproveScreen selectedJobs={selectedJobs} total={total} />
+      <ApproveScreen selectedJobs={selectedJobs} total={total} formatAmount={fmt} />
     );
   }
 
@@ -264,7 +284,7 @@ function CustomerApprovalDashboard() {
                   title={job.title}
                   description={job.description}
                   details={job.details}
-                  price={"₹" + job.price.toLocaleString("en-IN")}
+                  price={fmt(job.price)}
                   isSelected={job.selected}
                   onToggle={function () {
                     toggleJob(job.id);
@@ -282,6 +302,8 @@ function CustomerApprovalDashboard() {
           subtotal={subtotal}
           gst={gst}
           total={total}
+          taxLabel={estimateData.jobCard.taxLabel}
+          formatAmount={fmt}
         />
 
         {/* Error message */}
@@ -298,6 +320,7 @@ function CustomerApprovalDashboard() {
           onRequestModification={handleRequestModification}
           onApprove={handleApprove}
           approving={approving}
+          formatAmount={fmt}
         />
       </div>
     </div>

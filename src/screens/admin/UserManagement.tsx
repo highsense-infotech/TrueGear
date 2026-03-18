@@ -46,6 +46,7 @@ const ROLE_BG_COLORS: Record<string, string> = {
   "service-advisor": "#1DB401",
   "parts-manager": "#E89D00",
   customer: "#6B7280",
+  receptionist: "#0EA5E9",
 };
 
 function getRoleBadge(slug: string, name: string) {

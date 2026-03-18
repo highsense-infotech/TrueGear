@@ -6,12 +6,13 @@ import { DatePicker } from "../common/DatePicker";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import ROUTES from "../../constants/routes";
+import toast from "react-hot-toast";
 import {
   listVehicles,
   searchVehicles,
   deleteVehicle,
+  vinLookup,
   type VehicleItem,
-  type SearchVehicleItem,
   type VehicleStats,
 } from "../../api/vehicle.api";
 import { ConfirmDeleteModal } from "../common/ConfirmDeleteModal";
@@ -47,9 +48,12 @@ type StatusFilter = "All" | "Inside" | "Pending Exit";
 interface VehicleTableProps {
   searchQuery?: string;
   onStatsLoaded?: (stats: VehicleStats) => void;
+  includeAll?: boolean;
+  readOnly?: boolean;
 }
 
-function formatEntryTime(isoString: string): { time: string; date: string } {
+function formatEntryTime(isoString: string | null | undefined): { time: string; date: string } {
+  if (!isoString) return { time: "-", date: "-" };
   const d = new Date(isoString);
   const time = d.toLocaleTimeString("en-US", {
     hour: "2-digit",
@@ -82,22 +86,8 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
   };
 }
 
-function mapSearchItem(v: SearchVehicleItem): DisplayVehicle {
-  const { time, date } = formatEntryTime(v.vehicle.entryTime);
-  return {
-    id: v.vehicle.id,
-    registration: (v.vehicle.registrationNumber || v.vehicle.vin).toUpperCase(),
-    model: `${v.vehicle.brand} ${v.vehicle.model}`,
-    odometer: v.vehicle.odometerLast ? `${v.vehicle.odometerLast.toLocaleString()} KM` : "N/A",
-    brand: v.vehicle.brand,
-    entryTime: time,
-    date,
-    status: v.vehicle.status,
-    customerName: v.customer?.fullName,
-  };
-}
 
-export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTableProps) {
+export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = false, readOnly = false }: VehicleTableProps) {
   const [vehicles, setVehicles] = useState<DisplayVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,38 +99,29 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
   const itemsPerPage = 10;
 
   const navigate = useNavigate();
+  const [showVehicleInput, setShowVehicleInput] = useState(false);
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [isLookingUp, setIsLookingUp] = useState(false);
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // If there's a search query, use the Search Vehicle API
-      if (searchQuery.trim()) {
-        const res = await searchVehicles(searchQuery.trim());
-        if (res.status) {
-          setVehicles(res.data.map(mapSearchItem));
-          setTotalPages(1);
-          setTotalItems(res.data.length);
-        } else {
-          setVehicles([]);
-          setTotalPages(1);
-          setTotalItems(0);
-        }
-        return;
-      }
-
-      // Otherwise, use List Vehicles API with filters
       const params: Record<string, string | number> = {
         page: currentPage,
         limit: itemsPerPage,
         sortOrder: "desc",
       };
 
+      if (searchQuery.trim()) {
+        params.vin = searchQuery.trim();
+      }
+
       // Status filter mapping
       if (statusFilter === "Pending Exit") {
-        params.status = "Completed";
+        params.filter = "PENDING_EXIT";
       } else if (statusFilter === "Inside") {
-        params.status = "In Queue";
+        params.filter = "INSIDE";
       }
 
       // Date filter
@@ -148,6 +129,8 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
         params.dateFrom = selectedDate;
         params.dateTo = selectedDate;
       }
+
+      if (includeAll) params.includeAll = "true";
 
       const res = await listVehicles(params);
       if (res.status) {
@@ -189,7 +172,44 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
     setStatusFilter(filter);
   };
   const handleAddVehicle = () => {
-    navigate(ROUTES.ADD_CUSTOMER);
+    setShowVehicleInput(true);
+  };
+
+  const handleVinSubmit = async () => {
+    const vin = vehicleNumber.trim();
+    if (!vin) return;
+
+    setIsLookingUp(true);
+    try {
+      const res = await vinLookup(vin);
+      const hasData = res.found && res.data && (
+        Object.keys(res.data.CustomerDetail).length > 0 || Object.keys(res.data.Vehicles).length > 0
+      );
+      if (hasData) {
+        // Step 1: Found in third-party — pre-fill from external data
+        sessionStorage.setItem("vinLookupData", JSON.stringify(res.data));
+        toast.success("Vehicle data found! Pre-filling details...");
+        navigate(`${ROUTES.ADD_CUSTOMER}?vinLookup=true`);
+        return;
+      }
+
+      // Step 2: Not in third-party — search local DB
+      const localRes = await searchVehicles(vin);
+      if (localRes.status && localRes.data.length > 0) {
+        const found = localRes.data[0];
+        toast.success("Vehicle found in local database!");
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${found.vehicle.id}`);
+        return;
+      }
+
+      // Step 3: Not found anywhere — manual Add New Vehicle flow
+      navigate(`${ROUTES.ADD_CUSTOMER}?vehicleNumber=${encodeURIComponent(vin)}`);
+    } catch {
+      // API error — fall back to manual flow
+      navigate(`${ROUTES.ADD_CUSTOMER}?vehicleNumber=${encodeURIComponent(vin)}`);
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   const handleEditVehicle = (vehicle: DisplayVehicle) => {
@@ -300,12 +320,53 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
       )}
 
       {/* Empty State */}
-      {isEmpty && !error && (
+      {isEmpty && !error && !showVehicleInput && (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
           <p className="text-black text-base">No Vehicle Found!</p>
-          <Button variant="secondary" onClick={handleAddVehicle}>
-            + Add New Vehicle
-          </Button>
+          {!readOnly && (
+            <Button variant="secondary" onClick={handleAddVehicle}>
+              + Add New Vehicle
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Vehicle Number Input */}
+      {showVehicleInput && (
+        <div className="mt-4">
+          <div className="border-l-4 border-[#333] pl-3 mb-4">
+            <h3 className="text-[#333] text-[15px] font-semibold">Vehicle Details</h3>
+          </div>
+          <div className="flex flex-col items-center justify-center py-8 gap-4">
+            <p className="text-[#333] text-base font-semibold">Enter the vehicle number</p>
+            <input
+              type="text"
+              value={vehicleNumber}
+              onChange={(e) => setVehicleNumber(e.target.value)}
+              placeholder="Vehicle number"
+              disabled={isLookingUp}
+              className="w-full max-w-sm border border-[#e5e7eb] rounded-lg px-4 py-3 text-sm text-[#333] placeholder-[#999] focus:outline-none focus:border-[#999] transition-colors"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && vehicleNumber.trim()) {
+                  handleVinSubmit();
+                }
+              }}
+            />
+            <Button
+              variant="gradient"
+              onClick={handleVinSubmit}
+              disabled={!vehicleNumber.trim() || isLookingUp}
+            >
+              {isLookingUp ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Looking up...
+                </span>
+              ) : (
+                "Search & Continue"
+              )}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -379,20 +440,24 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
 
                     <td>
                       <div className="flex gap-2">
-                        <Button
-                          variant="custom"
-                          className="p-2! h-10! hover:bg-gray-100 bg-[#FBFBFB] border border-[#EBEBEB] rounded-md"
-                          onClick={() => handleEditVehicle(vehicle)}
-                        >
-                          <Edit2 size={16} />
-                        </Button>
-                        <Button
-                          variant="custom"
-                          className="p-2! h-10! hover:bg-gray-100 bg-[#FBFBFB] border border-[#EBEBEB] rounded-md"
-                          onClick={() => handleDeleteVehicle(vehicle)}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
+                        {!readOnly && (
+                          <>
+                            <Button
+                              variant="custom"
+                              className="p-2! h-10! hover:bg-gray-100 bg-[#FBFBFB] border border-[#EBEBEB] rounded-md"
+                              onClick={() => handleEditVehicle(vehicle)}
+                            >
+                              <Edit2 size={16} />
+                            </Button>
+                            <Button
+                              variant="custom"
+                              className="p-2! h-10! hover:bg-gray-100 bg-[#FBFBFB] border border-[#EBEBEB] rounded-md"
+                              onClick={() => handleDeleteVehicle(vehicle)}
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </>
+                        )}
                         <Button
                           variant="custom"
                           className="p-2! h-10! hover:bg-gray-100 rounded-md"
@@ -440,18 +505,22 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded }: VehicleTablePr
                   </div>
 
                   <div className="flex gap-1">
-                    <button
-                      onClick={() => handleEditVehicle(vehicle)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      className="p-1 hover:bg-gray-100 rounded"
-                      onClick={() => handleDeleteVehicle(vehicle)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {!readOnly && (
+                      <>
+                        <button
+                          onClick={() => handleEditVehicle(vehicle)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          className="p-1 hover:bg-gray-100 rounded"
+                          onClick={() => handleDeleteVehicle(vehicle)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                     <button className="p-1 hover:bg-gray-100 rounded">
                       <MoreHorizontal size={16} />
                     </button>

@@ -5,7 +5,7 @@ import { CheckCircle, FileCheckCorner, User, Car, ArrowLeft, Loader2 } from "luc
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { PhotoCaptureCard } from "../../components/cards/PhotoCaptureCard";
-
+import { stampImage, requestGeolocation } from "../../utils/stampImage";
 import { ConfirmVehicleEntryModal } from "../../components/common/ConfirmVehicleEntryModal";
 import { ROUTES } from "../../constants/routes";
 import {
@@ -75,6 +75,9 @@ const AddVehicle: React.FC = () => {
   ];
 
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>(initialSlots);
+
+  // Request geolocation early so it's ready when a photo is captured
+  useEffect(() => { requestGeolocation(); }, []);
 
   // Load data: from API if vehicleId in URL, otherwise from sessionStorage
   useEffect(() => {
@@ -202,8 +205,20 @@ const AddVehicle: React.FC = () => {
       return;
     }
 
+    const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!allowedExtensions.includes(ext)) {
+      toast.error("Only JPG, JPEG, PNG, and WEBP files are allowed.");
+      event.target.value = "";
+      setActiveSlot(null);
+      return;
+    }
+
     const slotIndex = activeSlot;
     const slot = photoSlots[slotIndex];
+
+    // Stamp the image with geolocation + date-time
+    const stampedFile = await stampImage(file);
 
     // Show uploading state with local preview
     const reader = new FileReader();
@@ -218,14 +233,14 @@ const AddVehicle: React.FC = () => {
         return updated;
       });
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(stampedFile);
 
     // Upload to API if we have a vehicleId
     if (vehicleId) {
       try {
         if (slot.imageId) {
           // Replace existing image
-          const res = await replaceVehicleImage(vehicleId, slot.imageId, file, slot.title);
+          const res = await replaceVehicleImage(vehicleId, slot.imageId, stampedFile, slot.title);
           if (res.status) {
             setPhotoSlots((prev) => {
               const updated = [...prev];
@@ -240,7 +255,7 @@ const AddVehicle: React.FC = () => {
           }
         } else {
           // Upload new image
-          const res = await uploadVehicleImages(vehicleId, [file], slot.title);
+          const res = await uploadVehicleImages(vehicleId, [stampedFile], slot.title);
           if (res.status && res.data.uploaded.length > 0) {
             const uploaded = res.data.uploaded[0];
             setPhotoSlots((prev) => {
@@ -376,7 +391,7 @@ const AddVehicle: React.FC = () => {
       {/* Hidden file input for camera capture */}
       <input
         type="file"
-        accept="image/*"
+        accept=".jpg,.jpeg,.png,.webp"
         capture="environment"
         ref={fileInputRef}
         onChange={handleFileChange}
@@ -553,7 +568,7 @@ const AddVehicle: React.FC = () => {
             variant="gradient"
             icon={<CheckCircle className="w-5 h-5" />}
             onClick={handleConfirmEntry}
-            disabled={!isValid}
+            disabled={!isValid || isAnyUploading}
           >
             {isEditing ? "Update Entry" : "Confirm Entry!"}
           </Button>

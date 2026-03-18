@@ -12,7 +12,7 @@ import QualityCheckInspection from '../screens/dashboard/QualityCheckInspection.
 import ServiceAdvisorDashboard from '../screens/dashboard/ServiceAdvisorDashboard.tsx';
 import ServiceAdvisorVehicleDetail from '../screens/dashboard/ServiceAdvisorVehicleDetail.tsx';
 import CustomerApprovalDashboard from '../screens/dashboard/CustomerApprovalDashboard.tsx';
-// import CustomerProfileDashboard from '../screens/dashboard/CustomerProfileDashboard.tsx';
+import CustomerProfileDashboard from '../screens/dashboard/CustomerProfileDashboard.tsx';
 import SparePartsDashboard from '../screens/dashboard/SparePartsDashboard.tsx';
 // import TechnicianDashboard from '../screens/dashboard/TechnicianDashboard.tsx';
 // import TechnicianJobDetail from '../screens/dashboard/TechnicianJobDetail.tsx';
@@ -30,6 +30,18 @@ import { ROUTES } from '../constants/routes';
 import { MODULES, ACTIONS } from '../constants/permissions';
 import { SendEstimate } from '../screens/vehicles/SendEstimate.tsx';
 import UserManagement from '../screens/admin/UserManagement.tsx';
+import QCOutDashboard from '../screens/dashboard/QCOutDashboard.tsx';
+import QCOutInspection from '../screens/dashboard/QCOutInspection.tsx';
+import AppointmentDashboard from '../screens/dashboard/AppointmentDashboard.tsx';
+import Vehicle360Dashboard from '../screens/dashboard/Vehicle360Dashboard.tsx';
+import Vehicle360VehicleDetail from '../screens/dashboard/Vehicle360VehicleDetail.tsx';
+import { AppointmentWizardProvider } from '../context/AppointmentWizardContext';
+import AppointmentCustomerSearch from '../screens/appointments/AppointmentCustomerSearch.tsx';
+import AppointmentVehicleDetails from '../screens/appointments/AppointmentVehicleDetails.tsx';
+import AppointmentServiceDetails from '../screens/appointments/AppointmentServiceDetails.tsx';
+import AppointmentSlotSelection from '../screens/appointments/AppointmentSlotSelection.tsx';
+import AppointmentReview from '../screens/appointments/AppointmentReview.tsx';
+import AppointmentSuccess from '../screens/appointments/AppointmentSuccess.tsx';
 
 // Ordered list of routes — first one the user has view permission for becomes their home
 const PERMISSION_ROUTES = [
@@ -38,6 +50,10 @@ const PERMISSION_ROUTES = [
   { resource: MODULES.JOB_CARD, action: ACTIONS.VIEW, path: ROUTES.SERVICE_ADVISOR_DASHBOARD },
   { resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW, path: ROUTES.SPARE_PARTS_DASHBOARD },
   { resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW, path: ROUTES.USER_MANAGEMENT },
+  { resource: MODULES.QC_OUT, action: ACTIONS.VIEW, path: ROUTES.QC_OUT_DASHBOARD },
+  { resource: MODULES.APPOINTMENT, action: ACTIONS.VIEW, path: ROUTES.APPOINTMENT_DASHBOARD },
+  { resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW, path: ROUTES.VEHICLE_360_DASHBOARD },
+  { resource: MODULES.CUSTOMER_PROFILE, action: ACTIONS.VIEW, path: ROUTES.CUSTOMER_PROFILE_DASHBOARD },
 ];
 
 function RootRedirect() {
@@ -122,6 +138,59 @@ const AppRoutes: React.FC = () => (
           element={
             <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
               <UserManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* QC Out Dashboard — QC_OUT:view required (admin only) */}
+        <Route
+          path={ROUTES.QC_OUT_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.QC_OUT, action: ACTIONS.VIEW }}>
+              <QCOutDashboard />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="inspection/:vehicleId" element={<QCOutInspection />} />
+        </Route>
+
+        {/* Appointment Dashboard — APPOINTMENT:view required */}
+        <Route
+          path={ROUTES.APPOINTMENT_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.APPOINTMENT, action: ACTIONS.VIEW }}>
+              <AppointmentWizardProvider>
+                <AppointmentDashboard />
+              </AppointmentWizardProvider>
+            </ProtectedRoute>
+          }
+        >
+          <Route path="create/customer" element={<AppointmentCustomerSearch />} />
+          <Route path="create/vehicle"  element={<AppointmentVehicleDetails />} />
+          <Route path="create/service"  element={<AppointmentServiceDetails />} />
+          <Route path="create/slot"     element={<AppointmentSlotSelection />} />
+          <Route path="create/review"   element={<AppointmentReview />} />
+          <Route path="create/success"  element={<AppointmentSuccess />} />
+        </Route>
+
+        {/* Vehicle 360 — VEHICLE_360:view required (admin only) */}
+        <Route
+          path={ROUTES.VEHICLE_360_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW }}>
+              <Vehicle360Dashboard />
+            </ProtectedRoute>
+          }
+        >
+          <Route path=":vehicleId" element={<Vehicle360VehicleDetail />} />
+        </Route>
+
+        {/* Customer Profile Dashboard — CUSTOMER_PROFILE:view required */}
+        <Route
+          path={ROUTES.CUSTOMER_PROFILE_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.CUSTOMER_PROFILE, action: ACTIONS.VIEW }}>
+              <CustomerProfileDashboard />
             </ProtectedRoute>
           }
         />

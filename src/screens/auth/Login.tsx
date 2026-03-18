@@ -10,7 +10,7 @@ import { ROUTES } from "../../constants/routes";
 import { GoogleIcon } from "../../assets/GoogleIcon";
 
 const ROLE_DEFAULT_ROUTES: Record<string, string> = {
-  "super-admin": ROUTES.SECURITY_DASHBOARD,
+  "super-admin": ROUTES.APPOINTMENT_DASHBOARD,
   "security-gate-keeper": ROUTES.SECURITY_DASHBOARD,
   "qc-inspector": ROUTES.QUALITY_CHECK_DASHBOARD,
   "customer": ROUTES.SERVICE_ADVISOR_DASHBOARD,

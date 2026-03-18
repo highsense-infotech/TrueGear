@@ -52,7 +52,7 @@ export function PhotoCaptureCard({
             {!isUploading && (
               <button
                 onClick={onDelete}
-                className="absolute top-2 right-2 bg-white rounded-md p-2 shadow-md hover:bg-gray-100 z-10"
+                className="absolute top-2 right-2 bg-white rounded-md p-2 shadow-md hover:bg-gray-100 z-10 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4 text-[#DE2020]" />
               </button>

@@ -10,6 +10,8 @@ interface AddNotesModalProps {
   onClose: () => void;
   notesForm: NotesForm;
   setNotesForm: React.Dispatch<React.SetStateAction<NotesForm>>;
+  onSave: () => void;
+  isSaving?: boolean;
 }
 
 export function AddNotesModal({
@@ -17,6 +19,8 @@ export function AddNotesModal({
   onClose,
   notesForm,
   setNotesForm,
+  onSave,
+  isSaving = false,
 }: AddNotesModalProps) {
   return (
     <Modal
@@ -40,16 +44,16 @@ export function AddNotesModal({
             className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-[#E5E7EB] rounded-lg text-xs sm:text-sm text-[#333] focus:outline-none focus:ring-2 focus:ring-[#0066FF] focus:border-transparent resize-none"
           />
           <p className="text-[10px] sm:text-xs text-[#999] mt-1">
-            Maximum 1000 characters. This note will be timestamped and added
-            to the customer record.
+            Maximum 2000 characters. This note will be saved to the customer
+            record.
           </p>
         </div>
         <div className="flex justify-end gap-2 sm:gap-3 pt-3 sm:pt-4">
-          <Button variant="outline" onClick={onClose} className="text-xs sm:text-sm">
+          <Button variant="outline" onClick={onClose} className="text-xs sm:text-sm" disabled={isSaving}>
             Cancel
           </Button>
-          <Button variant="gradient" onClick={onClose} className="text-xs sm:text-sm">
-            Add Notes
+          <Button variant="gradient" onClick={onSave} className="text-xs sm:text-sm" disabled={isSaving}>
+            {isSaving ? "Saving..." : "Add Notes"}
           </Button>
         </div>
       </div>

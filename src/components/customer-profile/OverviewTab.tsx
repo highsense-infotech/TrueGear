@@ -32,7 +32,19 @@ interface OverviewTabProps {
   marketingConsent: MarketingConsent;
   onEditAddresses: () => void;
   onAddNotes: () => void;
+  internalNotes?: string | null;
+  // Identity fields
+  customerId?: string;
+  accountNumber?: string;
+  fullName?: string;
+  primaryContact?: string;
+  email?: string;
+  phone?: string;
+  alternatePhone?: string;
+  preferredLanguage?: string;
 }
+
+const dash = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
 
 export function OverviewTab({
   addressFields,
@@ -40,6 +52,13 @@ export function OverviewTab({
   marketingConsent,
   onEditAddresses,
   onAddNotes,
+  internalNotes,
+  customerId,
+  accountNumber,
+  fullName,
+  email,
+  phone,
+  preferredLanguage,
 }: OverviewTabProps) {
   return (
     <>
@@ -55,7 +74,7 @@ export function OverviewTab({
               </span>
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#333] flex items-center gap-1">
                 <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0" color="#999999" />
-                CUST-2024-1847
+                {dash(customerId)}
               </span>
             </div>
 
@@ -65,7 +84,7 @@ export function OverviewTab({
               </span>
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#333] flex items-center gap-1">
                 <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0" color="#999999" />
-                DMS-ACC-9876543
+                {dash(accountNumber)}
               </span>
             </div>
 
@@ -75,44 +94,34 @@ export function OverviewTab({
               </span>
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#333] flex items-center gap-1">
                 <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0" color="#999999" />
-                Anderson Automotive Solutions Inc,
+                {dash(fullName)}
               </span>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center py-2 sm:py-3 border-b border-[#E5E7EB] gap-0.5 sm:gap-0">
+            {/* <div className="flex flex-col sm:flex-row sm:items-center py-2 sm:py-3 border-b border-[#E5E7EB] gap-0.5 sm:gap-0">
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] text-[#999999]">
                 Primary Contact
               </span>
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#333] flex items-center gap-1">
                 <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0" color="#999999" />
-                Michael Anderson
+                {dash(primaryContact)}
               </span>
-            </div>
+            </div> */}
             <div className="flex flex-col sm:flex-row sm:items-center py-2 sm:py-3 border-b border-[#E5E7EB] gap-0.5 sm:gap-0">
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] text-[#999999]">
                 Email (Primary)
               </span>
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#333] flex items-center gap-1 break-all">
                 <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0" color="#999999" />
-                michaelanderson@andersonauto.com
+                {dash(email)}
               </span>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center py-2 sm:py-3 border-b border-[#E5E7EB] gap-0.5 sm:gap-0">
+            <div className="flex flex-col sm:flex-row sm:items-center py-2 sm:py-3 gap-0.5 sm:gap-0">
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] text-[#999999]">
                 Phone (Primary)
               </span>
               <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#333] flex items-center gap-1">
                 <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0" color="#999999" />
-                +1 (555) 123-4567
-              </span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center py-2 sm:py-3 gap-0.5 sm:gap-0">
-              <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] text-[#999999]">
-                Alternate Phone
-              </span>
-              <span className="sm:w-1/2 text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#333] flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0" color="#999999" />
-                +1 (555) 123-4568
+                {dash(phone)}
               </span>
             </div>
           </div>
@@ -142,8 +151,8 @@ export function OverviewTab({
                     {field.icon}
                     {field.label}
                   </span>
-                  <span className="text-[11px] sm:text-[12px] md:text-[14px] font-medium text-[#999999] block break-words">
-                    {field.value}
+                  <span className="text-[11px] sm:text-[12px] md:text-[14px] font-medium text-[#999999] block wrap-break-word">
+                    {dash(field.value)}
                   </span>
                 </div>
               ))}
@@ -175,10 +184,10 @@ export function OverviewTab({
                     {field.label === "Customer Type / Segment" ||
                     field.label === "Loyalty Program Status" ? (
                       <span className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[#F6F6F6] text-[#333] rounded-[5px] text-[10px] sm:text-[11px] md:text-[12px] font-medium inline-block">
-                        {field.value}
+                        {dash(field.value)}
                       </span>
                     ) : (
-                      field.value
+                      dash(field.value)
                     )}
                   </span>
                 </div>
@@ -202,18 +211,15 @@ export function OverviewTab({
                   + Add Notes
                 </Button>
               </div>
-              <div className="bg-[#F6F6F6] border border-[#E5E7EB] rounded-[5px] p-2 sm:p-2.5">
-                <p className="text-[#8C8C8C] text-[10px] sm:text-[11px] md:text-[12px] mb-1.5 sm:mb-2">
-                  Jan 15, 2024 at 10:30 AM
-                </p>
-                <p className="text-[#333333] text-[11px] sm:text-[12px] md:text-[14px]">
-                  Preferred customer - Fleet account with 12 vehicles.
-                  Requires detailed service reports for each vehicle.
-                  Monthly billing cycle. Contact via email for all
-                  non-urgent matters. Loaner vehicle required for service
-                  appointments.
-                </p>
-              </div>
+              {internalNotes ? (
+                <div className="bg-[#F6F6F6] border border-[#E5E7EB] rounded-[5px] p-2 sm:p-2.5">
+                  <p className="text-[#333333] text-[11px] sm:text-[12px] md:text-[14px]">
+                    {internalNotes}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[11px] sm:text-[12px] text-[#999]">No notes added yet.</p>
+              )}
             </div>
           </div>
         </div>
@@ -245,7 +251,7 @@ export function OverviewTab({
                 Preferred Language
               </span>
               <p className="text-[11px] sm:text-[12px] md:text-[14px] bg-[#F6F6F6] border border-[#E5E7EB] rounded-[5px] px-2.5 sm:px-3 md:px-5 py-2 sm:py-2.5 text-[#333] font-medium">
-                English
+                {dash(preferredLanguage)}
               </p>
             </div>
             <div>

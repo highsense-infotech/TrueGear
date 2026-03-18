@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users } from "lucide-react";
+import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users, LogOut, CalendarDays, Globe } from "lucide-react";
 // import { BadgeCheck, User, Wrench, Receipt } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../context/AuthContext";
@@ -19,11 +19,14 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { route: ROUTES.APPOINTMENT_DASHBOARD, icon: CalendarDays, resource: MODULES.APPOINTMENT, action: ACTIONS.VIEW },
   { route: ROUTES.SECURITY_DASHBOARD, icon: ShieldUser, resource: MODULES.GATE_ENTRY, action: ACTIONS.VIEW },
   { route: ROUTES.QUALITY_CHECK_DASHBOARD, icon: CheckCircle, resource: MODULES.QC_INSPECTION, action: ACTIONS.VIEW },
   { route: ROUTES.SERVICE_ADVISOR_DASHBOARD, icon: ClipboardList, resource: MODULES.JOB_CARD, action: ACTIONS.VIEW },
   { route: ROUTES.SPARE_PARTS_DASHBOARD, icon: Package, resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW },
   { route: ROUTES.USER_MANAGEMENT, icon: Users, resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
+  { route: ROUTES.QC_OUT_DASHBOARD, icon: LogOut, resource: MODULES.QC_OUT, action: ACTIONS.VIEW },
+  { route: ROUTES.VEHICLE_360_DASHBOARD, icon: Globe, resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW },
 ];
 
 export function Sidebar({ open, setOpen }: Props) {
@@ -79,26 +82,27 @@ export function Sidebar({ open, setOpen }: Props) {
           </button>
         )}
 
-        {/* Permission-based nav items */}
-        {visibleItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.route);
-          return (
-            <button
-              key={item.route}
-              className={`rounded-[10px] p-3 w-12.5 h-12.5 flex items-center justify-center transition-all cursor-pointer mb-5 ${
-                active
-                  ? "bg-linear-to-b from-[#ff4f31] to-[#fe2b73] shadow-md"
-                  : "bg-[#fbfbfb] border border-[#ebebeb] hover:bg-[#f5f5f5]"
-              }`}
-              onClick={() => handleNavigation(item.route)}
-            >
-              <Icon className={active ? "text-white" : "text-gray-400"} />
-            </button>
-          );
-        })}
+        {/* Permission-based nav items — scrollable */}
+        <div className="flex-1 overflow-y-auto w-full flex flex-col items-center scrollbar-hide">
+          {visibleItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.route);
+            return (
+              <button
+                key={item.route}
+                className={`rounded-[10px] p-3 w-12.5 h-12.5 flex items-center justify-center transition-all cursor-pointer mb-5 ${
+                  active
+                    ? "bg-linear-to-b from-[#ff4f31] to-[#fe2b73] shadow-md"
+                    : "bg-[#fbfbfb] border border-[#ebebeb] hover:bg-[#f5f5f5]"
+                }`}
+                onClick={() => handleNavigation(item.route)}
+              >
+                <Icon className={active ? "text-white" : "text-gray-400"} />
+              </button>
+            );
+          })}
+        </div>
 
-        <div className="flex-1" />
         <button
           className={`rounded-[10px] p-3 w-12.5 h-12.5 flex items-center justify-center transition-all cursor-pointer mb-5 ${
             isActive(ROUTES.SETTINGS)

@@ -3,12 +3,13 @@ import toast from "react-hot-toast";
 import Button from "../../components/common/Button";
 import { useNavigate, useParams } from "react-router-dom";
 import imgPlan from "../../assets/plan.png";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Mail, MessageCircle } from "lucide-react";
 import {
   getVehicleDetail,
   getVehicleJobCards,
   shareEstimate,
 } from "../../api/serviceAdvisor.api";
+import { useCurrency } from "../../context/CurrencyContext";
 
 interface DetailRowProps {
   label: string;
@@ -34,6 +35,7 @@ const DetailRow = ({ label, value }: DetailRowProps) => (
 );
 
 export const SendEstimate = () => {
+  const { currency } = useCurrency();
   const [isEstimateSent, setIsEstimateSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,8 @@ export const SendEstimate = () => {
   const [latestJobCardId, setLatestJobCardId] = useState<string | null>(null);
   const [approvalUrl, setApprovalUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const navigate = useNavigate();
   const { vehicleId } = useParams<{ vehicleId: string }>();
 
@@ -88,15 +92,23 @@ export const SendEstimate = () => {
 
     setSending(true);
     try {
-      const res = await shareEstimate(latestJobCardId);
+      const res = await shareEstimate(latestJobCardId, currency);
       if (res.status) {
-        toast.success(
-          res.data.whatsappSent
-            ? "Estimate sent via WhatsApp"
-            : "Estimate shared successfully"
-        );
+        setWhatsappSent(res.data.whatsappSent);
+        setEmailSent(res.data.emailSent);
         setApprovalUrl(res.data.approvalUrl);
         setIsEstimateSent(true);
+
+        if (res.data.emailSent) {
+          toast.success("Estimate sent to customer via email");
+        } else {
+          const reason = res.data.emailFailReason || "check SMTP settings";
+          toast.error(`Email not sent: ${reason}`);
+        }
+
+        if (res.data.whatsappSent) {
+          toast.success("Estimate sent to customer via WhatsApp");
+        }
       }
     } catch (error) {
       console.error("Failed to share estimate:", error);
@@ -145,10 +157,28 @@ export const SendEstimate = () => {
       </div>
 
       {/* Status Badge */}
-      <div className="mb-6 flex h-12.5 w-full max-w-83.5 items-center justify-center rounded-[10px] bg-linear-to-b from-[#ff4f31] to-[#fe2b73] px-4 shadow-[2px_4px_8px_0px_rgba(0,0,0,0.15)]">
+      <div className="mb-4 flex h-12.5 w-full max-w-83.5 items-center justify-center rounded-[10px] bg-linear-to-b from-[#ff4f31] to-[#fe2b73] px-4 shadow-[2px_4px_8px_0px_rgba(0,0,0,0.15)]">
         <span className="font-['Poppins'] text-[16px] font-medium leading-[1.2] text-white whitespace-nowrap">
           Status: Awaiting Customer Approval
         </span>
+      </div>
+
+      {/* Notification delivery status */}
+      <div className="mb-6 flex items-center gap-3 w-full max-w-83.5">
+        <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium
+          ${emailSent
+            ? 'bg-[#E8F5E9] border-[#A5D6A7] text-[#2E7D32]'
+            : 'bg-[#fafafa] border-[#e5e7eb] text-[#999]'}`}>
+          <Mail className="w-3.5 h-3.5 shrink-0" />
+          {emailSent ? 'Email sent' : 'Email not sent'}
+        </div>
+        <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border text-[12px] font-medium
+          ${whatsappSent
+            ? 'bg-[#E8F5E9] border-[#A5D6A7] text-[#2E7D32]'
+            : 'bg-[#fafafa] border-[#e5e7eb] text-[#999]'}`}>
+          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+          {whatsappSent ? 'WhatsApp sent' : 'WhatsApp not sent'}
+        </div>
       </div>
 
       {/* Approval URL — manual copy */}

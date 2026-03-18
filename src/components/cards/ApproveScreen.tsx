@@ -12,9 +12,11 @@ interface Job {
 interface ApproveScreenProps {
   selectedJobs: Job[];
   total: number;
+  formatAmount?: (n: number) => string;
 }
 
-export function ApproveScreen({ selectedJobs, total }: ApproveScreenProps) {
+export function ApproveScreen({ selectedJobs, total, formatAmount }: ApproveScreenProps) {
+  const fmt = formatAmount ?? ((n: number) => `₹${n.toLocaleString()}`);
   return (
     <div className="bg-white min-h-screen flex items-center justify-center p-4 sm:p-8">
       <div className="flex flex-col items-center max-w-292 w-full">
@@ -53,7 +55,7 @@ export function ApproveScreen({ selectedJobs, total }: ApproveScreenProps) {
             Approved Total
           </p>
           <p className="text-[14px] sm:text-[16px] font-medium text-[#333]">
-            ₹{total.toLocaleString()}
+            {fmt(total)}
           </p>
         </div>
 

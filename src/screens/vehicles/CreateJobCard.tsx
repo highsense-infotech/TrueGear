@@ -24,7 +24,7 @@ const CreateJobCard: React.FC = () => {
   const [searchParams] = useSearchParams();
   const editJobCardId = searchParams.get("editJobCardId");
   const isEditMode = !!editJobCardId;
-  const { taxConfig } = useCurrency();
+  const { taxConfig, currency } = useCurrency();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [suggestedJobs, setSuggestedJobs] = useState<string[]>([]);
   const [vehicleData, setVehicleData] = useState({
@@ -235,6 +235,7 @@ const CreateJobCard: React.FC = () => {
           items,
           taxLabel: taxConfig.label,
           taxPercentage: taxConfig.percentage,
+          currencyCode: currency,
         });
         if (res.status) {
           toast.success("Job card updated successfully");
@@ -246,6 +247,7 @@ const CreateJobCard: React.FC = () => {
           items,
           taxLabel: taxConfig.label,
           taxPercentage: taxConfig.percentage,
+          currencyCode: currency,
         });
         if (res.status) {
           toast.success("Job card saved as draft");

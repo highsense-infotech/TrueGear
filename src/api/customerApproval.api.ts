@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Public API instance — no auth token needed
 const publicApi = axios.create({
-  baseURL: 'https://workshopbackend-fjvw.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -29,6 +29,7 @@ export interface EstimateData {
     totalEstimate: string;
     sharedAt: string | null;
     approvedAt: string | null;
+    currencyCode: string;
   };
   items: EstimateItem[];
   vehicle: {
@@ -74,9 +75,12 @@ export const getEstimateByToken = async (
 };
 
 export const approveEstimate = async (
-  token: string
+  token: string,
+  approvedItems?: string[]
 ): Promise<ApprovalActionResponse> => {
-  const { data } = await publicApi.post(`/customer-approval/estimate/${token}/approve`);
+  const { data } = await publicApi.post(`/customer-approval/estimate/${token}/approve`, {
+    approvedItems,
+  });
   return data;
 };
 

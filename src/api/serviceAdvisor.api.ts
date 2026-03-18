@@ -205,12 +205,15 @@ export interface SAJobCard {
   taxPercentage: string;
   taxAmount: string;
   totalEstimate: string;
+  currencyCode: string;
   sharedAt: string | null;
   approvedAt: string | null;
   approvalToken: string | null;
   modificationNote: string | null;
   createdAt: string;
   updatedAt: string;
+  serviceType: string | null;
+  description: string | null;
 }
 
 export interface SAJobCardsResponse {
@@ -269,6 +272,7 @@ export interface CreateJobCardPayload {
   items: CreateJobCardItem[];
   taxLabel?: string;
   taxPercentage?: number;
+  currencyCode?: string;
 }
 
 export interface CreateJobCardResponse {
@@ -331,6 +335,7 @@ export interface UpdateJobCardPayload {
   items: CreateJobCardItem[];
   taxLabel?: string;
   taxPercentage?: number;
+  currencyCode?: string;
 }
 
 export const updateJobCard = async (
@@ -352,14 +357,17 @@ export interface ShareEstimateResponse {
     sharedAt: string;
     vehicleStatus: string;
     whatsappSent: boolean;
+    emailSent: boolean;
+    emailFailReason?: string;
     approvalUrl: string;
   };
 }
 
 export const shareEstimate = async (
-  jobCardId: string
+  jobCardId: string,
+  currencyCode?: string,
 ): Promise<ShareEstimateResponse> => {
-  const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/share`);
+  const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/share`, { currencyCode });
   return data;
 };
 

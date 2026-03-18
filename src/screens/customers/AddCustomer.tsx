@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { ArrowRight, User, Car, Phone, Mail, Search, Plus, X, Check, Loader2 } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
-import { searchCustomers, createCustomer, type CustomerSearchItem } from "../../api/customer.api";
-import { addVehicle, listMakes, listModelsByMake, type VehicleMake, type VehicleModel } from "../../api/vehicle.api";
+import { createCustomer, searchCustomers, type CustomerSearchItem } from "../../api/customer.api";
+import { addVehicle, listMakes, listModelsByMake, type VehicleMake, type VehicleModel, type VinLookupFields } from "../../api/vehicle.api";
+import SearchableDropdown from "../../components/common/SearchableDropdown";
 
 interface CustomerData {
   firstName: string;
@@ -25,7 +26,10 @@ interface CustomerData {
 
 const AddCustomer: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [vinLookupApplied, setVinLookupApplied] = useState(false);
+  const [pendingModelName, setPendingModelName] = useState<string | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -118,6 +122,73 @@ const AddCustomer: React.FC = () => {
     fetchMakes();
   }, []);
 
+  // Pre-fill from VIN lookup data (sessionStorage) after makes are loaded
+  // data.customer fields from <CustomerDetail>: FirstName, LastName, CompanyName, PrimaryEmail,
+  //   CellphoneCode, CellphoneNumber, CustSequenceID, IDNumber, etc.
+  // data.vehicle fields from <Vehicles><RowDetails>: VehVinNumber, RegistrationNo, Make,
+  //   ModelDescription, Series, EngineNumber, Colour, RegistrationYear, etc.
+  useEffect(() => {
+    if (vinLookupApplied || makes.length === 0) return;
+    if (searchParams.get("vinLookup") !== "true") return;
+
+    const raw = sessionStorage.getItem("vinLookupData");
+    if (!raw) return;
+
+    try {
+      const { CustomerDetail, Vehicles } = JSON.parse(raw) as {
+        CustomerDetail: VinLookupFields;
+        CustomerProfile: VinLookupFields;
+        Vehicles: VinLookupFields;
+      };
+
+      const updates: Partial<CustomerData> = {};
+
+      // Customer fields (from CustomerDetail)
+      if (CustomerDetail.FirstName) updates.firstName = CustomerDetail.FirstName;
+      if (CustomerDetail.LastName) updates.lastName = CustomerDetail.LastName;
+      if (CustomerDetail.PrimaryEmail) updates.email = CustomerDetail.PrimaryEmail;
+      // Phone: Evolve sends CellphoneCode + CellphoneNumber separately
+      if (CustomerDetail.CellphoneNumber) {
+        const code = CustomerDetail.CellphoneCode || '';
+        updates.phoneNumber = code ? `${code}${CustomerDetail.CellphoneNumber}` : CustomerDetail.CellphoneNumber;
+      }
+
+      // Vehicle fields (from Vehicles)
+      if (Vehicles.VehVinNumber) updates.vin = Vehicles.VehVinNumber;
+      if (Vehicles.RegistrationNo) updates.vehicleNumber = Vehicles.RegistrationNo;
+      if (Vehicles.Make) updates.vehicleMake = Vehicles.Make;
+      if (Vehicles.ModelDescription) updates.vehicleModel = Vehicles.ModelDescription;
+      if (Vehicles.RegistrationYear) updates.manufacturingYear = Vehicles.RegistrationYear;
+
+      // Auto-select matching make dropdown
+      const makeName = Vehicles.Make;
+      if (makeName) {
+        const matchingMake = makes.find(
+          (m) => m.name.toLowerCase() === makeName.toLowerCase()
+        );
+        if (matchingMake) {
+          setSelectedMakeId(matchingMake.id);
+        }
+      }
+
+      // Queue model auto-select after models load
+      const modelName = Vehicles.ModelDescription;
+      if (modelName) {
+        setPendingModelName(modelName);
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setFormData((prev) => ({ ...prev, ...updates }));
+        setShowNewCustomerForm(true);
+      }
+
+      setVinLookupApplied(true);
+      sessionStorage.removeItem("vinLookupData");
+    } catch (e) {
+      console.error("Failed to parse VIN lookup data:", e);
+    }
+  }, [makes, searchParams, vinLookupApplied]);
+
   // Fetch models when make changes
   useEffect(() => {
     if (!selectedMakeId) {
@@ -140,34 +211,33 @@ const AddCustomer: React.FC = () => {
     fetchModels();
   }, [selectedMakeId]);
 
-  const handleMakeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const makeId = e.target.value;
-    const make = makes.find((m) => m.id === makeId);
+  // Auto-select model from VIN lookup after models are loaded
+  useEffect(() => {
+    if (!pendingModelName || models.length === 0) return;
+    const matchingModel = models.find(
+      (m) => m.name.toLowerCase() === pendingModelName.toLowerCase()
+    );
+    if (matchingModel) {
+      setFormData((prev) => ({ ...prev, vehicleModel: matchingModel.name }));
+    }
+    setPendingModelName(null);
+  }, [models, pendingModelName]);
+
+  const handleMakeChange = (makeId: string, makeName: string) => {
     setSelectedMakeId(makeId);
     setFormData((prev) => ({
       ...prev,
-      vehicleMake: make?.name || "",
+      vehicleMake: makeName,
       vehicleModel: "",
     }));
     setModels([]);
-    if (errors.vehicleMake) {
-      setErrors((prev) => ({ ...prev, vehicleMake: "" }));
-    }
-    if (errors.vehicleModel) {
-      setErrors((prev) => ({ ...prev, vehicleModel: "" }));
-    }
+    if (errors.vehicleMake) setErrors((prev) => ({ ...prev, vehicleMake: "" }));
+    if (errors.vehicleModel) setErrors((prev) => ({ ...prev, vehicleModel: "" }));
   };
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const modelId = e.target.value;
-    const model = models.find((m) => m.id === modelId);
-    setFormData((prev) => ({
-      ...prev,
-      vehicleModel: model?.name || "",
-    }));
-    if (errors.vehicleModel) {
-      setErrors((prev) => ({ ...prev, vehicleModel: "" }));
-    }
+  const handleModelChange = (_modelId: string, modelName: string) => {
+    setFormData((prev) => ({ ...prev, vehicleModel: modelName }));
+    if (errors.vehicleModel) setErrors((prev) => ({ ...prev, vehicleModel: "" }));
   };
 
   // Close dropdown when clicking outside
@@ -249,8 +319,6 @@ const AddCustomer: React.FC = () => {
     }
     if (!formData.vin.trim()) {
       newErrors.vin = "VIN is required";
-    } else if (formData.vin.trim().length > 7) {
-      newErrors.vin = "VIN must be 7 digits or less";
     }
     if (!formData.vehicleNumber.trim()) {
       newErrors.vehicleNumber = "Registration number is required";
@@ -688,21 +756,14 @@ const AddCustomer: React.FC = () => {
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
                   Vehicle Make <span className="text-red-500">*</span>
                 </label>
-                <select
+                <SearchableDropdown
+                  options={makes}
                   value={selectedMakeId}
                   onChange={handleMakeChange}
-                  disabled={loadingMakes}
-                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] outline-none transition-colors bg-white ${
-                    errors.vehicleMake
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-[#e5e7eb] focus:border-[#04c397]"
-                  } ${!selectedMakeId ? "text-[#bfbfbf]" : ""}`}
-                >
-                  <option value="">{loadingMakes ? "Loading makes..." : "Select Vehicle Make"}</option>
-                  {makes.map((make) => (
-                    <option key={make.id} value={make.id}>{make.name}</option>
-                  ))}
-                </select>
+                  placeholder={loadingMakes ? "Loading makes..." : "Select Vehicle Make"}
+                  loading={loadingMakes}
+                  hasError={!!errors.vehicleMake}
+                />
                 {errors.vehicleMake && (
                   <p className="text-red-500 text-[11px] mt-1">{errors.vehicleMake}</p>
                 )}
@@ -713,29 +774,21 @@ const AddCustomer: React.FC = () => {
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
                   Vehicle Model <span className="text-red-500">*</span>
                 </label>
-                <select
+                <SearchableDropdown
+                  options={models}
                   value={models.find((m) => m.name === formData.vehicleModel)?.id || ""}
                   onChange={handleModelChange}
-                  disabled={!selectedMakeId || loadingModels}
-                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] outline-none transition-colors bg-white ${
-                    errors.vehicleModel
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-[#e5e7eb] focus:border-[#04c397]"
-                  } ${!formData.vehicleModel ? "text-[#bfbfbf]" : ""} ${
-                    !selectedMakeId ? "bg-[#f9f9f9] cursor-not-allowed" : ""
-                  }`}
-                >
-                  <option value="">
-                    {!selectedMakeId
+                  placeholder={
+                    !selectedMakeId
                       ? "Select a make first"
                       : loadingModels
                         ? "Loading models..."
-                        : "Select Vehicle Model"}
-                  </option>
-                  {models.map((model) => (
-                    <option key={model.id} value={model.id}>{model.name}</option>
-                  ))}
-                </select>
+                        : "Select Vehicle Model"
+                  }
+                  disabled={!selectedMakeId}
+                  loading={loadingModels}
+                  hasError={!!errors.vehicleModel}
+                />
                 {errors.vehicleModel && (
                   <p className="text-red-500 text-[11px] mt-1">{errors.vehicleModel}</p>
                 )}

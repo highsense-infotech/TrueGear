@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import toast from "react-hot-toast";
 import { Truck, Armchair, Gauge, Settings, Camera, Trash2, Upload, Check } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -49,6 +50,13 @@ export const UploadCategoryCards = ({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      if (!allowedExtensions.includes(ext)) {
+        toast.error("Only JPG, JPEG, PNG, and WEBP files are allowed.");
+        event.target.value = "";
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         const newImages: Record<string, string | null> = {
@@ -126,7 +134,7 @@ export const UploadCategoryCards = ({
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept="image/*"
+        accept=".jpg,.jpeg,.png,.webp"
         className="hidden"
       />
 

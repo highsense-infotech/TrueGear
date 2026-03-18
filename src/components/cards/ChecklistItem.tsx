@@ -1,7 +1,9 @@
 
 import { Camera, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useState, useEffect, useRef } from 'react';
 import Button from '../common/Button';
+import { stampImage, requestGeolocation } from '../../utils/stampImage';
 
 interface Photo {
   id: string;
@@ -26,6 +28,9 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Request geolocation early for photo stamping
+  useEffect(() => { requestGeolocation(); }, []);
 
   // Sync internal state with external status prop
   useEffect(() => {
@@ -54,9 +59,18 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
     const file = e.target.files?.[0];
     if (!file || !onPhotoUpload) return;
 
+    const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!allowedExtensions.includes(ext)) {
+      toast.error("Only JPG, JPEG, PNG, and WEBP files are allowed.");
+      e.target.value = "";
+      return;
+    }
+
     setUploading(true);
     try {
-      await onPhotoUpload(file);
+      const stampedFile = await stampImage(file);
+      await onPhotoUpload(stampedFile);
     } catch (err) {
       console.error("Failed to upload photo:", err);
     } finally {
@@ -139,7 +153,8 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept=".jpg,.jpeg,.png,.webp"
+            capture="environment"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -162,7 +177,7 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
                 {onPhotoDelete && deletingId !== photo.id && (
                   <button
                     onClick={() => handleDelete(photo.id)}
-                    className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center cursor-pointer"
                   >
                     <X size={12} color="white" />
                   </button>

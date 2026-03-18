@@ -6,15 +6,17 @@ interface ActionButtonsProps {
   onRequestModification: () => void;
   onApprove: () => void;
   approving?: boolean;
+  formatAmount?: (n: number) => string;
 }
 
-export function ActionButtons({ selectedCount, total, onRequestModification, onApprove, approving = false }: ActionButtonsProps) {
+export function ActionButtons({ selectedCount, total, onRequestModification, onApprove, approving = false, formatAmount }: ActionButtonsProps) {
+  const fmt = formatAmount ?? ((n: number) => `₹${n.toLocaleString()}`);
   return (
     <div className="bg-white rounded-[10px] border border-[#e5e7eb] p-4 sm:p-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div className="flex flex-col gap-1.5">
           <p className="text-[14px] sm:text-[16px] font-semibold text-[#333]">{selectedCount} job(s) selected</p>
-          <p className="text-[12px] text-[#999]">Total: ₹{total.toLocaleString()}</p>
+          <p className="text-[12px] text-[#999]">Total: {fmt(total)}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-6 w-full sm:w-auto">
           <button

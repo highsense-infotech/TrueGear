@@ -23,6 +23,17 @@ export const ROUTES = {
   SETTINGS: '/settings',
   CUSTOMER_APPROVAL: '/customer-approval/:token',
   USER_MANAGEMENT: '/user-management',
+  QC_OUT_DASHBOARD: '/qc-out-dashboard',
+  QC_OUT_INSPECTION: '/qc-out-dashboard/inspection/:vehicleId',
+  APPOINTMENT_DASHBOARD: '/appointment-dashboard',
+  APPOINTMENT_CREATE_CUSTOMER: '/appointment-dashboard/create/customer',
+  APPOINTMENT_CREATE_VEHICLE:  '/appointment-dashboard/create/vehicle',
+  APPOINTMENT_CREATE_SERVICE:  '/appointment-dashboard/create/service',
+  APPOINTMENT_CREATE_SLOT:     '/appointment-dashboard/create/slot',
+  APPOINTMENT_CREATE_REVIEW:   '/appointment-dashboard/create/review',
+  APPOINTMENT_CREATE_SUCCESS:  '/appointment-dashboard/create/success',
+  VEHICLE_360_DASHBOARD: '/vehicle-360-dashboard',
+  VEHICLE_360_DETAIL: '/vehicle-360-dashboard/:vehicleId',
   NO_ACCESS: '/no-access',
 };
 

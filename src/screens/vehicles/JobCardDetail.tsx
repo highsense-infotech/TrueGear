@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning } from "lucide-react";
+import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle } from "lucide-react";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
@@ -40,7 +40,7 @@ function formatDate(dateStr: string | null): string {
 const JobCardDetail: React.FC = () => {
   const navigate = useNavigate();
   const { jobCardId } = useParams<{ jobCardId: string }>();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currency } = useCurrency();
 
   const [data, setData] = useState<SAJobCardDetailResponse["data"] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,13 +77,17 @@ const JobCardDetail: React.FC = () => {
     if (!jobCardId || sharing) return;
     setSharing(true);
     try {
-      const res = await shareEstimate(jobCardId);
+      const res = await shareEstimate(jobCardId, currency);
       if (res.status) {
-        toast.success(
-          res.data.whatsappSent
-            ? "Estimate sent via WhatsApp"
-            : "Estimate shared with customer"
-        );
+        if (res.data.emailSent) {
+          toast.success("Estimate sent to customer via email");
+        } else {
+          const reason = res.data.emailFailReason || "check SMTP settings";
+          toast.error(`Email not sent: ${reason}`);
+        }
+        if (res.data.whatsappSent) {
+          toast.success("Estimate sent to customer via WhatsApp");
+        }
         setApprovalUrl(res.data.approvalUrl);
         setData((prev) =>
           prev
@@ -163,6 +167,35 @@ const JobCardDetail: React.FC = () => {
           {statusConfig.label}
         </span>
       </div>
+
+      {/* Partial Approval Summary */}
+      {jobCard.status === "PARTIALLY_APPROVED" && (() => {
+        const approvedCount = items.filter((i) => i.isApprovedByCustomer === true).length;
+        return (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+            <AlertCircle size={20} className="text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-700 mb-1">
+                Customer Partially Approved — {approvedCount} of {items.length} job{items.length !== 1 ? "s" : ""} approved
+              </p>
+              <ul className="mt-2 space-y-1">
+                {items.map((item, idx) => (
+                  <li key={item.id} className="flex items-center gap-2 text-xs">
+                    {item.isApprovedByCustomer === true ? (
+                      <CheckCircle size={13} className="text-green-500 shrink-0" />
+                    ) : (
+                      <XCircle size={13} className="text-red-400 shrink-0" />
+                    )}
+                    <span className={item.isApprovedByCustomer === true ? "text-green-700" : "text-red-500"}>
+                      Job #{idx + 1} — {item.jobDescription}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Vehicle Summary */}
       {vehicle && (
@@ -245,6 +278,23 @@ const JobCardDetail: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Customer Approval Status */}
+              {(jobCard.status === "APPROVED" || jobCard.status === "PARTIALLY_APPROVED") && item.isApprovedByCustomer !== null && (
+                <div className="flex items-center gap-2">
+                  {item.isApprovedByCustomer === true ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium border border-green-200">
+                      <CheckCircle size={12} className="shrink-0" />
+                      Approved by customer
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium border border-red-200">
+                      <XCircle size={12} className="shrink-0" />
+                      Not approved
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Parts Manager Status */}
               {item.partsRequired && item.partStatus && (

@@ -5,9 +5,11 @@ export interface VehicleListParams {
   limit?: number;
   sortOrder?: "asc" | "desc";
   status?: string;
+  filter?: "ALL" | "INSIDE" | "PENDING_EXIT";
   dateFrom?: string;
   dateTo?: string;
   vin?: string;
+  includeAll?: boolean;
 }
 
 export type VehicleStatus = "Entry (Draft)" | "Vehicle IN" | "Inspection (Draft)" | "Inspection Done" | "Job Card (Draft)" | "Job Card (Pending Parts Approval)" | "Job Card (Parts Approval Done)" | "Job Card (Pending Cust. Approval)" | "Job Card (Partial Cust. Approval)" | "Job Card (Full Cust. Approval)" | "In Service" | "Ready for Billing" | "Completed" | "Cancelled";
@@ -21,7 +23,8 @@ export interface VehicleItem {
   manufacturingYear: number;
   odometerLast: number;
   status: VehicleStatus;
-  entryTime: string;
+  entryTime: string | null;
+  updatedAt?: string | null;
   customerName: string;
   imageCount: number;
   frontImage: string | null;
@@ -65,7 +68,7 @@ export interface SearchVehicleItem {
     manufacturingYear: number;
     odometerLast: number | null;
     status: VehicleStatus;
-    entryTime: string;
+    entryTime: string | null;
   };
   customer: {
     id: string;
@@ -145,6 +148,7 @@ export const addVehicle = async (
 export interface VehicleDetailCustomer {
   id: string;
   crmReferenceNo: string;
+  custSequenceId: string;
   customerType: string;
   firstName: string;
   lastName: string;
@@ -160,13 +164,26 @@ export interface VehicleDetailData {
     vin: string;
     brand: string;
     model: string;
+    modelVariant: string | null;
     manufacturingYear: number;
     registrationNumber: string;
+    engineNumber: string | null;
+    bodyType: string | null;
+    fuelType: string | null;
+    transmissionType: string | null;
     odometerLast: number;
     status: string;
     priority: string;
     serviceType: string;
-    entryTime: string;
+    entryTime: string | null;
+    // warranty & insurance
+    warrantyActive: boolean;
+    warrantyStartDate: string | null;
+    warrantyNumber: string | null;
+    oemWarrantyEnd: string | null;
+    certifiedPreOwned: boolean;
+    certificationNo: string | null;
+    condition: string | null;
   };
   customer: VehicleDetailCustomer;
   images: { id: string; vehicleId: string; imageCategory: string | null; imagePath: string; createdAt: string }[];
@@ -308,5 +325,26 @@ export const confirmVehicleEntry = async (
   vehicleId: string
 ): Promise<ConfirmEntryResponse> => {
   const { data } = await api.post(`/vehicles/${vehicleId}/confirm`);
+  return data;
+};
+
+// ---- VIN Lookup (Third-Party) ----
+export type VinLookupFields = Record<string, string>;
+
+export interface VinLookupResponse {
+  status: boolean;
+  found: boolean;
+  message: string;
+  data: {
+    CustomerDetail: VinLookupFields;
+    CustomerProfile: VinLookupFields;
+    Vehicles: VinLookupFields;
+  };
+}
+
+export const vinLookup = async (
+  vin: string
+): Promise<VinLookupResponse> => {
+  const { data } = await api.post("/vehicles/vin-lookup", { vin });
   return data;
 };

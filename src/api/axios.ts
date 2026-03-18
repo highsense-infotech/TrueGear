@@ -3,7 +3,7 @@ import axios from 'axios';
 const STORAGE_KEY = 'tg_auth';
 
 const api = axios.create({
-  baseURL: 'https://workshopbackend-fjvw.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
 });
 
