@@ -35,31 +35,53 @@ const STEPS = [
 
 const AppointmentCustomerSearch: React.FC = () => {
   const navigate            = useNavigate();
-  const { state, setState } = useAppointmentWizard();
+  const { state, setState, reset } = useAppointmentWizard();
 
-  const [phoneSearch, setPhoneSearch] = useState("");
-  const [regSearch,   setRegSearch]   = useState("");
-  const [showResults,   setShowResults]   = useState(false);
-  const [results,       setResults]       = useState<IrmCustomerResult[]>([]);
-  const [isSearching,   setIsSearching]   = useState(false);
-  const [searchError,   setSearchError]   = useState<string | null>(null);
-  const [searchStep,    setSearchStep]    = useState<"crm" | "internal" | null>(null);
-
-  // Selected IRM result (tracked locally; written to context on Next)
-  const [selected, setSelected] = useState<IrmCustomerResult | null>(
-    state.customerId || state.isNewCustomer
+  // Restore selected customer from wizard context when navigating back
+  const restoredSelected: IrmCustomerResult | null =
+    (state.customerId || (state.customerName && !state.isNewCustomer))
       ? ({
           localCustomerId: state.customerId,
           crmReferenceNo:  state.newCustomerData?.crmReferenceNo ?? '',
           custSequenceId:  state.newCustomerData?.custSequenceId ?? '',
           firstName:       state.customerName.split(" ")[0] ?? '',
           lastName:        state.customerName.split(" ").slice(1).join(" ") ?? '',
+          companyName:     '',
+          customerType:    '',
+          idNumber:        '',
           phone:           state.customerPhone,
           email:           state.customerEmail,
-          vehicle:         null,
+          address:         '',
+          city:            '',
+          postalCode:      '',
+          country:         '',
+          vehicle:         state.vehicleReg ? {
+            registrationNumber: state.vehicleReg,
+            vin:                '',
+            brand:              state.vehicleMakeModel.split(" ")[0] ?? '',
+            model:              state.vehicleMakeModel.split(" ").slice(1).join(" ") ?? '',
+            series:             '',
+            year:               state.vehicleYear,
+            engineNumber:       '',
+            colour:             '',
+            fuelType:           state.vehicleFuel,
+            transmissionType:   state.vehicleTransmission,
+            modelDescription:   '',
+            registrationDate:   '',
+            sellingDate:        '',
+          } : null,
         } as IrmCustomerResult)
-      : null,
-  );
+      : null;
+
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const [regSearch,   setRegSearch]   = useState("");
+  const [showResults,   setShowResults]   = useState(!!restoredSelected);
+  const [results,       setResults]       = useState<IrmCustomerResult[]>(restoredSelected ? [restoredSelected] : []);
+  const [isSearching,   setIsSearching]   = useState(false);
+  const [searchError,   setSearchError]   = useState<string | null>(null);
+  const [searchStep,    setSearchStep]    = useState<"crm" | "internal" | null>(null);
+
+  const [selected, setSelected] = useState<IrmCustomerResult | null>(restoredSelected);
 
   const [activeTab, setActiveTab] = useState<"search" | "new">(
     state.isNewCustomer ? "new" : "search",
@@ -73,7 +95,23 @@ const AppointmentCustomerSearch: React.FC = () => {
   const [newEmail,     setNewEmail]     = useState(nc?.primaryEmail  ?? "");
   const [newAddress,   setNewAddress]   = useState(nc?.address       ?? "");
 
-  const isNewFormValid = newFirstName.trim() && newLastName.trim() && newPhone.trim();
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validateNewForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!newFirstName.trim()) errors.firstName = "First name is required";
+    if (!newLastName.trim())  errors.lastName  = "Last name is required";
+    if (!newPhone.trim())     errors.phone     = "Phone number is required";
+    else if (!/^\+?[\d\s\-()]{7,20}$/.test(newPhone.trim()))
+      errors.phone = "Enter a valid phone number";
+    if (!newEmail.trim())     errors.email     = "Email address is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim()))
+      errors.email = "Enter a valid email address";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const isNewFormValid = newFirstName.trim() && newLastName.trim() && newPhone.trim() && newEmail.trim();
   const canProceed     = selected || (activeTab === "new" && isNewFormValid);
   const currentStep    = 0;
 
@@ -194,7 +232,8 @@ const AppointmentCustomerSearch: React.FC = () => {
           ...(selected.vehicle ? buildIrmVehicleState(selected) : {}),
         });
       }
-    } else if (activeTab === "new" && isNewFormValid) {
+    } else if (activeTab === "new") {
+      if (!validateNewForm()) return;
       setState({
         customerId:    null,
         customerName:  `${newFirstName.trim()} ${newLastName.trim()}`,
@@ -209,6 +248,8 @@ const AppointmentCustomerSearch: React.FC = () => {
           address:       newAddress.trim(),
         },
       });
+    } else {
+      return;
     }
     navigate(ROUTES.APPOINTMENT_CREATE_VEHICLE);
   };
@@ -313,7 +354,7 @@ const AppointmentCustomerSearch: React.FC = () => {
                       type="text"
                       placeholder="e.g. BL 00 MY ZN or GJ 05 0932"
                       value={regSearch}
-                      onChange={(e) => setRegSearch(e.target.value)}
+                      onChange={(e) => { setRegSearch(e.target.value); setPhoneSearch(""); }}
                       onKeyDown={handleKeyDown}
                       autoFocus
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
@@ -335,7 +376,7 @@ const AppointmentCustomerSearch: React.FC = () => {
                       type="text"
                       placeholder="+27 60 000 0000"
                       value={phoneSearch}
-                      onChange={(e) => setPhoneSearch(e.target.value)}
+                      onChange={(e) => { setPhoneSearch(e.target.value); setRegSearch(""); }}
                       onKeyDown={handleKeyDown}
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
                     />
@@ -470,9 +511,10 @@ const AppointmentCustomerSearch: React.FC = () => {
                       type="text"
                       placeholder="First name"
                       value={newFirstName}
-                      onChange={(e) => setNewFirstName(e.target.value)}
-                      className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
+                      onChange={(e) => { setNewFirstName(e.target.value); setFormErrors((p) => ({ ...p, firstName: "" })); }}
+                      className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.firstName ? "border-red-400" : "border-[#e5e7eb]"}`}
                     />
+                    {formErrors.firstName && <p className="text-xs text-red-500 mt-1">{formErrors.firstName}</p>}
                   </div>
                   <div>
                     <label className="text-sm font-medium text-[#333]">
@@ -482,9 +524,10 @@ const AppointmentCustomerSearch: React.FC = () => {
                       type="text"
                       placeholder="Last name"
                       value={newLastName}
-                      onChange={(e) => setNewLastName(e.target.value)}
-                      className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
+                      onChange={(e) => { setNewLastName(e.target.value); setFormErrors((p) => ({ ...p, lastName: "" })); }}
+                      className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.lastName ? "border-red-400" : "border-[#e5e7eb]"}`}
                     />
+                    {formErrors.lastName && <p className="text-xs text-red-500 mt-1">{formErrors.lastName}</p>}
                   </div>
                 </div>
 
@@ -498,24 +541,28 @@ const AppointmentCustomerSearch: React.FC = () => {
                       type="text"
                       placeholder="+27 60 000 0000"
                       value={newPhone}
-                      onChange={(e) => setNewPhone(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
+                      onChange={(e) => { setNewPhone(e.target.value); setFormErrors((p) => ({ ...p, phone: "" })); }}
+                      className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.phone ? "border-red-400" : "border-[#e5e7eb]"}`}
                     />
                   </div>
+                  {formErrors.phone && <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>}
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-[#333]">Email Address</label>
+                  <label className="text-sm font-medium text-[#333]">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative mt-1">
                     <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#999]" />
                     <input
-                      type="text"
+                      type="email"
                       placeholder="customer@email.com"
                       value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
+                      onChange={(e) => { setNewEmail(e.target.value); setFormErrors((p) => ({ ...p, email: "" })); }}
+                      className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.email ? "border-red-400" : "border-[#e5e7eb]"}`}
                     />
                   </div>
+                  {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
                 </div>
 
                 <div>
@@ -591,7 +638,7 @@ const AppointmentCustomerSearch: React.FC = () => {
           <span className="text-xs text-[#999] whitespace-nowrap">Step 1 of 5 — Customer Search</span>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => navigate(ROUTES.APPOINTMENT_DASHBOARD)}>
+          <Button variant="outline" onClick={() => { reset(); navigate(ROUTES.APPOINTMENT_DASHBOARD); }}>
             Cancel
           </Button>
           <Button

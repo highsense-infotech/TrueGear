@@ -15,6 +15,7 @@ import {
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
 import { listAppointments, updateAppointmentStatus, type AppointmentRecord, type AppointmentStats } from "../../api/appointment.api";
+import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ const CANCELLABLE_STATUSES: KnownStatus[] = ["BOOKED", "CONFIRMED"];
 const AppointmentDashboard: React.FC = () => {
   const location     = useLocation();
   const navigate     = useNavigate();
+  const { reset }    = useAppointmentWizard();
   const isIndexRoute = location.pathname === ROUTES.APPOINTMENT_DASHBOARD;
 
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
@@ -210,7 +212,7 @@ const AppointmentDashboard: React.FC = () => {
             <h2 className="text-base font-bold text-[#333]">Appointments</h2>
             <p className="text-sm text-[#999]">Manage service appointment bookings</p>
           </div>
-          <Button variant="gradient" icon={<Plus size={16} />} onClick={() => navigate(ROUTES.APPOINTMENT_CREATE_CUSTOMER)}>
+          <Button variant="gradient" icon={<Plus size={16} />} onClick={() => { reset(); navigate(ROUTES.APPOINTMENT_CREATE_CUSTOMER); }}>
             Create Appointment
           </Button>
         </div>

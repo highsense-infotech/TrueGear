@@ -1,6 +1,8 @@
 import { Trash2, Loader2 } from 'lucide-react';
 import Button from './Button';
 
+type DeleteVariant = 'cancel-entry' | 'delete-vehicle';
+
 interface ConfirmDeleteModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -9,7 +11,23 @@ interface ConfirmDeleteModalProps {
   model: string;
   isDeleting?: boolean;
   error?: string | null;
+  variant?: DeleteVariant;
 }
+
+const VARIANT_CONTENT: Record<DeleteVariant, { title: string; description: string; buttonLabel: string; loadingLabel: string }> = {
+  'cancel-entry': {
+    title: 'Cancel Entry',
+    description: 'Are you sure you want to cancel this vehicle entry? The vehicle record will be preserved.',
+    buttonLabel: 'Cancel Entry',
+    loadingLabel: 'Cancelling...',
+  },
+  'delete-vehicle': {
+    title: 'Delete Vehicle',
+    description: 'This will permanently remove the vehicle and all associated records. This action cannot be undone.',
+    buttonLabel: 'Delete Vehicle',
+    loadingLabel: 'Deleting...',
+  },
+};
 
 export function ConfirmDeleteModal({
   isOpen,
@@ -19,8 +37,11 @@ export function ConfirmDeleteModal({
   model,
   isDeleting = false,
   error,
+  variant = 'cancel-entry',
 }: ConfirmDeleteModalProps) {
   if (!isOpen) return null;
+
+  const content = VARIANT_CONTENT[variant];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -31,10 +52,8 @@ export function ConfirmDeleteModal({
         </div>
 
         {/* Title */}
-        <h2 className="text-[#333] text-[20px] mb-2">Cancel Entry</h2>
-        <p className="text-[#999] text-[14px] mb-7.5">
-          Are you sure you want to cancel this vehicle entry? The vehicle record will be preserved.
-        </p>
+        <h2 className="text-[#333] text-[20px] mb-2">{content.title}</h2>
+        <p className="text-[#999] text-[14px] mb-7.5">{content.description}</p>
 
         {/* Vehicle Info */}
         <div className="grid grid-cols-2 gap-x-10 gap-y-5 mb-7.5">
@@ -70,7 +89,7 @@ export function ConfirmDeleteModal({
             disabled={isDeleting}
             icon={isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
           >
-            {isDeleting ? "Cancelling..." : "Cancel Entry"}
+            {isDeleting ? content.loadingLabel : content.buttonLabel}
           </Button>
         </div>
       </div>

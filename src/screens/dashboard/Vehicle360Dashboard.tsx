@@ -3,7 +3,7 @@ import { Search, Loader2, AlertTriangle, Edit2, Trash2, MoreHorizontal, Car } fr
 import truck from "../../assets/truck.png";
 import { Pagination } from "../../components/common/Pagination";
 import { ConfirmDeleteModal } from "../../components/common/ConfirmDeleteModal";
-import { listVehicles, deleteVehicle } from "../../api/vehicle.api";
+import { listVehicles, hardDeleteVehicle } from "../../api/vehicle.api";
 import type { VehicleItem, VehiclePagination } from "../../api/vehicle.api";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import ROUTES from "../../constants/routes";
@@ -88,7 +88,7 @@ const Vehicle360Dashboard: React.FC = () => {
     if (!deleteTarget) return;
     setIsDeleting(true); setDeleteError(null);
     try {
-      const res = await deleteVehicle(deleteTarget.id);
+      const res = await hardDeleteVehicle(deleteTarget.id);
       if (res.status) { setDeleteTarget(null); fetchVehicles(); }
       else setDeleteError(res.message || "Failed to delete vehicle");
     } catch (err: unknown) {
@@ -282,6 +282,7 @@ const Vehicle360Dashboard: React.FC = () => {
 
       {/* delete modal */}
       <ConfirmDeleteModal
+        variant="delete-vehicle"
         isOpen={!!deleteTarget}
         registration={deleteTarget?.registrationNumber || deleteTarget?.vin || ""}
         model={deleteTarget ? `${deleteTarget.brand} ${deleteTarget.model}` : ""}

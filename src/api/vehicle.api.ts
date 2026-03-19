@@ -308,6 +308,13 @@ export const deleteVehicle = async (
   return data;
 };
 
+export const hardDeleteVehicle = async (
+  vehicleId: string
+): Promise<{ status: boolean; message: string }> => {
+  const { data } = await api.delete(`/vehicles/${vehicleId}/permanent`);
+  return data;
+};
+
 // ---- Confirm Entry ----
 
 export interface ConfirmEntryResponse {
