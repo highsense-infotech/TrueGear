@@ -106,6 +106,7 @@ export interface AppointmentRecord {
   vehicleReg?:              string | null;
   vehicleVin?:              string | null;
   advisorUsername?:         string | null;
+  rescheduleCount?:        number;
 }
 
 export interface AppointmentStats {
@@ -179,6 +180,20 @@ export const updateAppointmentStatus = async (
     status,
     ...(cancellationReason ? { cancellationReason } : {}),
   });
+  return data;
+};
+
+export interface ReschedulePayload {
+  newDate: string;
+  newTime: string;
+  reason?: string;
+}
+
+export const rescheduleAppointment = async (
+  id: string,
+  payload: ReschedulePayload,
+): Promise<{ status: boolean; message: string; data: AppointmentRecord }> => {
+  const { data } = await api.patch(`/appointments/${id}/reschedule`, payload);
   return data;
 };
 

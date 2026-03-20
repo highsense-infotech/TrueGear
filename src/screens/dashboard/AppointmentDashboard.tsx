@@ -4,6 +4,8 @@ import {
   Home,
   ChevronRight,
   Calendar,
+  CalendarDays,
+  ChevronLeft,
   CheckCircle2,
   XCircle,
   Search,
@@ -14,7 +16,7 @@ import {
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
-import { listAppointments, updateAppointmentStatus, type AppointmentRecord, type AppointmentStats } from "../../api/appointment.api";
+import { listAppointments, updateAppointmentStatus, getSlotAvailability, rescheduleAppointment, type AppointmentRecord, type AppointmentStats } from "../../api/appointment.api";
 import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -77,6 +79,21 @@ const AppointmentDashboard: React.FC = () => {
   const [cancelReason,   setCancelReason]   = useState("");
   const [cancelling,     setCancelling]     = useState(false);
   const [cancelError,    setCancelError]    = useState("");
+
+  // Reschedule modal state
+  const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentRecord | null>(null);
+  const [rescheduleStep,   setRescheduleStep]   = useState<"date" | "confirm">("date");
+  const [rescheduleDate,   setRescheduleDate]   = useState("");
+  const [rescheduleTime,   setRescheduleTime]   = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [rescheduleSlots,  setRescheduleSlots]  = useState<{ time: string; booked: number; capacity: number; status: string }[]>([]);
+  const [slotsLoading,     setSlotsLoading]     = useState(false);
+  const [rescheduling,     setRescheduling]     = useState(false);
+  const [rescheduleError,  setRescheduleError]  = useState("");
+  const [calendarMonth,    setCalendarMonth]    = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
 
   // Fetch appointments whenever date/status filter changes
   useEffect(() => {
@@ -157,6 +174,90 @@ const AppointmentDashboard: React.FC = () => {
     } finally {
       setCancelling(false);
     }
+  };
+
+  // ─── Reschedule handlers ─────────────────────────────────────────────────────
+
+  const openRescheduleModal = (appt: AppointmentRecord) => {
+    setRescheduleTarget(appt);
+    setRescheduleStep("date");
+    setRescheduleDate("");
+    setRescheduleTime("");
+    setRescheduleReason("");
+    setRescheduleSlots([]);
+    setRescheduleError("");
+    const d = new Date();
+    setCalendarMonth({ year: d.getFullYear(), month: d.getMonth() });
+  };
+
+  const closeRescheduleModal = () => {
+    if (rescheduling) return;
+    setRescheduleTarget(null);
+  };
+
+  const handleDateSelect = async (dateStr: string) => {
+    setRescheduleDate(dateStr);
+    setRescheduleTime("");
+    setRescheduleError("");
+    setSlotsLoading(true);
+    try {
+      const res = await getSlotAvailability(dateStr);
+      setRescheduleSlots(res.data?.slots ?? []);
+    } catch {
+      setRescheduleSlots([]);
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleTarget || !rescheduleDate || !rescheduleTime) return;
+    setRescheduling(true);
+    setRescheduleError("");
+    try {
+      const res = await rescheduleAppointment(rescheduleTarget.id, {
+        newDate: rescheduleDate,
+        newTime: rescheduleTime,
+        reason: rescheduleReason.trim() || undefined,
+      });
+      if (res.status) {
+        setAppointments((prev) =>
+          prev.map((a) =>
+            a.id === rescheduleTarget.id
+              ? { ...a, appointmentDate: rescheduleDate, appointmentTime: rescheduleTime, status: "BOOKED", rescheduleCount: (a.rescheduleCount ?? 0) + 1 }
+              : a,
+          ),
+        );
+        closeRescheduleModal();
+      }
+    } catch (err: any) {
+      setRescheduleError(err?.response?.data?.message ?? "Failed to reschedule. Please try again.");
+    } finally {
+      setRescheduling(false);
+    }
+  };
+
+  // Calendar helpers for reschedule modal
+  const calendarDays = useMemo(() => {
+    const { year, month } = calendarMonth;
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = new Date().toISOString().split("T")[0];
+    const days: { date: string; day: number; isPast: boolean }[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      days.push({ date: dateStr, day: d, isPast: dateStr < todayStr });
+    }
+    return { days, offset: firstDay };
+  }, [calendarMonth]);
+
+  const isSlotPast = (time: string): boolean => {
+    if (!rescheduleDate) return false;
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (rescheduleDate !== todayStr) return false;
+    const [hh, mm] = time.split(":").map(Number);
+    const now = new Date();
+    return hh * 60 + mm <= now.getHours() * 60 + now.getMinutes();
   };
 
   if (!isIndexRoute) return <Outlet />;
@@ -307,6 +408,11 @@ const AppointmentDashboard: React.FC = () => {
                   <tr key={appt.id} className="border-b border-[#f5f5f5] last:border-0 hover:bg-[#fafafa] transition-colors">
                     <td className="px-5 py-4 text-sm font-bold text-[#333] whitespace-nowrap">
                       {appt.bookingRef}
+                      {(appt.rescheduleCount ?? 0) > 0 && (
+                        <span className="ml-1.5 text-[10px] font-semibold text-[#ff5100] bg-[#ff5100]/10 border border-[#ff5100]/20 rounded px-1 py-0.5">
+                          R{appt.rescheduleCount}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <p className="text-sm font-medium text-[#333]">{customer}</p>
@@ -332,14 +438,26 @@ const AppointmentDashboard: React.FC = () => {
                     </td>
                     <td className="px-5 py-4">
                       {canCancel && (
-                        <button
-                          onClick={() => openCancelModal(appt)}
-                          title="Cancel appointment"
-                          className="text-xs font-medium text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap flex items-center gap-1.5"
-                        >
-                          <XCircle size={13} />
-                          Cancel
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {(appt.rescheduleCount ?? 0) < 3 && (
+                            <button
+                              onClick={() => openRescheduleModal(appt)}
+                              title="Reschedule appointment"
+                              className="text-xs font-medium text-[#ff5100] border border-[#ff5100]/20 bg-[#ff5100]/5 hover:bg-[#ff5100]/10 rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap flex items-center gap-1.5"
+                            >
+                              <CalendarDays size={13} />
+                              Reschedule
+                            </button>
+                          )}
+                          <button
+                            onClick={() => openCancelModal(appt)}
+                            title="Cancel appointment"
+                            className="text-xs font-medium text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap flex items-center gap-1.5"
+                          >
+                            <XCircle size={13} />
+                            Cancel
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -425,6 +543,231 @@ const AppointmentDashboard: React.FC = () => {
                 {cancelling ? "Cancelling..." : "Confirm Cancel"}
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#ff5100]/10 flex items-center justify-center shrink-0">
+                  <CalendarDays size={18} className="text-[#ff5100]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#333]">Reschedule Appointment</h3>
+                  <p className="text-xs text-[#999] mt-0.5">{rescheduleTarget.bookingRef}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeRescheduleModal}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#f5f5f5] transition-colors"
+              >
+                <X size={16} className="text-[#999]" />
+              </button>
+            </div>
+
+            {/* Appointment summary */}
+            <div className="bg-[#fafafa] border border-[#f0f0f0] rounded-lg p-3 mb-4 text-sm text-[#333]">
+              <p className="font-medium">
+                {[rescheduleTarget.customerFirstName, rescheduleTarget.customerLastName].filter(Boolean).join(" ") || "—"}
+              </p>
+              <p className="text-xs text-[#999] mt-0.5">
+                {[rescheduleTarget.vehicleBrand, rescheduleTarget.vehicleModel, rescheduleTarget.vehicleYear].filter(Boolean).join(" ") || "—"}
+                {" · Current: "}
+                {formatDateTime(rescheduleTarget.appointmentDate, rescheduleTarget.appointmentTime)}
+              </p>
+            </div>
+
+            {rescheduleStep === "date" ? (
+              <>
+                {/* Mini Calendar */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <button
+                      onClick={() => setCalendarMonth((prev) => {
+                        const d = new Date(prev.year, prev.month - 1, 1);
+                        return { year: d.getFullYear(), month: d.getMonth() };
+                      })}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#f5f5f5]"
+                    >
+                      <ChevronLeft size={14} className="text-[#999]" />
+                    </button>
+                    <span className="text-sm font-semibold text-[#333]">
+                      {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </span>
+                    <button
+                      onClick={() => setCalendarMonth((prev) => {
+                        const d = new Date(prev.year, prev.month + 1, 1);
+                        return { year: d.getFullYear(), month: d.getMonth() };
+                      })}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#f5f5f5]"
+                    >
+                      <ChevronRight size={14} className="text-[#999]" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-center">
+                    {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+                      <span key={d} className="text-[10px] font-semibold text-[#999] py-1">{d}</span>
+                    ))}
+                    {Array.from({ length: calendarDays.offset }).map((_, i) => (
+                      <span key={`e-${i}`} />
+                    ))}
+                    {calendarDays.days.map(({ date, day, isPast }) => (
+                      <button
+                        key={date}
+                        disabled={isPast}
+                        onClick={() => handleDateSelect(date)}
+                        className={`text-xs py-1.5 rounded-lg transition-colors ${
+                          isPast
+                            ? "text-[#ccc] cursor-not-allowed"
+                            : date === rescheduleDate
+                              ? "bg-[#ff5100] text-white font-bold"
+                              : "text-[#333] hover:bg-[#ff5100]/10"
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Slot Grid */}
+                {rescheduleDate && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-[#999] uppercase mb-2">Available Slots</p>
+                    {slotsLoading ? (
+                      <div className="flex items-center justify-center py-4 text-[#999]">
+                        <Loader2 size={16} className="animate-spin mr-2" />
+                        <span className="text-xs">Loading slots...</span>
+                      </div>
+                    ) : rescheduleSlots.length === 0 ? (
+                      <p className="text-xs text-[#999] text-center py-4">No slots configured for this date.</p>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2">
+                        {rescheduleSlots.map((slot) => {
+                          const isFull  = slot.status === "full";
+                          const isPast  = isSlotPast(slot.time);
+                          const isSame  = rescheduleTarget.appointmentDate === rescheduleDate && rescheduleTarget.appointmentTime === slot.time;
+                          const disabled = isFull || isPast || isSame;
+                          const selected = rescheduleTime === slot.time;
+                          const [hh, mm] = slot.time.split(":").map(Number);
+                          const ampm = hh >= 12 ? "PM" : "AM";
+                          const h12 = hh % 12 || 12;
+                          const label = `${h12}:${String(mm).padStart(2, "0")} ${ampm}`;
+
+                          return (
+                            <button
+                              key={slot.time}
+                              disabled={disabled}
+                              onClick={() => { setRescheduleTime(slot.time); setRescheduleError(""); }}
+                              className={`py-2 rounded-lg text-xs font-medium transition-colors border ${
+                                disabled
+                                  ? "border-[#f0f0f0] text-[#ccc] bg-[#fafafa] cursor-not-allowed"
+                                  : selected
+                                    ? "border-[#ff5100] bg-[#ff5100] text-white"
+                                    : slot.status === "limited"
+                                      ? "border-[#ff5100]/20 text-[#ff5100] bg-[#ff5100]/5 hover:bg-[#ff5100]/10"
+                                      : "border-[#e5e7eb] text-[#333] hover:border-[#ff5100]/30 hover:bg-[#ff5100]/5"
+                              }`}
+                            >
+                              {label}
+                              {!disabled && slot.status === "limited" && (
+                                <span className="block text-[9px] opacity-75">{slot.capacity - slot.booked} left</span>
+                              )}
+                              {isSame && <span className="block text-[9px]">Current</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {rescheduleError && (
+                  <p className="text-xs text-red-500 mb-3">{rescheduleError}</p>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 justify-end">
+                  <button
+                    onClick={closeRescheduleModal}
+                    className="px-4 py-2 text-sm font-medium text-[#333] border border-[#e5e7eb] rounded-lg hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={!rescheduleDate || !rescheduleTime}
+                    onClick={() => setRescheduleStep("confirm")}
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#ff5100] hover:bg-[#e04800] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Confirm step — old vs new summary */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-[10px] font-semibold text-red-400 uppercase mb-1">Previous</p>
+                    <p className="text-sm font-bold text-red-600 line-through">
+                      {formatDateTime(rescheduleTarget.appointmentDate, rescheduleTarget.appointmentTime)}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-[10px] font-semibold text-green-500 uppercase mb-1">New</p>
+                    <p className="text-sm font-bold text-green-700">
+                      {formatDateTime(rescheduleDate, rescheduleTime)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Reason */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-[#333]">Reason (optional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Enter reason for rescheduling..."
+                    value={rescheduleReason}
+                    onChange={(e) => { setRescheduleReason(e.target.value); setRescheduleError(""); }}
+                    className="w-full mt-1.5 px-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] resize-none text-[#333] placeholder-[#bbb]"
+                  />
+                </div>
+
+                <p className="text-xs text-[#999] mb-4">
+                  A reschedule notification email will be sent to the customer.
+                </p>
+
+                {rescheduleError && (
+                  <p className="text-xs text-red-500 mb-3">{rescheduleError}</p>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 justify-end">
+                  <button
+                    onClick={() => setRescheduleStep("date")}
+                    disabled={rescheduling}
+                    className="px-4 py-2 text-sm font-medium text-[#333] border border-[#e5e7eb] rounded-lg hover:bg-[#f5f5f5] transition-colors disabled:opacity-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleConfirmReschedule}
+                    disabled={rescheduling}
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#ff5100] hover:bg-[#e04800] rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {rescheduling && <Loader2 size={13} className="animate-spin" />}
+                    {rescheduling ? "Rescheduling..." : "Confirm Reschedule"}
+                  </button>
+                </div>
+              </>
+            )}
 
           </div>
         </div>
