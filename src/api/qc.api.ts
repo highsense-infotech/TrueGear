@@ -108,6 +108,7 @@ export interface InspectionItem {
   id: string;
   itemCode: string;
   itemLabel: string;
+  subCategory: string | null;
   sortOrder: number;
   result: "PASS" | "FAIL" | "NA" | null;
   comment: string | null;

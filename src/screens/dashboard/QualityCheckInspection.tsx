@@ -190,7 +190,7 @@ const QualityCheckInspection: React.FC = () => {
       case 1:
         for (let i = 0; i < exteriorItems.length; i++) {
           if (!bodyPaintStatus[i]) {
-            newErrors["bodyPaint"] = "Please complete all Body & Paint items";
+            newErrors["bodyPaint"] = "Please complete all Exterior Inspection items";
             isValid = false;
             break;
           }
@@ -209,7 +209,7 @@ const QualityCheckInspection: React.FC = () => {
         for (let i = 0; i < interiorItems.length; i++) {
           if (!seatsStatus[i]) {
             newErrors["seats"] =
-              "Please complete all Seats & Upholstery items";
+              "Please complete all Interior Inspection items";
             isValid = false;
             break;
           }
@@ -227,7 +227,7 @@ const QualityCheckInspection: React.FC = () => {
       case 3:
         for (let i = 0; i < brakeItems.length; i++) {
           if (!brakeStatus[i]) {
-            newErrors["brake"] = "Please complete all Brake items";
+            newErrors["brake"] = "Please complete all Brake Inspection items";
             isValid = false;
             break;
           }
@@ -428,16 +428,19 @@ const QualityCheckInspection: React.FC = () => {
   const exteriorDisplayItems = exteriorItems.map((item) => ({
     id: item.id,
     label: item.itemLabel,
+    subCategory: item.subCategory,
     photos: item.photos,
   }));
   const interiorDisplayItems = interiorItems.map((item) => ({
     id: item.id,
     label: item.itemLabel,
+    subCategory: item.subCategory,
     photos: item.photos,
   }));
   const brakeDisplayItems = brakeItems.map((item) => ({
     id: item.id,
     label: item.itemLabel,
+    subCategory: item.subCategory,
     photos: item.photos,
   }));
 
@@ -550,20 +553,77 @@ const QualityCheckInspection: React.FC = () => {
           </>
         );
       case 4: // Findings
+        {
+        const getGroupBreakdown = (items: InspectionItem[], statuses: Record<number, ChecklistStatus>) => {
+          const groups: Record<string, { pass: number; fail: number; na: number; failLabels: string[] }> = {};
+          items.forEach((item, i) => {
+            const group = item.subCategory || 'General';
+            if (!groups[group]) groups[group] = { pass: 0, fail: 0, na: 0, failLabels: [] };
+            const s = statuses[i];
+            if (s === 'pass') groups[group].pass++;
+            else if (s === 'fail') { groups[group].fail++; groups[group].failLabels.push(item.itemLabel); }
+            else if (s === 'na') groups[group].na++;
+          });
+          return groups;
+        };
+
+        const allSections = [
+          { label: 'Exterior', items: exteriorItems, statuses: bodyPaintStatus },
+          { label: 'Interior', items: interiorItems, statuses: seatsStatus },
+          { label: 'Brake', items: brakeItems, statuses: brakeStatus },
+        ];
+
         return (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-[#333] text-[18px] md:text-[20px] font-semibold">
-                  Record Findings
-                </h1>
-                <p className="text-[#999] text-[12px]">
-                  Vehicles awaiting quality inspection
-                </p>
+            {renderError("qcRating")}
+
+            {/* Findings Summary */}
+            <div className="mb-6">
+              <div className="mb-4" style={{ borderBottom: '1px solid #F3F4F6', paddingBottom: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Findings Summary</h3>
+                <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>Review all inspection findings before submitting</p>
+              </div>
+              <div className="grid grid-cols-3 gap-6">
+                {allSections.map((section) => {
+                  const passCount = section.items.filter((_, i) => section.statuses[i] === 'pass').length;
+                  const failCount = section.items.filter((_, i) => section.statuses[i] === 'fail').length;
+                  const naCount = section.items.filter((_, i) => section.statuses[i] === 'na').length;
+                  const groupBreakdown = getGroupBreakdown(section.items, section.statuses);
+
+                  return (
+                    <div key={section.label} className="rounded-xl" style={{ padding: 20, border: '1px solid #E5E7EB' }}>
+                      <h4 style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 12 }}>{section.label} Inspection</h4>
+                      <div className="flex items-center gap-4 mb-3">
+                        <span style={{ fontSize: 13, color: '#22C55E', fontWeight: 600 }}>✓ {passCount} Pass</span>
+                        <span style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>✗ {failCount} Fail</span>
+                        <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>— {naCount} N/A</span>
+                      </div>
+                      <div className="space-y-2" style={{ borderTop: '1px solid #F3F4F6', paddingTop: 10 }}>
+                        {Object.entries(groupBreakdown).map(([group, counts]) => (
+                          <div key={group}>
+                            <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{group}</p>
+                            <div className="flex items-center gap-3">
+                              <span style={{ fontSize: 12, color: '#22C55E' }}>{counts.pass} Pass</span>
+                              <span style={{ fontSize: 12, color: '#EF4444' }}>{counts.fail} Fail</span>
+                              <span style={{ fontSize: 12, color: '#6B7280' }}>{counts.na} N/A</span>
+                            </div>
+                            {counts.failLabels.length > 0 && (
+                              <div className="mt-1">
+                                {counts.failLabels.map((l) => (
+                                  <p key={l} style={{ fontSize: 12, color: '#EF4444' }}>• {l}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            {renderError("qcRating")}
-            <FindingsSection
+
+            {/* <FindingsSection
               passCount={summary.passCount}
               failCount={summary.failCount}
               naCount={summary.naCount}
@@ -593,9 +653,10 @@ const QualityCheckInspection: React.FC = () => {
               description="Add final remarks for this inspection"
               value={finalRemarks}
               onChange={setFinalRemarks}
-            />
+            /> */}
           </>
         );
+        }
       case 5: // Submit
         return (
           <>
