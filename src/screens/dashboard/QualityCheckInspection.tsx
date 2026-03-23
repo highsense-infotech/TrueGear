@@ -1,29 +1,35 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import SignatureCanvas from "react-signature-canvas";
+import { Plus, Trash2, RotateCcw, CheckSquare } from "lucide-react";
 import truck from "../../assets/truck.png";
 import { InspectionSection } from "../../components/cards/InspectionSection";
 import ProgressSteps from "../../components/cards/ProgressSteps";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
-import { FindingsSection } from "../../components/cards/FindingsSection";
-import { FailedItemSection } from "../../components/cards/FailedItemSection";
-import { BreakTestSummary } from "../../components/cards/BreakTestSummary";
-import { CriticalAlert } from "../../components/cards/CriticalAlert";
-import QCRatingSection from "../../components/cards/QCRatingSection";
-import QCRemarkSection from "../../components/cards/QCRemarkSection";
+// import { FindingsSection } from "../../components/cards/FindingsSection";
+// import { FailedItemSection } from "../../components/cards/FailedItemSection";
+// import { BreakTestSummary } from "../../components/cards/BreakTestSummary";
+// import { CriticalAlert } from "../../components/cards/CriticalAlert";
+// import QCRatingSection from "../../components/cards/QCRatingSection";
+// import QCRemarkSection from "../../components/cards/QCRemarkSection";
 import QCSuccess from "../../components/cards/QCSuccess";
 import {
   getInspectionDetails,
   saveStepItems,
   saveFindings,
+  saveConfirmation,
+  uploadSignature,
   submitInspection,
   uploadItemPhoto,
   deleteItemPhoto,
   type InspectionItem,
   type InspectionVehicle,
   type InspectionSummary,
-  type InspectionFindings,
+  // type InspectionFindings,
+  type ConfirmationComponent,
+  type ConfirmationRework,
 } from "../../api/qc.api";
 
 // Type for checklist item status
@@ -58,26 +64,26 @@ function mapStatusToResult(
 }
 
 // Map QC rating display value to API enum
-function mapRatingToApi(rating: string): string {
-  const map: Record<string, string> = {
-    "Pass": "PASS",
-    "conditional": "CONDITIONAL",
-    "Conditional": "CONDITIONAL",
-    "Fail - Suggested": "FAIL",
-    "Fail": "FAIL",
-  };
-  return map[rating] || rating.toUpperCase();
-}
+// function mapRatingToApi(rating: string): string {
+//   const map: Record<string, string> = {
+//     "Pass": "PASS",
+//     "conditional": "CONDITIONAL",
+//     "Conditional": "CONDITIONAL",
+//     "Fail - Suggested": "FAIL",
+//     "Fail": "FAIL",
+//   };
+//   return map[rating] || rating.toUpperCase();
+// }
 
 // Map API enum to QC rating display value
-function mapApiToRating(apiValue: string): string {
-  const map: Record<string, string> = {
-    "PASS": "Pass",
-    "CONDITIONAL": "conditional",
-    "FAIL": "Fail - Suggested",
-  };
-  return map[apiValue] || apiValue;
-}
+// function mapApiToRating(apiValue: string): string {
+//   const map: Record<string, string> = {
+//     "PASS": "Pass",
+//     "CONDITIONAL": "conditional",
+//     "FAIL": "Fail - Suggested",
+//   };
+//   return map[apiValue] || apiValue;
+// }
 
 const QualityCheckInspection: React.FC = () => {
   const { inspectionId } = useParams<{ inspectionId: string }>();
@@ -96,7 +102,7 @@ const QualityCheckInspection: React.FC = () => {
   const [brakeItems, setBrakeItemsList] = useState<InspectionItem[]>([]);
 
   // Summary from API
-  const [summary, setSummary] = useState<InspectionSummary>({
+  const [_summary, setSummary] = useState<InspectionSummary>({
     totalItems: 0,
     passCount: 0,
     failCount: 0,
@@ -105,7 +111,7 @@ const QualityCheckInspection: React.FC = () => {
   });
 
   // Findings from API
-  const [findings, setFindings] = useState<InspectionFindings | null>(null);
+  // const [findings, setFindings] = useState<InspectionFindings | null>(null);
 
   // Status records for checklist UI
   const [bodyPaintStatus, setBodyPaintStatus] = useState<
@@ -118,8 +124,15 @@ const QualityCheckInspection: React.FC = () => {
     Record<number, ChecklistStatus>
   >({});
   // State for Step 4 (Findings)
-  const [qcRating, setQcrating] = useState<string>("");
-  const [finalRemarks, setFinalRemarks] = useState<string>("");
+  // const [qcRating, setQcrating] = useState<string>("");
+  // const [finalRemarks, setFinalRemarks] = useState<string>("");
+
+  // State for Step 5 (Final Confirmation)
+  const [components, setComponents] = useState<ConfirmationComponent[]>([{ majorComponent: "", itemNumber: "", comment: "" }]);
+  const [rework, setRework] = useState<ConfirmationRework>({ majorComponent: "", technician: "", itemNumber: "", comments: "" });
+  const [signatureError, setSignatureError] = useState<string>("");
+  const [submitted, setSubmitted] = useState(false);
+  const sigCanvasRef = useRef<SignatureCanvas>(null);
 
   // Fetch inspection data
   const fetchInspection = useCallback(async () => {
@@ -128,13 +141,13 @@ const QualityCheckInspection: React.FC = () => {
     try {
       const res = await getInspectionDetails(inspectionId);
       if (res.status) {
-        const { inspection, vehicle: vehicleData, categories, summary: summaryData, findings: findingsData } = res.data;
+        const { inspection, vehicle: vehicleData, categories, summary: summaryData, findings: _findingsData } = res.data;
 
         setVehicle(vehicleData);
         setCurrentStep(inspection.currentStep);
         setMaxStep(inspection.currentStep);
         setSummary(summaryData);
-        setFindings(findingsData);
+        // setFindings(findingsData);
 
         // Set exterior items and pre-fill statuses
         const ext = categories.EXTERIOR || [];
@@ -164,12 +177,12 @@ const QualityCheckInspection: React.FC = () => {
         setBrakeStatus(brkStatus);
 
         // Pre-fill findings
-        if (findingsData.overallStatus) {
-          setQcrating(mapApiToRating(findingsData.overallStatus));
-        }
-        if (findingsData.finalRemarks) {
-          setFinalRemarks(findingsData.finalRemarks);
-        }
+        // if (findingsData.overallStatus) {
+        //   setQcrating(mapApiToRating(findingsData.overallStatus));
+        // }
+        // if (findingsData.finalRemarks) {
+        //   setFinalRemarks(findingsData.finalRemarks);
+        // }
       }
     } catch (err) {
       console.error("Failed to fetch inspection details:", err);
@@ -244,8 +257,11 @@ const QualityCheckInspection: React.FC = () => {
         break;
 
       case 4:
-        if (!qcRating) {
-          newErrors["qcRating"] = "Please select a QC status rating";
+        // Findings summary is view-only, no validation needed
+        break;
+      case 5:
+        if (sigCanvasRef.current?.isEmpty()) {
+          newErrors["signature"] = "Signature required to submit";
           isValid = false;
         }
         break;
@@ -288,24 +304,24 @@ const QualityCheckInspection: React.FC = () => {
     setBrakeStatus(brkStatus);
 
     // Derive failed items for findings step
-    const allItems = [...ext, ...int, ...brk];
-    const failedItems = allItems
-      .filter((item) => item.result === "FAIL")
-      .map((item) => ({
-        itemCode: item.itemCode,
-        itemLabel: item.itemLabel,
-        category: ext.includes(item) ? "EXTERIOR" : int.includes(item) ? "INTERIOR" : "BRAKE",
-        comment: item.comment,
-      }));
+    // const allItems = [...ext, ...int, ...brk];
+    // const failedItems = allItems
+    //   .filter((item) => item.result === "FAIL")
+    //   .map((item) => ({
+    //     itemCode: item.itemCode,
+    //     itemLabel: item.itemLabel,
+    //     category: ext.includes(item) ? "EXTERIOR" : int.includes(item) ? "INTERIOR" : "BRAKE",
+    //     comment: item.comment,
+    //   }));
 
-    setFindings((prev) => prev ? { ...prev, failedItems } : {
-      overallStatus: null,
-      overrideJustification: null,
-      finalRemarks: null,
-      brakeTestSummary: { performance: null, noise: null, vibration: null },
-      failedItems,
-      criticalIssuesDetected: failedItems.length > 0,
-    });
+    // setFindings((prev) => prev ? { ...prev, failedItems } : {
+    //   overallStatus: null,
+    //   overrideJustification: null,
+    //   finalRemarks: null,
+    //   brakeTestSummary: { performance: null, noise: null, vibration: null },
+    //   failedItems,
+    //   criticalIssuesDetected: failedItems.length > 0,
+    // });
   };
 
   const handleSaveAndContinue = async () => {
@@ -365,19 +381,43 @@ const QualityCheckInspection: React.FC = () => {
           setErrors({});
         }
       } else if (currentStep === 4) {
-        const res = await saveFindings(inspectionId, {
-          overallStatus: mapRatingToApi(qcRating),
-          finalRemarks: finalRemarks || null,
-          brakePerformance:
-            findings?.brakeTestSummary?.performance || null,
-          brakeNoise: findings?.brakeTestSummary?.noise || null,
-          brakeVibration: findings?.brakeTestSummary?.vibration || null,
+        // Findings is view-only — just advance to step 5
+        setCurrentStep(5);
+        setMaxStep((prev) => Math.max(prev, 5));
+        setErrors({});
+      } else if (currentStep === 5) {
+        // Final Confirmation: save components + rework + signature + findings + submit
+        // 1. Save confirmation data
+        await saveConfirmation(inspectionId, {
+          components,
+          rework,
+          timeIn: new Date().toISOString(),
+          timeOut: new Date().toISOString(),
         });
-        if (res.status) {
+
+        // 2. Upload signature
+        if (sigCanvasRef.current && !sigCanvasRef.current.isEmpty()) {
+          const canvas = sigCanvasRef.current.getCanvas();
+          const blob = await new Promise<Blob>((resolve) =>
+            canvas.toBlob((b) => resolve(b!), "image/png")
+          );
+          await uploadSignature(inspectionId, blob);
+        }
+
+        // 3. Save findings (overallStatus required by backend)
+        const findingsRes = await saveFindings(inspectionId, {
+          overallStatus: "PASS",
+          finalRemarks: null,
+          brakePerformance: null,
+          brakeNoise: null,
+          brakeVibration: null,
+        });
+
+        // 4. Submit inspection
+        if (findingsRes.status) {
           const submitRes = await submitInspection(inspectionId);
           if (submitRes.status) {
-            setCurrentStep(5);
-            setMaxStep(5);
+            setSubmitted(true);
           }
           setErrors({});
         }
@@ -657,10 +697,203 @@ const QualityCheckInspection: React.FC = () => {
           </>
         );
         }
-      case 5: // Submit
+      case 5: // Final Confirmation / Submit
+        if (submitted) return <QCSuccess />;
         return (
           <>
-            <QCSuccess />
+            <div className="mb-6">
+              <h1 className="text-[#333] text-[18px] md:text-[20px] font-semibold">Final Confirmation</h1>
+              <p className="text-[#999] text-[12px]">Complete the details below before submitting the QC report</p>
+            </div>
+
+            {signatureError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">
+                {signatureError}
+              </div>
+            )}
+
+            {/* Dynamic Component Cards */}
+            {components.map((comp, idx) => (
+              <div key={idx} className="border border-[#E5E7EB] rounded-xl p-5 mb-4 relative">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Component {idx + 1}</p>
+                  {components.length > 1 && (
+                    <button
+                      onClick={() => setComponents(components.filter((_, i) => i !== idx))}
+                      className="text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Major Component</label>
+                    <input
+                      className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100]"
+                      placeholder="Enter major component"
+                      value={comp.majorComponent || ""}
+                      onChange={(e) => {
+                        const updated = [...components];
+                        updated[idx] = { ...updated[idx], majorComponent: e.target.value };
+                        setComponents(updated);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Item Number</label>
+                    <input
+                      className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100]"
+                      placeholder="Enter item number"
+                      value={comp.itemNumber || ""}
+                      onChange={(e) => {
+                        const updated = [...components];
+                        updated[idx] = { ...updated[idx], itemNumber: e.target.value };
+                        setComponents(updated);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Comment</label>
+                  <textarea
+                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100] resize-none"
+                    rows={3}
+                    placeholder="Enter detailed comments about this component..."
+                    value={comp.comment || ""}
+                    onChange={(e) => {
+                      const updated = [...components];
+                      updated[idx] = { ...updated[idx], comment: e.target.value };
+                      setComponents(updated);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={() => setComponents([...components, { majorComponent: "", itemNumber: "", comment: "" }])}
+              className="flex items-center gap-2 text-sm font-medium text-[#ff5100] hover:text-[#e04800] mb-6 transition-colors cursor-pointer"
+            >
+              <Plus size={16} /> Add Component
+            </button>
+
+            {/* Workshop Rework */}
+            <div className="border border-[#E5E7EB] rounded-xl p-5 mb-6">
+              <h4 className="text-[13px] font-bold text-[#333] uppercase mb-1">Workshop Rework</h4>
+              <p className="text-[12px] text-[#9CA3AF] italic mb-4">"Any work sent back to the workshop for repeat repairs identified during the post vehicle inspection"</p>
+              <div className="grid grid-cols-3 gap-4 mb-3">
+                <div>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Major Component</label>
+                  <input
+                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100]"
+                    placeholder="Enter component"
+                    value={rework.majorComponent || ""}
+                    onChange={(e) => setRework({ ...rework, majorComponent: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Technician</label>
+                  <input
+                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100]"
+                    placeholder="Enter technician name"
+                    value={rework.technician || ""}
+                    onChange={(e) => setRework({ ...rework, technician: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Item Number</label>
+                  <input
+                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100]"
+                    placeholder="Enter item number"
+                    value={rework.itemNumber || ""}
+                    onChange={(e) => setRework({ ...rework, itemNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Comments</label>
+                <textarea
+                  className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100] resize-none"
+                  rows={3}
+                  placeholder="Enter detailed rework comments..."
+                  value={rework.comments || ""}
+                  onChange={(e) => setRework({ ...rework, comments: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Technician Signature */}
+            <div className="border border-[#E5E7EB] rounded-xl p-5 mb-6">
+              <h4 className="text-[13px] font-bold text-[#333] uppercase mb-3">Technician Signature</h4>
+              <div className="border border-[#E5E7EB] rounded-lg overflow-hidden mb-2" style={{ height: 150 }}>
+                <SignatureCanvas
+                  ref={sigCanvasRef}
+                  canvasProps={{ className: "w-full h-full", style: { width: "100%", height: "100%" } }}
+                  backgroundColor="#fff"
+                />
+              </div>
+              <button
+                onClick={() => { sigCanvasRef.current?.clear(); setSignatureError(""); }}
+                className="flex items-center gap-1.5 text-xs text-[#9CA3AF] hover:text-[#333] transition-colors cursor-pointer"
+              >
+                <RotateCcw size={14} /> Clear Signature
+              </button>
+
+              {/* Date / Time In / Time Out */}
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Date</label>
+                  <input
+                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] bg-[#fafafa]"
+                    value={new Date().toISOString().split("T")[0]}
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Time In</label>
+                  <input
+                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] bg-[#fafafa]"
+                    value={new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Time Out</label>
+                  <input
+                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] bg-[#fafafa]"
+                    value={new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              <p className="text-[13px] text-[#ff5100] italic mt-4">
+                I certify that the Check in, PM and Electrical tasks was carried out satisfactory.
+              </p>
+            </div>
+
+            {/* Submit QC Report button */}
+            <button
+              onClick={handleSaveAndContinue}
+              disabled={saving || loading}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-medium text-sm transition-colors disabled:opacity-50 cursor-pointer"
+              style={{ background: "linear-gradient(135deg, #ff4f31, #fe2b73)" }}
+            >
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Submitting...
+                </span>
+              ) : (
+                <>
+                  <CheckSquare size={18} /> Submit QC Report
+                </>
+              )}
+            </button>
+            {errors["signature"] && (
+              <p className="text-center text-red-500 text-xs mt-2">{errors["signature"]}</p>
+            )}
           </>
         );
       default:
@@ -699,7 +932,7 @@ const QualityCheckInspection: React.FC = () => {
             currentStep={currentStep}
             maxStep={maxStep}
             onStepClick={(step) => {
-              if (step <= maxStep && step !== currentStep && currentStep < 5) {
+              if (step <= maxStep && step !== currentStep && !submitted) {
                 setCurrentStep(step);
               }
             }}
@@ -724,7 +957,7 @@ const QualityCheckInspection: React.FC = () => {
             </div>
           </div>
           {/* Action Buttons */}
-          {currentStep !== 5 && (
+          {!submitted && currentStep !== 5 && (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 w-full md:w-auto">
               <Button variant="outline">Cancel</Button>
               <Button

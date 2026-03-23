@@ -259,6 +259,55 @@ export const deleteItemPhoto = async (
   return data;
 };
 
+// --- Save Final Confirmation API ---
+
+export interface ConfirmationComponent {
+  majorComponent?: string;
+  itemNumber?: string;
+  comment?: string;
+}
+
+export interface ConfirmationRework {
+  majorComponent?: string;
+  technician?: string;
+  itemNumber?: string;
+  comments?: string;
+}
+
+export interface SaveConfirmationPayload {
+  components?: ConfirmationComponent[];
+  rework?: ConfirmationRework;
+  timeIn?: string;
+  timeOut?: string;
+}
+
+export const saveConfirmation = async (
+  inspectionId: string,
+  payload: SaveConfirmationPayload
+): Promise<{ status: boolean; message: string }> => {
+  const { data } = await api.put(
+    `/qc-inspections/${inspectionId}/confirmation`,
+    payload
+  );
+  return data;
+};
+
+// --- Upload Signature API ---
+
+export const uploadSignature = async (
+  inspectionId: string,
+  file: Blob
+): Promise<{ status: boolean; message: string; data: { signatureUrl: string } }> => {
+  const formData = new FormData();
+  formData.append("file", file, "signature.png");
+  const { data } = await api.post(
+    `/qc-inspections/${inspectionId}/signature`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return data;
+};
+
 // --- Save Findings API ---
 
 export interface SaveFindingsPayload {
