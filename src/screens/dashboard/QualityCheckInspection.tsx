@@ -42,7 +42,7 @@ interface ValidationErrors {
 
 // Map API result to local status
 function mapResultToStatus(result: string | null): ChecklistStatus {
-  if (!result) return null;
+  if (!result) return 'na';
   switch (result.toUpperCase()) {
     case "PASS":
       return "pass";
