@@ -12,6 +12,7 @@ interface PartRequestCardProps {
   showDispatchInfo?: boolean;
   expectedTime?: string;
   loadingAction?: 'markAvailable' | 'eta' | 'dispatch' | null;
+  hideVehicleInfo?: boolean;
 }
 
 const statusConfig = {
@@ -51,6 +52,7 @@ export function PartRequestCard({
   showDispatchInfo,
   expectedTime,
   loadingAction = null,
+  hideVehicleInfo = false,
 }: PartRequestCardProps) {
   const statusStyle = statusConfig[status];
 
@@ -70,13 +72,15 @@ export function PartRequestCard({
             <div className="min-w-0">
               <h3 className="text-[14px] sm:text-[16px] font-semibold text-[#333] mb-1 truncate">{partName}</h3>
               <p className="text-[11px] sm:text-[12px] text-[#999] mb-2">{partNumber}</p>
-              <div className="flex items-center gap-2 text-[11px] sm:text-[12px] text-[#666]">
-                <svg className="size-3.5 sm:size-4 shrink-0" fill="none" viewBox="0 0 16 16">
-                  <path d="M2 3H14V11C14 11.2652 13.8946 11.5196 13.7071 11.7071C13.5196 11.8946 13.2652 12 13 12H3C2.73478 12 2.48043 11.8946 2.29289 11.7071C2.10536 11.5196 2 11.2652 2 11V3Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
-                  <path d="M11 1V5M5 1V5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
-                </svg>
-                <span className="truncate">{vehicleNumber} – {vehicleModel}</span>
-              </div>
+              {!hideVehicleInfo && (
+                <div className="flex items-center gap-2 text-[11px] sm:text-[12px] text-[#666]">
+                  <svg className="size-3.5 sm:size-4 shrink-0" fill="none" viewBox="0 0 16 16">
+                    <path d="M2 3H14V11C14 11.2652 13.8946 11.5196 13.7071 11.7071C13.5196 11.8946 13.2652 12 13 12H3C2.73478 12 2.48043 11.8946 2.29289 11.7071C2.10536 11.5196 2 11.2652 2 11V3Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+                    <path d="M11 1V5M5 1V5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+                  </svg>
+                  <span className="truncate">{vehicleNumber} – {vehicleModel}</span>
+                </div>
+              )}
               <p className="text-[11px] sm:text-[12px] text-[#999] mt-1 truncate">For: {serviceDescription}</p>
             </div>
 

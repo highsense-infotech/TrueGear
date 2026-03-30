@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { PartRequestCard } from "../../components/cards/PartRequestCard.tsx";
+import { JobCardPartsGroup } from "../../components/cards/JobCardPartsGroup.tsx";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import Modal from "../../components/common/Modal.tsx";
 import { AlertTriangle, Clock, Check, Loader2, Send } from "lucide-react";
@@ -9,7 +9,7 @@ import {
   markPartAvailable,
   markPartUnavailable,
   markPartDispatched,
-  type PartRequest,
+  type JobCardGroup,
 } from "../../api/partsManager.api.ts";
 import Button from "../../components/common/Button.tsx";
 
@@ -21,7 +21,7 @@ interface Stats {
 }
 
 const SparePartsDashboard = () => {
-  const [partRequests, setPartRequests] = useState<PartRequest[]>([]);
+  const [jobCardGroups, setJobCardGroups] = useState<JobCardGroup[]>([]);
   const [stats, setStats] = useState<Stats>({
     pending: 0,
     available: 0,
@@ -31,9 +31,15 @@ const SparePartsDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  // Track whether this is the initial load (to auto-expand) vs a refresh (preserve state)
+  const isInitialLoad = useRef(true);
 
   // Action loading state: maps requestId -> action type
-  const [actionLoading, setActionLoading] = useState<Record<string, 'markAvailable' | 'eta' | 'dispatch'>>({});
+  const [actionLoading, setActionLoading] = useState<
+    Record<string, "markAvailable" | "eta" | "dispatch">
+  >({});
 
   // ETA modal state
   const [etaModalOpen, setEtaModalOpen] = useState(false);
@@ -45,7 +51,22 @@ const SparePartsDashboard = () => {
     try {
       const res = await getPartsDashboard();
       setStats(res.data.stats);
-      setPartRequests(res.data.partRequests);
+      setJobCardGroups(res.data.jobCardGroups);
+
+      // Auto-expand groups with actionable parts only on initial load
+      if (isInitialLoad.current) {
+        const initialExpanded = new Set(
+          res.data.jobCardGroups
+            .filter((g) =>
+              g.partRequests.some(
+                (p) => p.status === "pending" || p.status === "available"
+              )
+            )
+            .map((g) => g.jobCardId)
+        );
+        setExpandedGroups(initialExpanded);
+        isInitialLoad.current = false;
+      }
     } catch {
       toast.error("Failed to load parts dashboard");
     } finally {
@@ -58,7 +79,7 @@ const SparePartsDashboard = () => {
   }, []);
 
   const handleMarkAvailable = async (id: string) => {
-    setActionLoading((prev) => ({ ...prev, [id]: 'markAvailable' }));
+    setActionLoading((prev) => ({ ...prev, [id]: "markAvailable" }));
     try {
       await markPartAvailable(id);
       toast.success("Part marked as available");
@@ -66,12 +87,16 @@ const SparePartsDashboard = () => {
     } catch {
       toast.error("Failed to update part status");
     } finally {
-      setActionLoading((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      setActionLoading((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   };
 
   const handleDispatch = async (id: string) => {
-    setActionLoading((prev) => ({ ...prev, [id]: 'dispatch' }));
+    setActionLoading((prev) => ({ ...prev, [id]: "dispatch" }));
     try {
       await markPartDispatched(id);
       toast.success("Part dispatched to bay");
@@ -79,7 +104,11 @@ const SparePartsDashboard = () => {
     } catch {
       toast.error("Failed to dispatch part");
     } finally {
-      setActionLoading((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      setActionLoading((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   };
 
@@ -126,16 +155,45 @@ const SparePartsDashboard = () => {
     }
   };
 
-  const filteredRequests = partRequests.filter((req) => {
-    const matchesStatus = filterStatus === "all" || req.status === filterStatus;
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      !q ||
-      req.partName.toLowerCase().includes(q) ||
-      req.vehicleNumber.toLowerCase().includes(q) ||
-      req.vehicleModel.toLowerCase().includes(q);
-    return matchesStatus && matchesSearch;
-  });
+  const toggleGroup = (jobCardId: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobCardId)) next.delete(jobCardId);
+      else next.add(jobCardId);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedGroups(new Set(filteredGroups.map((g) => g.jobCardId)));
+  };
+
+  const collapseAll = () => {
+    setExpandedGroups(new Set());
+  };
+
+  // Two-level filtering: filter parts within each group, then hide empty groups
+  const filteredGroups = jobCardGroups
+    .map((group) => ({
+      ...group,
+      partRequests: group.partRequests.filter((req) => {
+        const matchesStatus =
+          filterStatus === "all" || req.status === filterStatus;
+        const q = searchQuery.toLowerCase();
+        const matchesSearch =
+          !q ||
+          req.partName.toLowerCase().includes(q) ||
+          group.vehicleNumber.toLowerCase().includes(q) ||
+          group.vehicleModel.toLowerCase().includes(q);
+        return matchesStatus && matchesSearch;
+      }),
+    }))
+    .filter((group) => group.partRequests.length > 0);
+
+  const totalParts = filteredGroups.reduce(
+    (sum, g) => sum + g.partRequests.length,
+    0
+  );
 
   if (loading) {
     return (
@@ -239,55 +297,55 @@ const SparePartsDashboard = () => {
         </div>
       </div>
 
-      {/* Part Requests List */}
+      {/* Part Requests grouped by Job Card */}
       <div className="mb-4 sm:mb-6">
-        <h2 className="text-[14px] sm:text-[16px] font-semibold text-[#333] mb-1">
-          Part Requests
-        </h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-[14px] sm:text-[16px] font-semibold text-[#333]">
+            Part Requests
+          </h2>
+          {filteredGroups.length > 0 && (
+            <div className="flex items-center gap-3 text-[12px] sm:text-[13px]">
+              <button
+                type="button"
+                onClick={expandAll}
+                className="text-[#ff4f31] hover:underline cursor-pointer"
+              >
+                Expand All
+              </button>
+              <span className="text-[#ccc]">|</span>
+              <button
+                type="button"
+                onClick={collapseAll}
+                className="text-[#ff4f31] hover:underline cursor-pointer"
+              >
+                Collapse All
+              </button>
+            </div>
+          )}
+        </div>
         <p className="text-[12px] sm:text-[14px] text-[#999] mb-3 sm:mb-4">
-          {filteredRequests.length} request(s)
+          {filteredGroups.length} job card{filteredGroups.length !== 1 ? "s" : ""}, {totalParts} request{totalParts !== 1 ? "s" : ""}
         </p>
 
-        {filteredRequests.length === 0 ? (
+        {filteredGroups.length === 0 ? (
           <div className="bg-white rounded-[10px] border border-[#e5e7eb] p-8 text-center">
             <p className="text-[#999] text-[14px]">No part requests found</p>
           </div>
         ) : (
           <div className="space-y-3 sm:space-y-4">
-            {filteredRequests.map((request) => (
-              <PartRequestCard
-                key={request.id}
-                partName={request.partName}
-                partNumber={request.partNumber}
-                vehicleNumber={request.vehicleNumber}
-                vehicleModel={request.vehicleModel}
-                serviceDescription={request.serviceDescription}
-                status={
-                  request.status as
-                    | "pending"
-                    | "available"
-                    | "unavailable"
-                    | "dispatched"
-                }
-                requestTime={request.requestTime}
-                onMarkAvailable={
-                  request.status === "pending"
-                    ? () => handleMarkAvailable(request.id)
-                    : undefined
-                }
-                onSetETA={
-                  request.status === "pending"
-                    ? () => openETAModal(request.id)
-                    : undefined
-                }
-                onDispatch={
-                  request.status === "available"
-                    ? () => handleDispatch(request.id)
-                    : undefined
-                }
-                showDispatchInfo={request.showDispatchInfo}
-                expectedTime={request.expectedTime ?? undefined}
-                loadingAction={actionLoading[request.id] || null}
+            {filteredGroups.map((group) => (
+              <JobCardPartsGroup
+                key={group.jobCardId}
+                jobCardId={group.jobCardId}
+                vehicleNumber={group.vehicleNumber}
+                vehicleModel={group.vehicleModel}
+                partRequests={group.partRequests}
+                isExpanded={expandedGroups.has(group.jobCardId)}
+                onToggle={() => toggleGroup(group.jobCardId)}
+                onMarkAvailable={handleMarkAvailable}
+                onSetETA={openETAModal}
+                onDispatch={handleDispatch}
+                actionLoading={actionLoading}
               />
             ))}
           </div>

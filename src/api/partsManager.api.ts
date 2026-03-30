@@ -22,12 +22,21 @@ export interface PartsDashboardStats {
   dispatched: number;
 }
 
+export interface JobCardGroup {
+  jobCardId: string;
+  vehicleNumber: string;
+  vehicleModel: string;
+  jobCardStatus: string;
+  createdAt: string;
+  partRequests: PartRequest[];
+}
+
 export interface PartsDashboardResponse {
   status: boolean;
   message: string;
   data: {
     stats: PartsDashboardStats;
-    partRequests: PartRequest[];
+    jobCardGroups: JobCardGroup[];
   };
 }
 

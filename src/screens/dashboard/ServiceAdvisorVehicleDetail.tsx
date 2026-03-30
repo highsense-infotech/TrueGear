@@ -145,9 +145,10 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
   };
 
   // Map QC report items to component format
-  const mapQCResult = (result: string): "pass" | "fail" | "warning" => {
+  const mapQCResult = (result: string): "pass" | "fail" | "warning" | "na" => {
     if (result === "PASS") return "pass";
     if (result === "FAIL") return "fail";
+    if (result === "NA") return "na";
     return "warning";
   };
 
