@@ -8,7 +8,7 @@ export interface ServiceTypeItem {
   isActive: boolean;
 }
 
-export const listServiceTypes = async (): Promise<{ status: boolean; data: ServiceTypeItem[] }> => {
-  const { data } = await api.get('/service-types');
+export const listServiceTypes = async (category?: string): Promise<{ status: boolean; data: ServiceTypeItem[] }> => {
+  const { data } = await api.get('/service-types', { params: category ? { category } : {} });
   return data;
 };

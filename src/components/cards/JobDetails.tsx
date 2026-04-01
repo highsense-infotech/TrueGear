@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import Button from "../common/Button";
+import { type DropdownOption } from "../common/SearchableDropdown";
 import { type Job, type JobErrors, JobRow } from "./JobRow";
 
 interface JobDetailsProps {
@@ -9,6 +10,8 @@ interface JobDetailsProps {
   onRemoveJob: (id: number) => void;
   calculateLineTotal: (job: Job) => number;
   jobErrors?: Record<number, JobErrors>;
+  serviceTypeOptions?: DropdownOption[];
+  onServiceCategoryChange?: (jobId: number, categoryCode: string, categoryName: string, serviceTypeId: string) => void;
 }
 
 export function JobDetails({
@@ -18,6 +21,8 @@ export function JobDetails({
   onRemoveJob,
   calculateLineTotal,
   jobErrors,
+  serviceTypeOptions,
+  onServiceCategoryChange,
 }: JobDetailsProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 shadow-sm">
@@ -58,6 +63,9 @@ export function JobDetails({
             onRemove={onRemoveJob}
             calculateLineTotal={calculateLineTotal}
             errors={jobErrors?.[job.id]}
+            serviceTypeOptions={serviceTypeOptions}
+            onServiceCategoryChange={onServiceCategoryChange}
+            totalJobs={jobs.length}
           />
         ))}
       </div>
@@ -67,4 +75,3 @@ export function JobDetails({
 
 export type { JobDetailsProps };
 export type { Job };
-

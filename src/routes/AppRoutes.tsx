@@ -30,8 +30,11 @@ import { ROUTES } from '../constants/routes';
 import { MODULES, ACTIONS } from '../constants/permissions';
 import { SendEstimate } from '../screens/vehicles/SendEstimate.tsx';
 import UserManagement from '../screens/admin/UserManagement.tsx';
-import QCOutDashboard from '../screens/dashboard/QCOutDashboard.tsx';
-import QCOutInspection from '../screens/dashboard/QCOutInspection.tsx';
+import ModelServiceTypeAssignment from '../screens/admin/ModelServiceTypeAssignment.tsx';
+// import QCOutDashboard from '../screens/dashboard/QCOutDashboard.tsx';
+// import QCOutInspection from '../screens/dashboard/QCOutInspection.tsx';
+import VehicleOutDashboard from '../screens/dashboard/VehicleOutDashboard.tsx';
+import VehicleOutInspection from '../screens/dashboard/VehicleOutInspection.tsx';
 import AppointmentDashboard from '../screens/dashboard/AppointmentDashboard.tsx';
 import Vehicle360Dashboard from '../screens/dashboard/Vehicle360Dashboard.tsx';
 import Vehicle360VehicleDetail from '../screens/dashboard/Vehicle360VehicleDetail.tsx';
@@ -50,7 +53,7 @@ const PERMISSION_ROUTES = [
   { resource: MODULES.JOB_CARD, action: ACTIONS.VIEW, path: ROUTES.SERVICE_ADVISOR_DASHBOARD },
   { resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW, path: ROUTES.SPARE_PARTS_DASHBOARD },
   { resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW, path: ROUTES.USER_MANAGEMENT },
-  { resource: MODULES.QC_OUT, action: ACTIONS.VIEW, path: ROUTES.QC_OUT_DASHBOARD },
+  { resource: MODULES.VEHICLE_OUT, action: ACTIONS.VIEW, path: ROUTES.VEHICLE_OUT_DASHBOARD },
   { resource: MODULES.APPOINTMENT, action: ACTIONS.VIEW, path: ROUTES.APPOINTMENT_DASHBOARD },
   { resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW, path: ROUTES.VEHICLE_360_DASHBOARD },
   { resource: MODULES.CUSTOMER_PROFILE, action: ACTIONS.VIEW, path: ROUTES.CUSTOMER_PROFILE_DASHBOARD },
@@ -142,16 +145,16 @@ const AppRoutes: React.FC = () => (
           }
         />
 
-        {/* QC Out Dashboard — QC_OUT:view required (admin only) */}
+        {/* Vehicle Out Dashboard */}
         <Route
-          path={ROUTES.QC_OUT_DASHBOARD.slice(1)}
+          path={ROUTES.VEHICLE_OUT_DASHBOARD.slice(1)}
           element={
-            <ProtectedRoute requiredPermission={{ resource: MODULES.QC_OUT, action: ACTIONS.VIEW }}>
-              <QCOutDashboard />
+            <ProtectedRoute requiredPermission={{ resource: MODULES.VEHICLE_OUT, action: ACTIONS.VIEW }}>
+              <VehicleOutDashboard />
             </ProtectedRoute>
           }
         >
-          <Route path="inspection/:vehicleId" element={<QCOutInspection />} />
+          <Route path="inspection/:vehicleId" element={<VehicleOutInspection />} />
         </Route>
 
         {/* Appointment Dashboard — APPOINTMENT:view required */}
@@ -191,6 +194,16 @@ const AppRoutes: React.FC = () => (
           element={
             <ProtectedRoute requiredPermission={{ resource: MODULES.CUSTOMER_PROFILE, action: ACTIONS.VIEW }}>
               <CustomerProfileDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Model Service Type Assignment — ROLE_MANAGEMENT:view required */}
+        <Route
+          path={ROUTES.MODEL_SERVICE_TYPE.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
+              <ModelServiceTypeAssignment />
             </ProtectedRoute>
           }
         />

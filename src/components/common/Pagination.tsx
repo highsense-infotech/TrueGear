@@ -40,39 +40,40 @@ export function Pagination({
   // Generate page numbers to display
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
-    
-    if (totalPages <= 5) {
-      // Show all pages
+
+    if (totalPages <= 3) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      // Show first page, current range, and last page
+      // Always show first page
       pages.push(1);
-      
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      
-      if (start > 2) {
+
+      if (currentPage > 3) {
         pages.push('...');
       }
-      
+
+      // Show pages around current
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
       for (let i = start; i <= end; i++) {
         pages.push(i);
       }
-      
-      if (end < totalPages - 1) {
+
+      if (currentPage < totalPages - 2) {
         pages.push('...');
       }
-      
+
+      // Always show last page
       pages.push(totalPages);
     }
-    
+
     return pages;
   };
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 sm:px-5">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 my-5 sm:px-5">
 
       {/* Showing Text */}
       <p className="text-[#666] text-xs sm:text-sm text-center sm:text-left">

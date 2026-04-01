@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users, LogOut, CalendarDays, Globe } from "lucide-react";
-// import { BadgeCheck, User, Wrench, Receipt } from "lucide-react";
+import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users, CalendarDays, Globe, Wrench, CarFront } from "lucide-react";
+// import { BadgeCheck, User, Receipt } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../context/AuthContext";
 import { MODULES, ACTIONS } from "../../constants/permissions";
@@ -25,8 +25,9 @@ const NAV_ITEMS: NavItem[] = [
   { route: ROUTES.SERVICE_ADVISOR_DASHBOARD, icon: ClipboardList, resource: MODULES.JOB_CARD, action: ACTIONS.VIEW },
   { route: ROUTES.SPARE_PARTS_DASHBOARD, icon: Package, resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW },
   { route: ROUTES.USER_MANAGEMENT, icon: Users, resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
-  { route: ROUTES.QC_OUT_DASHBOARD, icon: LogOut, resource: MODULES.QC_OUT, action: ACTIONS.VIEW },
+  { route: ROUTES.VEHICLE_OUT_DASHBOARD, icon: CarFront, resource: MODULES.VEHICLE_OUT, action: ACTIONS.VIEW },
   { route: ROUTES.VEHICLE_360_DASHBOARD, icon: Globe, resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW },
+  { route: ROUTES.MODEL_SERVICE_TYPE, icon: Wrench, resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
 ];
 
 export function Sidebar({ open, setOpen }: Props) {

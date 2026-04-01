@@ -34,6 +34,9 @@ export const ROUTES = {
   APPOINTMENT_CREATE_SUCCESS:  '/appointment-dashboard/create/success',
   VEHICLE_360_DASHBOARD: '/vehicle-360-dashboard',
   VEHICLE_360_DETAIL: '/vehicle-360-dashboard/:vehicleId',
+  VEHICLE_OUT_DASHBOARD: '/vehicle-out-dashboard',
+  VEHICLE_OUT_INSPECTION: '/vehicle-out-dashboard/inspection/:vehicleId',
+  MODEL_SERVICE_TYPE: '/model-service-type',
   NO_ACCESS: '/no-access',
 };
 

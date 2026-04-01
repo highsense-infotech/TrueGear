@@ -5,9 +5,10 @@ import { JobCardActions } from "../../components/cards/JobCardActions";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { JobDetails, type Job } from "../../components/cards/JobDetails";
 import { type JobErrors } from "../../components/cards/JobRow";
-import { SuggestedJobsChips } from "../../components/cards/SuggestedJobsChips";
+// import { SuggestedJobsChips } from "../../components/cards/SuggestedJobsChips";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
+import { type DropdownOption } from "../../components/common/SearchableDropdown";
 import {
   getVehicleDetail,
   getSuggestedJobs,
@@ -16,7 +17,9 @@ import {
   updateJobCard,
   type SASuggestedJob,
 } from "../../api/serviceAdvisor.api";
+import { listServiceTypes } from "../../api/serviceType.api";
 import { useCurrency } from "../../context/CurrencyContext";
+import api from "../../api/axios";
 
 const CreateJobCard: React.FC = () => {
   const navigate = useNavigate();
@@ -25,8 +28,17 @@ const CreateJobCard: React.FC = () => {
   const editJobCardId = searchParams.get("editJobCardId");
   const isEditMode = !!editJobCardId;
   const { taxConfig, currency } = useCurrency();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [suggestedJobs, setSuggestedJobs] = useState<string[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([{
+    id: Date.now(),
+    jobDescription: "",
+    partsRequired: "",
+    partsCost: 0,
+    labourCost: 0,
+    quantity: 1,
+    serviceType: "",
+    serviceCategory: "",
+  }]);
+  const [, setSuggestedJobs] = useState<string[]>([]);
   const [vehicleData, setVehicleData] = useState({
     registration: "",
     model: "",
@@ -37,14 +49,19 @@ const CreateJobCard: React.FC = () => {
   const [savingType, setSavingType] = useState<'draft' | 'estimate' | null>(null);
   const [jobErrors, setJobErrors] = useState<Record<number, JobErrors>>({});
 
+  // Service Type options (passed to each job row)
+  const [serviceTypeOptions, setServiceTypeOptions] = useState<DropdownOption[]>([]);
+
+
   useEffect(() => {
     if (!vehicleId) return;
 
     const fetchData = async () => {
       try {
-        const [vehicleRes, suggestedRes] = await Promise.all([
+        const [vehicleRes, suggestedRes, stRes] = await Promise.all([
           getVehicleDetail(vehicleId),
           getSuggestedJobs(vehicleId),
+          listServiceTypes('service_assignment'),
         ]);
 
         // Set vehicle info
@@ -65,31 +82,29 @@ const CreateJobCard: React.FC = () => {
         const suggestions = suggestedRes.data.suggestedJobs;
         setSuggestedJobs(suggestions.map((s: SASuggestedJob) => s.suggestedDescription));
 
+        // Service types
+        if (stRes.status && Array.isArray(stRes.data)) {
+          setServiceTypeOptions(
+            stRes.data.map((s: any) => ({ id: s.id, name: s.name }))
+          );
+        }
+
         // Edit mode: load existing job card data
         if (editJobCardId) {
           const jobCardRes = await getJobCardDetail(editJobCardId);
           const existingItems = jobCardRes.data.items;
           if (existingItems.length > 0) {
-            setJobs(existingItems.map((item, idx) => ({
+            setJobs(existingItems.map((item: any, idx: number) => ({
               id: Date.now() + idx,
               jobDescription: item.jobDescription,
               partsRequired: item.partsRequired || "",
               partsCost: Number(item.partsCost),
               labourCost: Number(item.labourCost),
               quantity: item.quantity,
+              serviceType: item.serviceType || "",
+              serviceCategory: item.serviceCategory || "",
             })));
           }
-        } else if (suggestions.length > 0) {
-          // Create mode: pre-populate from failed QC items
-          const prefilledJobs: Job[] = suggestions.map((s: SASuggestedJob, idx: number) => ({
-            id: Date.now() + idx,
-            jobDescription: s.suggestedDescription,
-            partsRequired: "",
-            partsCost: 0,
-            labourCost: 0,
-            quantity: 1,
-          }));
-          setJobs(prefilledJobs);
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -110,6 +125,8 @@ const CreateJobCard: React.FC = () => {
       partsCost: 0,
       labourCost: 0,
       quantity: 1,
+      serviceType: "",
+      serviceCategory: "",
     };
     setJobs([...jobs, newJob]);
   };
@@ -141,19 +158,48 @@ const CreateJobCard: React.FC = () => {
     }
   };
 
-  const addSuggestedJob = (jobName: string) => {
-    // Prevent adding the same suggested job twice
-    if (jobs.some((j) => j.jobDescription === jobName)) return;
 
-    const newJob: Job = {
-      id: Date.now(),
-      jobDescription: jobName,
-      partsRequired: "",
-      partsCost: 0,
-      labourCost: 0,
-      quantity: 1,
-    };
-    setJobs([...jobs, newJob]);
+  // When user selects a Service Category (B/C/D), fetch parts and replace the
+  // triggering row with one auto-populated row per part.
+  const handleServiceCategoryChange = async (
+    jobId: number,
+    categoryCode: string,
+    categoryName: string,
+    serviceTypeId: string,
+  ) => {
+    try {
+      const params: Record<string, string> = {};
+      if (serviceTypeId) params.serviceCategoryId = serviceTypeId;
+      if (vehicleId) params.vehicleId = vehicleId;
+
+      const { data } = await api.get(
+        `/model-service-type-assignments/by-category/${categoryCode}`,
+        { params }
+      );
+      if (!data?.status || !Array.isArray(data.data) || data.data.length === 0) {
+        toast.error("No parts found for this combination");
+        // Still update the category name on the row
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === jobId ? { ...j, serviceCategory: categoryName, autoParts: [] } : j
+          )
+        );
+        return;
+      }
+
+      // Store fetched parts on the job row
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.id === jobId
+            ? { ...j, serviceCategory: categoryName, autoParts: data.data }
+            : j
+        )
+      );
+
+      toast.success(`${data.data.length} parts loaded from ${categoryName}`);
+    } catch {
+      toast.error("Failed to load parts for this category");
+    }
   };
 
   const calculateLineTotal = (job: Job) => {
@@ -180,6 +226,10 @@ const CreateJobCard: React.FC = () => {
     jobs.forEach((job) => {
       const err: JobErrors = {};
 
+      if (!job.serviceType) {
+        err.serviceType = "Service type is required";
+        hasError = true;
+      }
       if (!job.jobDescription.trim()) {
         err.jobDescription = "Job description is required";
         hasError = true;
@@ -283,12 +333,13 @@ const CreateJobCard: React.FC = () => {
           customerName={vehicleData.customerName}
         />
 
-        {/* Suggested Jobs Chips */}
+        {/* Suggested Jobs Chips — commented out for now
         <SuggestedJobsChips
           suggestedJobs={suggestedJobs}
           addedJobs={jobs.map((j) => j.jobDescription)}
           onJobClick={addSuggestedJob}
         />
+        */}
 
         {/* Job Rows Section */}
         <JobDetails
@@ -298,6 +349,8 @@ const CreateJobCard: React.FC = () => {
           onRemoveJob={removeJob}
           calculateLineTotal={calculateLineTotal}
           jobErrors={jobErrors}
+          serviceTypeOptions={serviceTypeOptions}
+          onServiceCategoryChange={handleServiceCategoryChange}
         />
 
         {/* Totals Section */}
