@@ -370,6 +370,45 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
         </div>
       )}
 
+      {/* Vehicle Number Input */}
+      {showVehicleInput && (
+        <div className="mt-4">
+          <div className="border-l-4 border-[#333] pl-3 mb-4">
+            <h3 className="text-[#333] text-[15px] font-semibold">Vehicle Details</h3>
+          </div>
+          <div className="flex flex-col items-center justify-center py-8 gap-4">
+            <p className="text-[#333] text-base font-semibold">Enter the vehicle number</p>
+            <input
+              type="text"
+              value={vehicleNumber}
+              onChange={(e) => setVehicleNumber(e.target.value)}
+              placeholder="Vehicle number"
+              disabled={isLookingUp}
+              className="w-full max-w-sm border border-[#e5e7eb] rounded-lg px-4 py-3 text-sm text-[#333] placeholder-[#999] focus:outline-none focus:border-[#999] transition-colors"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && vehicleNumber.trim()) {
+                  handleVinSubmit();
+                }
+              }}
+            />
+            <Button
+              variant="gradient"
+              onClick={handleVinSubmit}
+              disabled={!vehicleNumber.trim() || isLookingUp}
+            >
+              {isLookingUp ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Looking up...
+                </span>
+              ) : (
+                "Search & Continue"
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Table Content */}
       {!loading && !error && vehicles.length > 0 && (
         <>
