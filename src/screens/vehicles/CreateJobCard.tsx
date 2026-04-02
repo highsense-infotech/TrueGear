@@ -89,21 +89,32 @@ const CreateJobCard: React.FC = () => {
           );
         }
 
-        // Edit mode: load existing job card data
+        // Edit mode: load existing job card data as autoParts view
         if (editJobCardId) {
           const jobCardRes = await getJobCardDetail(editJobCardId);
           const existingItems = jobCardRes.data.items;
           if (existingItems.length > 0) {
-            setJobs(existingItems.map((item: any, idx: number) => ({
-              id: Date.now() + idx,
-              jobDescription: item.jobDescription,
-              partsRequired: item.partsRequired || "",
-              partsCost: Number(item.partsCost),
-              labourCost: Number(item.labourCost),
-              quantity: item.quantity,
-              serviceType: item.serviceType || "",
-              serviceCategory: item.serviceCategory || "",
-            })));
+            // Convert existing items into autoParts format for compact display
+            const autoParts = existingItems.map((item: any) => ({
+              id: item.id,
+              partCode: item.partsRequired || "",
+              partName: item.jobDescription || "",
+              quantity: String(item.quantity),
+              unitPrice: String(item.partsCost || 0),
+            }));
+
+            const jc = jobCardRes.data.jobCard as any;
+            setJobs([{
+              id: Date.now(),
+              jobDescription: "",
+              partsRequired: "",
+              partsCost: 0,
+              labourCost: 0,
+              quantity: 1,
+              serviceType: jc.serviceType || "",
+              serviceCategory: jc.serviceCategory || "",
+              autoParts,
+            }]);
           }
         }
       } catch (error) {
@@ -316,13 +327,17 @@ const CreateJobCard: React.FC = () => {
           navigate(`/service-advisor-dashboard/job-card-detail/${editJobCardId}`);
         }
       } else {
+        // Get service type/category from the first job row
+        const firstJob = jobs[0];
         const res = await createJobCard(vehicleId, {
           inspectionId,
+          serviceType: firstJob?.serviceType || undefined,
+          serviceCategory: firstJob?.serviceCategory || undefined,
           items,
           taxLabel: taxConfig.label,
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
-        });
+        } as any);
         if (res.status) {
           toast.success("Job card saved as draft");
           navigate(`/service-advisor-dashboard/job-card-detail/${res.data.jobCard.id}`);
