@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle, Eye } from "lucide-react";
+import Modal from "../../components/common/Modal";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
@@ -48,6 +49,7 @@ const JobCardDetail: React.FC = () => {
   const [requestingParts, setRequestingParts] = useState(false);
   const [approvalUrl, setApprovalUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [partsModalOpen, setPartsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!jobCardId) return;
@@ -154,6 +156,7 @@ const JobCardDetail: React.FC = () => {
 
   const { jobCard, items, vehicle } = data;
   const statusConfig = STATUS_CONFIG[jobCard.status] || STATUS_CONFIG.DRAFT;
+  const partsTotal = items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
 
   return (
     <div className="flex flex-col gap-6 md:gap-8 w-full pb-8">
@@ -207,132 +210,69 @@ const JobCardDetail: React.FC = () => {
         />
       )}
 
-      {/* Job Items (Read-Only) */}
+      {/* Parts Summary Card */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 shadow-sm">
-        <h3 className="text-base font-semibold text-gray-800 mb-6">
-          Job Details
-        </h3>
+        <h3 className="text-base font-semibold text-gray-800 mb-4">Job Details</h3>
 
-        <div className="flex flex-col gap-6 md:gap-8">
-          {items.map((item, index) => (
-            <div key={item.id} className="flex flex-col gap-4 md:gap-6">
-              {/* Job header */}
-              <div className="border-b border-gray-100 pb-2">
-                <span className="text-base font-medium text-gray-400">
-                  Job #{index + 1}
-                </span>
-              </div>
-
-              {/* Description & Parts */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div>
-                  <label className="block text-sm md:text-base font-medium text-gray-400 mb-2">
-                    Job Description
-                  </label>
-                  <div className="w-full h-10 px-4 md:px-5 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-medium flex items-center">
-                    {item.jobDescription}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm md:text-base font-medium text-gray-400 mb-2">
-                    Parts Required
-                  </label>
-                  <div className="w-full h-10 px-4 md:px-5 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-medium flex items-center">
-                    {item.partsRequired || "—"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Cost Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                <div>
-                  <label className="block text-sm md:text-base font-medium text-gray-400 mb-2">
-                    Parts Cost
-                  </label>
-                  <div className="w-full h-10 px-4 md:px-5 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-semibold flex items-center">
-                    {formatCurrency(Number(item.partsCost))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm md:text-base font-medium text-gray-400 mb-2">
-                    Labour Cost
-                  </label>
-                  <div className="w-full h-10 px-4 md:px-5 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-semibold flex items-center">
-                    {formatCurrency(Number(item.labourCost))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm md:text-base font-medium text-gray-400 mb-2">
-                    Quantity
-                  </label>
-                  <div className="w-full h-10 px-4 md:px-5 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-semibold flex items-center">
-                    {item.quantity}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm md:text-base font-medium text-gray-400 mb-2">
-                    Line Total
-                  </label>
-                  <div className="w-full h-10 px-4 md:px-5 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-800 text-sm md:text-base font-semibold flex items-center">
-                    {formatCurrency(Number(item.lineTotal))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Customer Approval Status */}
-              {(jobCard.status === "APPROVED" || jobCard.status === "PARTIALLY_APPROVED") && item.isApprovedByCustomer !== null && (
-                <div className="flex items-center gap-2">
-                  {item.isApprovedByCustomer === true ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium border border-green-200">
-                      <CheckCircle size={12} className="shrink-0" />
-                      Approved by customer
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium border border-red-200">
-                      <XCircle size={12} className="shrink-0" />
-                      Not approved
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Parts Manager Status */}
-              {item.partsRequired && item.partStatus && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-gray-400">Parts Manager:</span>
-                  {item.partStatus === "pending" && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200">
-                      <span className="size-1.5 rounded-full bg-amber-500 inline-block" />
-                      Pending Review
-                    </span>
-                  )}
-                  {item.partStatus === "available" && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium border border-green-200">
-                      <span className="size-1.5 rounded-full bg-green-500 inline-block" />
-                      Available
-                    </span>
-                  )}
-                  {item.partStatus === "unavailable" && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 text-red-700 text-xs font-medium border border-red-200">
-                      <span className="size-1.5 rounded-full bg-red-500 inline-block" />
-                      Unavailable
-                      {item.partExpectedTime && (
-                        <span className="text-red-500 font-normal">· ETA: {item.partExpectedTime}</span>
-                      )}
-                    </span>
-                  )}
-                  {item.partStatus === "dispatched" && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
-                      <span className="size-1.5 rounded-full bg-blue-500 inline-block" />
-                      Dispatched to Bay
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="flex items-center gap-4 bg-gray-50 rounded-xl border border-gray-200 px-4 py-3.5">
+          <div className="w-10 h-10 rounded-lg bg-[#ff4f31]/10 flex items-center justify-center shrink-0">
+            <Package size={20} className="text-[#ff4f31]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-semibold text-gray-800">
+              {items.length} Parts
+            </p>
+            <p className="text-[12px] text-gray-500 mt-0.5">
+              Total: <span className="font-semibold text-gray-700">{formatCurrency(partsTotal)}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPartsModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[12px] font-medium text-[#ff4f31] hover:bg-[#ff4f31]/5 hover:border-[#ff4f31]/30 transition-colors cursor-pointer shrink-0"
+          >
+            <Eye size={14} />
+            View Parts
+          </button>
         </div>
       </div>
+
+      {/* Parts Detail Modal */}
+      <Modal isOpen={partsModalOpen} onClose={() => setPartsModalOpen(false)} title="Job Card Parts" size="lg">
+        <div className="space-y-4">
+          {/* Summary */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#ff4f31]/5 rounded-lg p-3 text-center">
+              <p className="text-[11px] uppercase tracking-wider text-[#ff4f31]/70 font-medium">Total Parts</p>
+              <p className="text-xl font-bold text-[#ff4f31] mt-0.5">{items.length}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-3 text-center">
+              <p className="text-[11px] uppercase tracking-wider text-green-600/70 font-medium">Total Amount</p>
+              <p className="text-xl font-bold text-green-700 mt-0.5">{formatCurrency(partsTotal)}</p>
+            </div>
+          </div>
+
+          {/* Parts Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[50vh] overflow-y-auto pr-1">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start gap-3 bg-gray-50 rounded-lg px-3.5 py-3 border border-gray-100"
+              >
+                <span className="text-[11px] font-mono bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 shrink-0 mt-0.5">
+                  {item.partsRequired || "—"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] text-gray-700 leading-snug">{item.jobDescription}</p>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Qty: {item.quantity} · {formatCurrency(Number(item.lineTotal))}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
 
       {/* Totals */}
       <TotalsSummary

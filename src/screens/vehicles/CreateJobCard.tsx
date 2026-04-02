@@ -128,16 +128,16 @@ const CreateJobCard: React.FC = () => {
       serviceType: "",
       serviceCategory: "",
     };
-    setJobs([...jobs, newJob]);
+    setJobs((prev) => [...prev, newJob]);
   };
 
   const removeJob = (id: number) => {
-    setJobs(jobs.filter((job) => job.id !== id));
+    setJobs((prev) => prev.filter((job) => job.id !== id));
   };
 
   const updateJob = (id: number, field: keyof Job, value: string | number) => {
-    setJobs(
-      jobs.map((job) =>
+    setJobs((prev) =>
+      prev.map((job) =>
         job.id === id ? { ...job, [field]: value } : job
       )
     );
@@ -203,6 +203,12 @@ const CreateJobCard: React.FC = () => {
   };
 
   const calculateLineTotal = (job: Job) => {
+    // If job has auto-populated parts, use their total
+    if (job.autoParts && job.autoParts.length > 0) {
+      return job.autoParts.reduce(
+        (sum, p) => sum + (Number(p.quantity) || 1) * (Number(p.unitPrice) || 0), 0
+      );
+    }
     return (job.partsCost * job.quantity) + job.labourCost;
   };
 
@@ -225,31 +231,36 @@ const CreateJobCard: React.FC = () => {
 
     jobs.forEach((job) => {
       const err: JobErrors = {};
+      const hasAutoParts = job.autoParts && job.autoParts.length > 0;
 
       if (!job.serviceType) {
         err.serviceType = "Service type is required";
         hasError = true;
       }
-      if (!job.jobDescription.trim()) {
-        err.jobDescription = "Job description is required";
-        hasError = true;
-      }
-      if (job.partsCost < 0) {
-        err.partsCost = "Parts cost cannot be negative";
-        hasError = true;
-      }
-      if (job.labourCost < 0) {
-        err.labourCost = "Labour cost cannot be negative";
-        hasError = true;
-      }
-      if (job.quantity < 1) {
-        err.quantity = "Quantity must be at least 1";
-        hasError = true;
-      }
-      if (job.partsCost === 0 && job.labourCost === 0) {
-        err.partsCost = "Enter parts cost or labour cost";
-        err.labourCost = "Enter parts cost or labour cost";
-        hasError = true;
+
+      // Skip manual field validations when autoParts are loaded
+      if (!hasAutoParts) {
+        if (!job.jobDescription.trim()) {
+          err.jobDescription = "Job description is required";
+          hasError = true;
+        }
+        if (job.partsCost < 0) {
+          err.partsCost = "Parts cost cannot be negative";
+          hasError = true;
+        }
+        if (job.labourCost < 0) {
+          err.labourCost = "Labour cost cannot be negative";
+          hasError = true;
+        }
+        if (job.quantity < 1) {
+          err.quantity = "Quantity must be at least 1";
+          hasError = true;
+        }
+        if (job.partsCost === 0 && job.labourCost === 0) {
+          err.partsCost = "Enter parts cost or labour cost";
+          err.labourCost = "Enter parts cost or labour cost";
+          hasError = true;
+        }
       }
 
       if (Object.keys(err).length > 0) {
@@ -272,13 +283,26 @@ const CreateJobCard: React.FC = () => {
 
     setSavingType(type);
     try {
-      const items = jobs.map((job) => ({
-        jobDescription: job.jobDescription,
-        partsRequired: job.partsRequired || null,
-        partsCost: job.partsCost,
-        labourCost: job.labourCost,
-        quantity: job.quantity,
-      }));
+      const items = jobs.flatMap((job) => {
+        if (job.autoParts && job.autoParts.length > 0) {
+          // Convert each autoPart into a job card item
+          return job.autoParts.map((part) => ({
+            jobDescription: part.partName,
+            partsRequired: part.partCode,
+            partsCost: Number(part.unitPrice) || 0,
+            labourCost: 0,
+            quantity: Number(part.quantity) || 1,
+          }));
+        }
+        // Manual job row
+        return [{
+          jobDescription: job.jobDescription,
+          partsRequired: job.partsRequired || null,
+          partsCost: job.partsCost,
+          labourCost: job.labourCost,
+          quantity: job.quantity,
+        }];
+      });
 
       if (isEditMode) {
         const res = await updateJobCard(editJobCardId, {
