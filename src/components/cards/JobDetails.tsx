@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import Button from "../common/Button";
 import { type DropdownOption } from "../common/SearchableDropdown";
-import { type Job, type JobErrors, JobRow } from "./JobRow";
+import { type Job, type JobErrors, type PaidPart, JobRow } from "./JobRow";
 
 interface JobDetailsProps {
   jobs: Job[];
@@ -11,7 +11,15 @@ interface JobDetailsProps {
   calculateLineTotal: (job: Job) => number;
   jobErrors?: Record<number, JobErrors>;
   serviceTypeOptions?: DropdownOption[];
-  onServiceCategoryChange?: (jobId: number, categoryCode: string, categoryName: string, serviceTypeId: string) => void;
+  onServiceCategoryChange?: (
+    jobId: number,
+    categoryCode: string,
+    categoryName: string,
+    serviceTypeId: string,
+  ) => void;
+  onAddPaidPart?: (jobId: number, part: PaidPart) => void;
+  onRemovePaidPart?: (jobId: number, partId: string) => void;
+  onUpdatePaidPart?: (jobId: number, partId: string, quantity: number) => void;
 }
 
 export function JobDetails({
@@ -23,6 +31,9 @@ export function JobDetails({
   jobErrors,
   serviceTypeOptions,
   onServiceCategoryChange,
+  onAddPaidPart,
+  onRemovePaidPart,
+  onUpdatePaidPart,
 }: JobDetailsProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 shadow-sm">
@@ -31,9 +42,7 @@ export function JobDetails({
           <h3 className="text-base font-semibold text-gray-800">
             Job Details
           </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            Add jobs and their costs
-          </p>
+          <p className="text-xs text-gray-400 mt-1">Add jobs and their costs</p>
         </div>
         <Button
           variant="custom"
@@ -65,6 +74,9 @@ export function JobDetails({
             errors={jobErrors?.[job.id]}
             serviceTypeOptions={serviceTypeOptions}
             onServiceCategoryChange={onServiceCategoryChange}
+            onAddPaidPart={onAddPaidPart}
+            onRemovePaidPart={onRemovePaidPart}
+            onUpdatePaidPart={onUpdatePaidPart}
             totalJobs={jobs.length}
           />
         ))}

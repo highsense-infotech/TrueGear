@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { JobCardActions } from "../../components/cards/JobCardActions";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { JobDetails, type Job } from "../../components/cards/JobDetails";
-import { type JobErrors } from "../../components/cards/JobRow";
+import { type JobErrors, type PaidPart } from "../../components/cards/JobRow";
 // import { SuggestedJobsChips } from "../../components/cards/SuggestedJobsChips";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
@@ -89,32 +89,89 @@ const CreateJobCard: React.FC = () => {
           );
         }
 
-        // Edit mode: load existing job card data as autoParts view
+        // Edit mode: reconstruct separate job rows grouped by serviceType + serviceCategory
         if (editJobCardId) {
           const jobCardRes = await getJobCardDetail(editJobCardId);
           const existingItems = jobCardRes.data.items;
           if (existingItems.length > 0) {
-            // Convert existing items into autoParts format for compact display
-            const autoParts = existingItems.map((item: any) => ({
-              id: item.id,
-              partCode: item.partsRequired || "",
-              partName: item.jobDescription || "",
-              quantity: String(item.quantity),
-              unitPrice: String(item.partsCost || 0),
-            }));
+            const reconstructed: Job[] = [];
+            let counter = Date.now();
 
-            const jc = jobCardRes.data.jobCard as any;
-            setJobs([{
-              id: Date.now(),
-              jobDescription: "",
-              partsRequired: "",
-              partsCost: 0,
-              labourCost: 0,
-              quantity: 1,
-              serviceType: jc.serviceType || "",
-              serviceCategory: jc.serviceCategory || "",
-              autoParts,
-            }]);
+            for (const item of existingItems as any[]) {
+              const isPaidService = item.serviceType === "Paid Service";
+              const hasCategory = Boolean(item.serviceCategory);
+
+              if (hasCategory) {
+                // Group into an autoParts job row keyed by serviceType + serviceCategory
+                const groupKey = `${item.serviceType || ""}||${item.serviceCategory}`;
+                const existing = reconstructed.find(
+                  (j) => `${j.serviceType}||${j.serviceCategory}` === groupKey && Array.isArray(j.autoParts),
+                );
+                const autoPart = {
+                  id: item.id,
+                  partCode: item.partsRequired || "",
+                  partName: item.jobDescription || "",
+                  quantity: String(item.quantity),
+                  unitPrice: String(item.partsCost || 0),
+                };
+                if (existing) {
+                  existing.autoParts = [...(existing.autoParts || []), autoPart];
+                } else {
+                  reconstructed.push({
+                    id: counter++,
+                    jobDescription: "",
+                    partsRequired: "",
+                    partsCost: 0,
+                    labourCost: 0,
+                    quantity: 1,
+                    serviceType: item.serviceType || "",
+                    serviceCategory: item.serviceCategory || "",
+                    autoParts: [autoPart],
+                  });
+                }
+              } else if (isPaidService) {
+                // Group into a paidParts job row
+                const existing = reconstructed.find(
+                  (j) => j.serviceType === "Paid Service" && Array.isArray(j.paidParts),
+                );
+                const paidPart = {
+                  id: item.id,
+                  partCode: item.partsRequired || "",
+                  partName: item.jobDescription || "",
+                  unitPrice: Number(item.partsCost) || 0,
+                  quantity: item.quantity || 1,
+                };
+                if (existing) {
+                  existing.paidParts = [...(existing.paidParts || []), paidPart];
+                } else {
+                  reconstructed.push({
+                    id: counter++,
+                    jobDescription: "",
+                    partsRequired: "",
+                    partsCost: 0,
+                    labourCost: 0,
+                    quantity: 1,
+                    serviceType: "Paid Service",
+                    serviceCategory: "",
+                    paidParts: [paidPart],
+                  });
+                }
+              } else {
+                // Manual row — each item is its own job
+                reconstructed.push({
+                  id: counter++,
+                  jobDescription: item.jobDescription || "",
+                  partsRequired: item.partsRequired || "",
+                  partsCost: Number(item.partsCost) || 0,
+                  labourCost: Number(item.labourCost) || 0,
+                  quantity: item.quantity || 1,
+                  serviceType: item.serviceType || "",
+                  serviceCategory: "",
+                });
+              }
+            }
+
+            setJobs(reconstructed);
           }
         }
       } catch (error) {
@@ -213,8 +270,51 @@ const CreateJobCard: React.FC = () => {
     }
   };
 
+  // ── Paid Service part handlers ──────────────────────────────────────────────
+
+  const addPaidPart = (jobId: number, part: PaidPart) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? { ...job, paidParts: [...(job.paidParts ?? []), part] }
+          : job
+      )
+    );
+  };
+
+  const removePaidPart = (jobId: number, partId: string) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? { ...job, paidParts: (job.paidParts ?? []).filter((p) => p.id !== partId) }
+          : job
+      )
+    );
+  };
+
+  const updatePaidPart = (jobId: number, partId: string, quantity: number) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              paidParts: (job.paidParts ?? []).map((p) =>
+                p.id === partId ? { ...p, quantity } : p
+              ),
+            }
+          : job
+      )
+    );
+  };
+
   const calculateLineTotal = (job: Job) => {
-    // If job has auto-populated parts, use their total
+    // Paid Service: sum manually added paid parts
+    if (job.serviceType === "Paid Service") {
+      return (job.paidParts ?? []).reduce(
+        (sum, p) => sum + p.unitPrice * p.quantity, 0
+      );
+    }
+    // Category-based auto-populated parts
     if (job.autoParts && job.autoParts.length > 0) {
       return job.autoParts.reduce(
         (sum, p) => sum + (Number(p.quantity) || 1) * (Number(p.unitPrice) || 0), 0
@@ -242,15 +342,23 @@ const CreateJobCard: React.FC = () => {
 
     jobs.forEach((job) => {
       const err: JobErrors = {};
+      const isPaidService = job.serviceType === "Paid Service";
       const hasAutoParts = job.autoParts && job.autoParts.length > 0;
+      const hasPaidParts = job.paidParts && job.paidParts.length > 0;
 
       if (!job.serviceType) {
         err.serviceType = "Service type is required";
         hasError = true;
       }
 
-      // Skip manual field validations when autoParts are loaded
-      if (!hasAutoParts) {
+      if (isPaidService) {
+        // Paid Service: at least one part must be added
+        if (!hasPaidParts) {
+          err.paidParts = "Please add at least one part";
+          hasError = true;
+        }
+      } else if (!hasAutoParts) {
+        // Manual entry validation (non-Paid, no category parts loaded)
         if (!job.jobDescription.trim()) {
           err.jobDescription = "Job description is required";
           hasError = true;
@@ -294,30 +402,46 @@ const CreateJobCard: React.FC = () => {
 
     setSavingType(type);
     try {
-      const items = jobs.flatMap((job) => {
-        if (job.autoParts && job.autoParts.length > 0) {
-          // Convert each autoPart into a job card item
-          return job.autoParts.map((part) => ({
+      // Build one job group per job row — items are nested under their parent job
+      const jobsPayload = jobs.map((job) => {
+        let items;
+
+        if (job.serviceType === "Paid Service" && job.paidParts && job.paidParts.length > 0) {
+          items = job.paidParts.map((part) => ({
+            jobDescription: part.partName,
+            partsRequired: part.partCode,
+            partsCost: part.unitPrice,
+            labourCost: 0,
+            quantity: part.quantity,
+          }));
+        } else if (job.autoParts && job.autoParts.length > 0) {
+          items = job.autoParts.map((part) => ({
             jobDescription: part.partName,
             partsRequired: part.partCode,
             partsCost: Number(part.unitPrice) || 0,
             labourCost: 0,
             quantity: Number(part.quantity) || 1,
           }));
+        } else {
+          items = [{
+            jobDescription: job.jobDescription,
+            partsRequired: job.partsRequired || null,
+            partsCost: job.partsCost,
+            labourCost: job.labourCost,
+            quantity: job.quantity,
+          }];
         }
-        // Manual job row
-        return [{
-          jobDescription: job.jobDescription,
-          partsRequired: job.partsRequired || null,
-          partsCost: job.partsCost,
-          labourCost: job.labourCost,
-          quantity: job.quantity,
-        }];
+
+        return {
+          serviceType: job.serviceType || null,
+          serviceCategory: job.serviceCategory || null,
+          items,
+        };
       });
 
       if (isEditMode) {
         const res = await updateJobCard(editJobCardId, {
-          items,
+          jobs: jobsPayload,
           taxLabel: taxConfig.label,
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
@@ -327,17 +451,13 @@ const CreateJobCard: React.FC = () => {
           navigate(`/service-advisor-dashboard/job-card-detail/${editJobCardId}`);
         }
       } else {
-        // Get service type/category from the first job row
-        const firstJob = jobs[0];
         const res = await createJobCard(vehicleId, {
           inspectionId,
-          serviceType: firstJob?.serviceType || undefined,
-          serviceCategory: firstJob?.serviceCategory || undefined,
-          items,
+          jobs: jobsPayload,
           taxLabel: taxConfig.label,
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
-        } as any);
+        });
         if (res.status) {
           toast.success("Job card saved as draft");
           navigate(`/service-advisor-dashboard/job-card-detail/${res.data.jobCard.id}`);
@@ -390,6 +510,9 @@ const CreateJobCard: React.FC = () => {
           jobErrors={jobErrors}
           serviceTypeOptions={serviceTypeOptions}
           onServiceCategoryChange={handleServiceCategoryChange}
+          onAddPaidPart={addPaidPart}
+          onRemovePaidPart={removePaidPart}
+          onUpdatePaidPart={updatePaidPart}
         />
 
         {/* Totals Section */}

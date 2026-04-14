@@ -267,9 +267,15 @@ export interface CreateJobCardItem {
   quantity: number;
 }
 
+export interface CreateJobCardJob {
+  serviceType?: string | null;
+  serviceCategory?: string | null;
+  items: CreateJobCardItem[];
+}
+
 export interface CreateJobCardPayload {
   inspectionId?: string | null;
-  items: CreateJobCardItem[];
+  jobs: CreateJobCardJob[];
   taxLabel?: string;
   taxPercentage?: number;
   currencyCode?: string;
