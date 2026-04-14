@@ -310,6 +310,8 @@ export interface SAJobCardDetailResponse {
       jobCardId: string;
       jobDescription: string;
       partsRequired: string | null;
+      serviceType: string | null;
+      serviceCategory: string | null;
       partsCost: string;
       labourCost: string;
       quantity: number;
@@ -338,7 +340,7 @@ export const getJobCardDetail = async (
 // ─── Update Job Card ───────────────────────────────────────────────────────
 
 export interface UpdateJobCardPayload {
-  items: CreateJobCardItem[];
+  jobs: CreateJobCardJob[];
   taxLabel?: string;
   taxPercentage?: number;
   currencyCode?: string;
