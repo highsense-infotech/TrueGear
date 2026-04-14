@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { Loader2, Plus, Pencil, Trash2, X, Package } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, X, Package, Search } from "lucide-react";
 import Modal from "../../components/common/Modal.tsx";
 import SearchableDropdown, {
   type DropdownOption,
@@ -64,12 +64,19 @@ const ModelServiceTypeAssignment: React.FC = () => {
     [{ key: 0, partId: "", partName: "", partCode: "", quantity: "1" }]
   );
 
+  // Filter state
+  const [filterMakeId, setFilterMakeId] = useState("");
+  const [filterServiceCategoryId, setFilterServiceCategoryId] = useState("");
+  const [searchText, setSearchText] = useState("");
+
   // Assignments table + pagination
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const limit = 10;
+
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -87,12 +94,19 @@ const ModelServiceTypeAssignment: React.FC = () => {
 
   // ─── Data fetching ──────────────────────────────────────────────────────
 
-  const loadAssignments = async (p: number) => {
+  const loadAssignments = async (
+    p: number,
+    makeId = filterMakeId,
+    serviceCategoryId = filterServiceCategoryId,
+    search = searchText,
+  ) => {
     setTableLoading(true);
     try {
-      const { data } = await api.get("/model-service-type-assignments", {
-        params: { page: p, limit },
-      });
+      const params: Record<string, any> = { page: p, limit };
+      if (makeId) params.makeId = makeId;
+      if (serviceCategoryId) params.serviceCategoryId = serviceCategoryId;
+      if (search.trim()) params.search = search.trim();
+      const { data } = await api.get("/model-service-type-assignments", { params });
       if (data?.status) {
         setAssignments(Array.isArray(data.data) ? data.data : []);
         setTotalPages(data.totalPages ?? 1);
@@ -150,6 +164,29 @@ const ModelServiceTypeAssignment: React.FC = () => {
     if (!loading) loadAssignments(page);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+
+  // Reset to page 1 and reload when dropdown filters change
+  useEffect(() => {
+    if (!loading) {
+      setPage(1);
+      loadAssignments(1, filterMakeId, filterServiceCategoryId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterMakeId, filterServiceCategoryId]);
+
+  // Debounced reload when search text changes
+  useEffect(() => {
+    if (loading) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setPage(1);
+      loadAssignments(1, filterMakeId, filterServiceCategoryId, searchText);
+    }, 350);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText]);
 
   // Fetch models when make changes
   useEffect(() => {
@@ -542,13 +579,53 @@ const ModelServiceTypeAssignment: React.FC = () => {
 
       {/* ── Table Card ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
-          <h2 className="text-[15px] sm:text-base font-semibold text-[#1a1a1a]">
-            Assignments
-          </h2>
-          <p className="text-[12px] text-[#9ca3af] mt-0.5">
-            {assignments.length} record{assignments.length !== 1 ? "s" : ""}
-          </p>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[15px] sm:text-base font-semibold text-[#1a1a1a]">
+              Assignments
+            </h2>
+            <p className="text-[12px] text-[#9ca3af]">
+              {assignments.length} record{assignments.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="w-full sm:w-44">
+              <SearchableDropdown
+                options={[{ id: "", name: "All Makes" }, ...makes]}
+                value={filterMakeId}
+                onChange={(id) => setFilterMakeId(id)}
+                placeholder="All Makes"
+              />
+            </div>
+            <div className="w-full sm:w-48">
+              <SearchableDropdown
+                options={[{ id: "", name: "All Categories" }, ...serviceCategoryOptions]}
+                value={filterServiceCategoryId}
+                onChange={(id) => setFilterServiceCategoryId(id)}
+                placeholder="All Categories"
+              />
+            </div>
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Search part name, code, make..."
+                className="w-full h-10 pl-8 pr-8 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:border-[#ff4f31]"
+              />
+              {searchText && (
+                <button
+                  onClick={() => setSearchText("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -585,7 +662,9 @@ const ModelServiceTypeAssignment: React.FC = () => {
                     colSpan={5}
                     className="px-6 py-12 text-center text-[13px] text-[#9ca3af]"
                   >
-                    No assignments found. Create one above.
+                    {assignments.length === 0
+                      ? "No assignments found. Create one above."
+                      : "No results match your filters."}
                   </td>
                 </tr>
               ) : (
