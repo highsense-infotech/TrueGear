@@ -69,6 +69,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
 
   // Filter state
   const [filterMakeId, setFilterMakeId] = useState("");
+  const [filterServiceTypeId, setFilterServiceTypeId] = useState("");
   const [filterServiceCategoryId, setFilterServiceCategoryId] = useState("");
   const [searchText, setSearchText] = useState("");
 
@@ -100,6 +101,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
   const loadAssignments = async (
     p: number,
     makeId = filterMakeId,
+    serviceTypeId = filterServiceTypeId,
     serviceCategoryId = filterServiceCategoryId,
     search = searchText,
   ) => {
@@ -107,6 +109,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
     try {
       const params: Record<string, any> = { page: p, limit };
       if (makeId) params.makeId = makeId;
+      if (serviceTypeId) params.serviceTypeId = serviceTypeId;
       if (serviceCategoryId) params.serviceCategoryId = serviceCategoryId;
       if (search.trim()) params.search = search.trim();
       const { data } = await api.get("/model-service-type-assignments", { params });
@@ -172,10 +175,10 @@ const ModelServiceTypeAssignment: React.FC = () => {
   useEffect(() => {
     if (!loading) {
       setPage(1);
-      loadAssignments(1, filterMakeId, filterServiceCategoryId);
+      loadAssignments(1, filterMakeId, filterServiceTypeId, filterServiceCategoryId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterMakeId, filterServiceCategoryId]);
+  }, [filterMakeId, filterServiceTypeId, filterServiceCategoryId]);
 
   // Debounced reload when search text changes
   useEffect(() => {
@@ -183,7 +186,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setPage(1);
-      loadAssignments(1, filterMakeId, filterServiceCategoryId, searchText);
+      loadAssignments(1, filterMakeId, filterServiceTypeId, filterServiceCategoryId, searchText);
     }, 350);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -600,6 +603,14 @@ const ModelServiceTypeAssignment: React.FC = () => {
                 value={filterMakeId}
                 onChange={(id) => setFilterMakeId(id)}
                 placeholder="All Makes"
+              />
+            </div>
+            <div className="w-full sm:w-48">
+              <SearchableDropdown
+                options={[{ id: "", name: "All Types" }, ...serviceTypes]}
+                value={filterServiceTypeId}
+                onChange={(id) => setFilterServiceTypeId(id)}
+                placeholder="All Types"
               />
             </div>
             <div className="w-full sm:w-48">
