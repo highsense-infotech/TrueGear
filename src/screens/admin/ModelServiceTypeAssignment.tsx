@@ -21,6 +21,9 @@ interface Assignment {
   modelName: string;
   serviceTypeId: string;
   serviceTypeName: string;
+  serviceTypeCode: string;
+  serviceCategoryId: string | null;
+  serviceCategoryName: string | null;
   partCode: string;
   partName: string;
   quantity: string;
@@ -642,6 +645,9 @@ const ModelServiceTypeAssignment: React.FC = () => {
                   Service Type
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">
+                  Service Category
+                </th>
+                <th className="px-4 sm:px-6 py-3 text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">
                   Part Name
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider text-right">
@@ -652,14 +658,14 @@ const ModelServiceTypeAssignment: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {tableLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-[#ff4f31] mx-auto" />
                   </td>
                 </tr>
               ) : assignments.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-12 text-center text-[13px] text-[#9ca3af]"
                   >
                     {assignments.length === 0
@@ -685,6 +691,17 @@ const ModelServiceTypeAssignment: React.FC = () => {
                       <span className="inline-block bg-[#fff0ed] text-[#ff4f31] px-2 py-0.5 rounded text-[12px] font-medium">
                         {a.serviceTypeName}
                       </span>
+                    </td>
+
+                    {/* Service Category */}
+                    <td className="px-4 sm:px-6 py-3 text-[13px] text-[#333] whitespace-nowrap">
+                      {a.serviceCategoryName ? (
+                        <span className="inline-block bg-[#f0f7ff] text-[#0066ff] px-2 py-0.5 rounded text-[12px] font-medium">
+                          {a.serviceCategoryName}
+                        </span>
+                      ) : (
+                        <span className="text-[#9ca3af]">—</span>
+                      )}
                     </td>
 
                     {/* Part Name */}
