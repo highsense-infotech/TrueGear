@@ -607,19 +607,19 @@ const ModelServiceTypeAssignment: React.FC = () => {
                 placeholder="All Categories"
               />
             </div>
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="flex items-center flex-1 h-11 sm:h-12 border border-gray-200 rounded-[10px] px-3 sm:px-4 gap-2 focus-within:border-[#ff4f31] bg-white">
+              <Search size={14} className="text-gray-400 shrink-0" />
               <input
                 type="text"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 placeholder="Search part name, code, make..."
-                className="w-full h-10 pl-8 pr-8 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:border-[#ff4f31]"
+                className="flex-1 text-[13px] outline-none bg-transparent"
               />
               {searchText && (
                 <button
                   onClick={() => setSearchText("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 shrink-0"
                 >
                   <X size={14} />
                 </button>
