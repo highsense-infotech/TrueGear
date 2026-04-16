@@ -355,3 +355,10 @@ export const vinLookup = async (
   const { data } = await api.post("/vehicles/vin-lookup", { vin });
   return data;
 };
+
+// ─── Re-Entry Vehicle ─────────────────────────────────────────────────────────
+// Clears previous visit photos and resets status to Entry (Draft)
+export const reEntryVehicle = async (vehicleId: string): Promise<{ status: boolean; message: string }> => {
+  const { data } = await api.post(`/vehicles/${vehicleId}/re-entry`);
+  return data;
+};

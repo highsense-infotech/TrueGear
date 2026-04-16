@@ -12,6 +12,7 @@ import {
   searchVehicles,
   deleteVehicle,
   vinLookup,
+  reEntryVehicle,
   type VehicleItem,
   type VehicleStats,
 } from "../../api/vehicle.api";
@@ -197,8 +198,15 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
       const localRes = await searchVehicles(vin);
       if (localRes.status && localRes.data.length > 0) {
         const found = localRes.data[0];
-        toast.success("Vehicle found in local database!");
-        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${found.vehicle.id}`);
+        const vehicleId = found.vehicle.id;
+        const isTerminal = found.vehicle.status === "Completed" || found.vehicle.status === "Cancelled";
+        if (isTerminal) {
+          await reEntryVehicle(vehicleId);
+          toast.success("Vehicle found! Previous photos cleared for new visit.");
+        } else {
+          toast.success("Vehicle found in local database!");
+        }
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicleId}`);
         return;
       }
 
@@ -212,7 +220,17 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
     }
   };
 
-  const handleEditVehicle = (vehicle: DisplayVehicle) => {
+  const handleEditVehicle = async (vehicle: DisplayVehicle) => {
+    const isTerminal = vehicle.status === "Completed" || vehicle.status === "Cancelled";
+    if (isTerminal) {
+      try {
+        await reEntryVehicle(vehicle.id);
+        toast.success("Previous photos cleared for new visit.");
+      } catch {
+        toast.error("Failed to reset vehicle for re-entry.");
+        return;
+      }
+    }
     navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicle.id}`);
   };
 

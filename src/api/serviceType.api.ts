@@ -5,6 +5,7 @@ export interface ServiceTypeItem {
   code: string;
   name: string;
   emoji: string;
+  estimatedDurationMinutes: number;
   isActive: boolean;
 }
 

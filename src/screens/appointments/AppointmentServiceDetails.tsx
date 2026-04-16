@@ -47,7 +47,7 @@ const AppointmentServiceDetails: React.FC = () => {
   const [suggestedComplaints, setSuggestedComplaints] = useState<string[]>([]);
 
   useEffect(() => {
-    listServiceTypes()
+    listServiceTypes('service_assignment')
       .then((res) => setServiceTypes(res.data ?? []))
       .catch(() => {/* optional */});
     listComplaints()
@@ -69,8 +69,11 @@ const AppointmentServiceDetails: React.FC = () => {
   const [overrideHours,   setOverrideHours]   = useState(String(Math.floor(initDuration / 60)));
   const [overrideMinutes, setOverrideMinutes] = useState(String(initDuration % 60));
 
-  // Auto-duration from selected service
-  const autoDurationMinutes = SERVICE_DURATION_MAP[selectedService] ?? 150;
+  // Auto-duration from selected service (from DB field, falls back to 150)
+  const autoDurationMinutes =
+    serviceTypes.find((t) => t.code === selectedService)?.estimatedDurationMinutes
+    ?? SERVICE_DURATION_MAP[selectedService]
+    ?? 150;
   const autoHours           = Math.floor(autoDurationMinutes / 60);
   const autoMins            = autoDurationMinutes % 60;
 
@@ -83,7 +86,9 @@ const AppointmentServiceDetails: React.FC = () => {
   const handleServiceChange = (id: string) => {
     setSelectedService(id);
     if (!overrideEnabled) {
-      const d = SERVICE_DURATION_MAP[id] ?? 150;
+      const d = serviceTypes.find((t) => t.code === id)?.estimatedDurationMinutes
+        ?? SERVICE_DURATION_MAP[id]
+        ?? 150;
       setOverrideHours(String(Math.floor(d / 60)));
       setOverrideMinutes(String(d % 60));
     }
@@ -103,7 +108,9 @@ const AppointmentServiceDetails: React.FC = () => {
 
   const handleResetOverride = () => {
     setOverrideEnabled(false);
-    const d = SERVICE_DURATION_MAP[selectedService] ?? 150;
+    const d = serviceTypes.find((t) => t.code === selectedService)?.estimatedDurationMinutes
+      ?? SERVICE_DURATION_MAP[selectedService]
+      ?? 150;
     setOverrideHours(String(Math.floor(d / 60)));
     setOverrideMinutes(String(d % 60));
   };
