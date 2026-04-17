@@ -43,6 +43,7 @@ const AddVehicle: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const vehicleIdFromUrl = searchParams.get("vehicleId");
+  const isReEntry = searchParams.get("reentry") === "true";
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
@@ -62,6 +63,7 @@ const AddVehicle: React.FC = () => {
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [odometerInput, setOdometerInput] = useState<string>("");
 
   const initialSlots: PhotoSlot[] = [
     { title: "Vehicle Registration No", required: true },
@@ -105,6 +107,9 @@ const AddVehicle: React.FC = () => {
               serviceType: vehicle.serviceType ?? "GENERAL_SERVICE",
               manufacturingYear: vehicle.manufacturingYear ?? 0,
             });
+            // Clear odometer on re-entry so security team enters the current reading.
+            // Pre-fill only when editing an in-progress entry (not a fresh re-entry).
+            setOdometerInput(isReEntry ? "" : String(vehicle.odometerLast ?? ""));
             if (vehicle.entryTime) {
               const d = new Date(vehicle.entryTime);
               setEntryTime(
@@ -180,6 +185,10 @@ const AddVehicle: React.FC = () => {
   const isAnyUploading = photoSlots.some((slot) => slot.isUploading);
 
   const handleConfirmEntry = () => {
+    if (!odometerInput || isNaN(Number(odometerInput)) || Number(odometerInput) <= 0) {
+      setValidationError("Odometer reading is required before confirming entry.");
+      return;
+    }
     if (!isValid) {
       setValidationError(
         `Please capture ${missingCount} more required photo${missingCount !== 1 ? "s" : ""} before confirming entry.`
@@ -327,7 +336,7 @@ const AddVehicle: React.FC = () => {
     setConfirmError(null);
 
     try {
-      const res = await confirmVehicleEntry(vehicleId);
+      const res = await confirmVehicleEntry(vehicleId, odometerInput ? Number(odometerInput) : undefined);
       if (res.status) {
         toast.success("Vehicle entry confirmed");
         setIsModalOpen(false);
@@ -473,10 +482,22 @@ const AddVehicle: React.FC = () => {
               </p>
             </div>
             <div className="bg-[#f9f9f9] rounded-[8px] p-3">
-              <p className="text-[#999] text-[11px] mb-1">Odometer Reading</p>
-              <p className="text-[#333] text-[14px] font-medium">
-                {customerData.odometerLast.toLocaleString()} km
+              <p className="text-[#999] text-[11px] mb-1">
+                Odometer Reading <span className="text-[#ff4f31]">*</span>
               </p>
+              <div className="relative mt-1">
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Enter reading"
+                  value={odometerInput}
+                  onChange={(e) => setOdometerInput(e.target.value)}
+                  className={`w-full pl-2 pr-8 py-1 text-[14px] font-medium text-[#333] bg-white border rounded-md focus:outline-none focus:border-[#ff4f31] ${
+                    !odometerInput ? "border-[#ff4f31]" : "border-[#e5e7eb]"
+                  }`}
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[#999]">km</span>
+              </div>
             </div>
             <div className="bg-[#f9f9f9] rounded-[8px] p-3">
               <p className="text-[#999] text-[11px] mb-1">Priority</p>

@@ -329,9 +329,10 @@ export interface ConfirmEntryResponse {
 }
 
 export const confirmVehicleEntry = async (
-  vehicleId: string
+  vehicleId: string,
+  odometerReading?: number
 ): Promise<ConfirmEntryResponse> => {
-  const { data } = await api.post(`/vehicles/${vehicleId}/confirm`);
+  const { data } = await api.post(`/vehicles/${vehicleId}/confirm`, { odometerReading });
   return data;
 };
 
@@ -357,8 +358,57 @@ export const vinLookup = async (
 };
 
 // ─── Re-Entry Vehicle ─────────────────────────────────────────────────────────
-// Clears previous visit photos and resets status to Entry (Draft)
 export const reEntryVehicle = async (vehicleId: string): Promise<{ status: boolean; message: string }> => {
   const { data } = await api.post(`/vehicles/${vehicleId}/re-entry`);
+  return data;
+};
+
+// ─── Visit History ────────────────────────────────────────────────────────────
+export interface VisitPhoto {
+  id: string;
+  photoType: "FRONT" | "REAR" | "LEFT" | "RIGHT" | "DASHBOARD" | "ENGINE" | "OTHER";
+  imageUrl: string;
+}
+
+export interface VisitInspection {
+  id: string;
+  overallStatus: "PASS" | "CONDITIONAL" | "FAIL" | null;
+  finalRemarks: string | null;
+  status: string;
+  completedAt: string | null;
+}
+
+export interface VisitJobCard {
+  id: string;
+  serviceType: string | null;
+  serviceCategory: string | null;
+  totalEstimate: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface VisitAppointment {
+  id: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  serviceType: string | null;
+  status: string;
+}
+
+export interface VehicleVisit {
+  id: string;
+  checkInTime: string;
+  completedAt: string | null;
+  status: "IN_QUEUE" | "IN_SERVICE" | "READY" | "COMPLETED" | "CANCELLED";
+  odometerReading: number;
+  isCurrentVisit: boolean;
+  photos: VisitPhoto[];
+  inspection: VisitInspection | null;
+  jobCard: VisitJobCard | null;
+  appointment: VisitAppointment | null;
+}
+
+export const getVehicleVisitHistory = async (vehicleId: string): Promise<{ status: boolean; data: VehicleVisit[] }> => {
+  const { data } = await api.get(`/vehicles/${vehicleId}/visit-history`);
   return data;
 };

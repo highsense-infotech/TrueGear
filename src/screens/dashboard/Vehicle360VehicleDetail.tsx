@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, User } from "lucide-react";
+import { ArrowLeft, Loader2, User, Calendar, Wrench, ClipboardCheck, Image as ImageIcon } from "lucide-react";
 import truck from "../../assets/truck.png";
-import { getVehicleDetails } from "../../api/vehicle.api";
-import type { VehicleDetailData } from "../../api/vehicle.api";
-import { getVehicleJobCards } from "../../api/serviceAdvisor.api";
-import type { SAJobCard } from "../../api/serviceAdvisor.api";
+import { getVehicleDetails, getVehicleVisitHistory } from "../../api/vehicle.api";
+import type { VehicleDetailData, VehicleVisit } from "../../api/vehicle.api";
 import ROUTES from "../../constants/routes";
 
 
@@ -65,8 +63,9 @@ const Vehicle360VehicleDetail: React.FC = () => {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
   const [tab,         setTab]         = useState<Tab>("overview");
-  const [jobCards,    setJobCards]    = useState<SAJobCard[]>([]);
-  const [jcLoading,   setJcLoading]   = useState(false);
+  const [visits,      setVisits]      = useState<VehicleVisit[]>([]);
+  const [vLoading,    setVLoading]    = useState(false);
+  const [expandedId,  setExpandedId]  = useState<string | null>(null);
 
   useEffect(() => {
     if (!vehicleId) return;
@@ -79,11 +78,11 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
   useEffect(() => {
     if (tab !== "service" || !vehicleId) return;
-    setJcLoading(true);
-    getVehicleJobCards(vehicleId)
-      .then((res) => { if (res.status) setJobCards(res.data.jobCards); })
-      .catch(() => setJobCards([]))
-      .finally(() => setJcLoading(false));
+    setVLoading(true);
+    getVehicleVisitHistory(vehicleId)
+      .then((res) => { if (res.status) setVisits(res.data); })
+      .catch(() => setVisits([]))
+      .finally(() => setVLoading(false));
   }, [tab, vehicleId]);
 
   if (loading) {
@@ -243,82 +242,160 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
       {tab === "service" && (
         <>
-          {jcLoading ? (
+          {vLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
             </div>
+          ) : visits.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-[#f0f0f0] px-5 py-12 text-center">
+              <p className="text-[#999] text-sm">No visit history found</p>
+            </div>
           ) : (
             <>
-              {/* Service Summary */}
-              {jobCards.length > 0 && (() => {
-                const last = jobCards[0];
-                const lastDate = new Date(last.createdAt).toLocaleDateString("en-CA");
-                const serviceTypeLabel = last.serviceType
-                  ? last.serviceType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-                  : "—";
-                const serviceTypeBadgeColor =
-                  last.serviceType?.includes("MAJOR") ? "bg-[#B3FFBD] text-[#00BF06]"
-                  : last.serviceType?.includes("MINOR") ? "bg-[#B3FFBD] text-[#00BF06]"
-                  : last.serviceType?.includes("REPAIR") ? "bg-[#FFE4B3] text-[#E07B00]"
-                  : "bg-[#f0f0f0] text-[#777]";
+              {/* Summary strip */}
+              {(() => {
+                const currentVisit = visits.find((v) => v.isCurrentVisit) ?? visits[0];
+                const latestOdometer = Math.max(...visits.map((v) => v.odometerReading ?? 0));
                 return (
                   <div className="bg-white rounded-2xl border border-[#f0f0f0] px-5 py-1 mb-4">
-                    <h3 className="text-[#333] text-[13px] font-semibold py-4 border-b border-[#f0f0f0]">Service summary</h3>
-                    <div className="flex items-center justify-between py-3.5 border-b border-[#f5f5f5]">
-                      <span className="text-[#999] text-[13px]">Last Service</span>
-                      <span className="text-[#222] text-[13px] font-medium">{lastDate}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-3.5 border-b border-[#f5f5f5]">
-                      <span className="text-[#999] text-[13px]">Service Type</span>
-                      <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold ${serviceTypeBadgeColor}`}>
-                        {serviceTypeLabel}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between py-3.5 border-b border-[#f5f5f5]">
-                      <span className="text-[#999] text-[13px]">Next Service</span>
-                      <span className="text-[#222] text-[13px] font-medium">—</span>
-                    </div>
-                    <div className="flex items-center justify-between py-3.5">
-                      <span className="text-[#999] text-[13px]">Total Visits</span>
-                      <span className="text-[#222] text-[13px] font-medium">{jobCards.length}</span>
-                    </div>
+                    <h3 className="text-[#333] text-[13px] font-semibold py-4 border-b border-[#f0f0f0]">Summary</h3>
+                    <InfoRow label="Total Visits"  value={visits.length} />
+                    <InfoRow label="Last Visit"    value={new Date(currentVisit.checkInTime).toLocaleDateString("en-CA")} />
+                    <InfoRow label="Last Odometer" value={latestOdometer > 0 ? `${latestOdometer.toLocaleString()} km` : "—"} />
                   </div>
                 );
               })()}
 
-              {/* Service History */}
-              <div className="bg-white rounded-2xl border border-[#f0f0f0] px-5 py-1">
-                <h3 className="text-[#333] text-[13px] font-semibold py-4 border-b border-[#f0f0f0]">Service History</h3>
-                {jobCards.length === 0 ? (
-                  <p className="text-[#999] text-sm text-center py-8">No service history found</p>
-                ) : (
-                  jobCards.map((jc) => {
-                    const year = new Date(jc.createdAt).getFullYear();
-                    const shortId = jc.id.replace(/-/g, "").slice(0, 5).toUpperCase();
-                    const ref = `JC-${year}-${shortId}`;
-                    const date = new Date(jc.createdAt).toLocaleDateString("en-CA");
-                    const svcLabel = jc.serviceType
-                      ? jc.serviceType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-                      : jc.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-                    const badgeColor =
-                      jc.serviceType?.includes("MAJOR") ? "bg-[#B3FFBD] text-[#00BF06]"
-                      : jc.serviceType?.includes("MINOR") ? "bg-[#B3FFBD] text-[#00BF06]"
-                      : jc.serviceType?.includes("REPAIR") ? "bg-[#FFE4B3] text-[#E07B00]"
-                      : "bg-[#f0f0f0] text-[#777]";
-                    return (
-                      <div key={jc.id} className="flex items-center gap-4 py-4 border-b border-[#f5f5f5] last:border-0">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[#ff4f31] text-[13px] font-semibold leading-tight">{ref}</p>
-                          <p className="text-[#555] text-[12px] mt-0.5 truncate">{jc.description ?? "—"}</p>
-                          <p className="text-[#bbb] text-[11px] mt-0.5">{date}</p>
+              {/* Visit cards */}
+              <div className="space-y-3">
+                {visits.map((v, idx) => {
+                  const isOpen    = expandedId === v.id;
+                  const dateStr   = new Date(v.checkInTime).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                  const timeStr   = new Date(v.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+                  const svcLabel  = v.jobCard?.serviceType?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? null;
+                  const inspColor = v.inspection?.overallStatus === "PASS" ? "text-[#00BF06]" : v.inspection?.overallStatus === "FAIL" ? "text-[#ff4f31]" : "text-[#E07B00]";
+                  const statusColor = v.isCurrentVisit
+                    ? "bg-[#B3FFBD] text-[#00BF06]"
+                    : v.status === "COMPLETED" ? "bg-[#dbeafe] text-[#2563eb]"
+                    : v.status === "CANCELLED" ? "bg-[#FFC0D1] text-[#FF4F31]"
+                    : "bg-[#f0f0f0] text-[#777]";
+                  const statusLabel = v.isCurrentVisit ? "Current Visit"
+                    : v.status.replace("_", " ");
+
+                  return (
+                    <div key={v.id} className="bg-white rounded-2xl border border-[#f0f0f0] overflow-hidden">
+                      {/* Header row — always visible */}
+                      <button
+                        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-[#fafafa] transition-colors"
+                        onClick={() => setExpandedId(isOpen ? null : v.id)}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-[#f5f5f5] flex items-center justify-center shrink-0 text-[#999] text-[12px] font-semibold">
+                          {visits.length - idx}
                         </div>
-                        <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${badgeColor}`}>
-                          {svcLabel}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[#222] text-[13px] font-semibold leading-tight">{dateStr} · {timeStr}</p>
+                          <p className="text-[#999] text-[11px] mt-0.5">{v.odometerReading.toLocaleString()} km{svcLabel ? ` · ${svcLabel}` : ""}</p>
+                        </div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${statusColor}`}>
+                          {statusLabel}
                         </span>
-                      </div>
-                    );
-                  })
-                )}
+                      </button>
+
+                      {/* Expanded detail */}
+                      {isOpen && (
+                        <div className="border-t border-[#f5f5f5] px-5 pb-5 pt-4 space-y-4">
+
+                          {/* Photos */}
+                          {v.photos.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <ImageIcon size={13} className="text-[#999]" />
+                                <p className="text-[#999] text-[12px] font-medium">Entry Photos</p>
+                              </div>
+                              <div className="flex gap-2 overflow-x-auto pb-1">
+                                {v.photos.map((p) => (
+                                  <div key={p.id} className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-[#f0f0f0]">
+                                    <img src={p.imageUrl} alt={p.photoType} className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Appointment */}
+                          {v.appointment && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <Calendar size={13} className="text-[#999]" />
+                                <p className="text-[#999] text-[12px] font-medium">Appointment</p>
+                              </div>
+                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3 space-y-1.5">
+                                <div className="flex justify-between text-[12px]">
+                                  <span className="text-[#999]">Date</span>
+                                  <span className="text-[#222] font-medium">{v.appointment.appointmentDate} · {v.appointment.appointmentTime}</span>
+                                </div>
+                                {v.appointment.serviceType && (
+                                  <div className="flex justify-between text-[12px]">
+                                    <span className="text-[#999]">Service</span>
+                                    <span className="text-[#222] font-medium">{v.appointment.serviceType}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* QC Inspection */}
+                          {v.inspection && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <ClipboardCheck size={13} className="text-[#999]" />
+                                <p className="text-[#999] text-[12px] font-medium">QC Inspection</p>
+                              </div>
+                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3 space-y-1.5">
+                                <div className="flex justify-between text-[12px]">
+                                  <span className="text-[#999]">Result</span>
+                                  <span className={`font-semibold ${inspColor}`}>{v.inspection.overallStatus ?? "—"}</span>
+                                </div>
+                                {v.inspection.finalRemarks && (
+                                  <div className="flex justify-between text-[12px]">
+                                    <span className="text-[#999]">Remarks</span>
+                                    <span className="text-[#222] font-medium text-right max-w-[60%]">{v.inspection.finalRemarks}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Job Card */}
+                          {v.jobCard && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <Wrench size={13} className="text-[#999]" />
+                                <p className="text-[#999] text-[12px] font-medium">Job Card</p>
+                              </div>
+                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3 space-y-1.5">
+                                {v.jobCard.serviceType && (
+                                  <div className="flex justify-between text-[12px]">
+                                    <span className="text-[#999]">Service</span>
+                                    <span className="text-[#222] font-medium">{v.jobCard.serviceType.replace(/_/g, " ")}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between text-[12px]">
+                                  <span className="text-[#999]">Estimate</span>
+                                  <span className="text-[#222] font-medium">{v.jobCard.totalEstimate ? `${parseFloat(v.jobCard.totalEstimate).toLocaleString()}` : "—"}</span>
+                                </div>
+                                <div className="flex justify-between text-[12px]">
+                                  <span className="text-[#999]">Status</span>
+                                  <span className="text-[#222] font-medium">{v.jobCard.status.replace(/_/g, " ")}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}

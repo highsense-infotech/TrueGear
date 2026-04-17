@@ -125,8 +125,8 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
         params.filter = "INSIDE";
       }
 
-      // Date filter
-      if (selectedDate) {
+      // Date filter — skip when searching by VIN
+      if (selectedDate && !searchQuery.trim()) {
         params.dateFrom = selectedDate;
         params.dateTo = selectedDate;
       }
@@ -199,14 +199,9 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
       if (localRes.status && localRes.data.length > 0) {
         const found = localRes.data[0];
         const vehicleId = found.vehicle.id;
-        const isTerminal = found.vehicle.status === "Completed" || found.vehicle.status === "Cancelled";
-        if (isTerminal) {
-          await reEntryVehicle(vehicleId);
-          toast.success("Vehicle found! Previous photos cleared for new visit.");
-        } else {
-          toast.success("Vehicle found in local database!");
-        }
-        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicleId}`);
+        await reEntryVehicle(vehicleId);
+        toast.success("Vehicle found! Previous photos cleared for new visit.");
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicleId}&reentry=true`);
         return;
       }
 
@@ -220,17 +215,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
     }
   };
 
-  const handleEditVehicle = async (vehicle: DisplayVehicle) => {
-    const isTerminal = vehicle.status === "Completed" || vehicle.status === "Cancelled";
-    if (isTerminal) {
-      try {
-        await reEntryVehicle(vehicle.id);
-        toast.success("Previous photos cleared for new visit.");
-      } catch {
-        toast.error("Failed to reset vehicle for re-entry.");
-        return;
-      }
-    }
+  const handleEditVehicle = (vehicle: DisplayVehicle) => {
     navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicle.id}`);
   };
 

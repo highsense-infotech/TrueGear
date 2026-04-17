@@ -65,6 +65,7 @@ const AppointmentVehicleDetails: React.FC = () => {
       : null,
   );
 
+
   // Always start by showing saved vehicles
   const [showNewForm, setShowNewForm] = useState(false);
 
@@ -76,7 +77,7 @@ const AppointmentVehicleDetails: React.FC = () => {
   const [fuelType,     setFuelType]     = useState("");
   const [transmission, setTransmission] = useState("");
   const [year,         setYear]         = useState("");
-  const [odometer,     setOdometer]     = useState("");
+  const [odometer]     = useState("");
 
   // ─── Click-outside to close comboboxes ──────────────────────────────────────
   useEffect(() => {
@@ -548,20 +549,6 @@ const AppointmentVehicleDetails: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Odometer */}
-                <div>
-                  <label className="text-sm font-medium text-[#333]">Odometer Reading</label>
-                  <div className="relative mt-1">
-                    <input
-                      type="number"
-                      placeholder="e.g. 45000"
-                      value={odometer}
-                      onChange={(e) => setOdometer(e.target.value)}
-                      className="w-full pl-3 pr-12 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#999] font-medium">KM</span>
-                  </div>
-                </div>
               </div>
 
               <button
