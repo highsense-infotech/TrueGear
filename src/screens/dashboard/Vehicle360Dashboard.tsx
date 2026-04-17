@@ -4,7 +4,7 @@ import truck from "../../assets/truck.png";
 import { Pagination } from "../../components/common/Pagination";
 import { ConfirmDeleteModal } from "../../components/common/ConfirmDeleteModal";
 import { listVehicles, hardDeleteVehicle } from "../../api/vehicle.api";
-import type { VehicleItem, VehiclePagination } from "../../api/vehicle.api";
+import type { VehicleItem } from "../../api/vehicle.api";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import ROUTES from "../../constants/routes";
 import toast from "react-hot-toast";
@@ -42,7 +42,7 @@ const Vehicle360Dashboard: React.FC = () => {
     navigate(ROUTES.VEHICLE_360_DASHBOARD + "/" + id);
 
   const [vehicles,      setVehicles]      = useState<VehicleItem[]>([]);
-  const [pagination,    setPagination]    = useState<VehiclePagination>({ page: 1, limit: 10, total: 0, totalPages: 1 });
+  const [pagination,    setPagination]    = useState<{ page: number; limit: number; total: number; totalPages: number }>({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [loading,       setLoading]       = useState(false);
   const [searchInput,   setSearchInput]   = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -63,7 +63,7 @@ const Vehicle360Dashboard: React.FC = () => {
       if (appliedSearch.trim()) params.vin = appliedSearch.trim();
       if (selectedDate) { params.dateFrom = selectedDate; params.dateTo = selectedDate; }
       const res = await listVehicles(params);
-      if (res.status) { setVehicles(res.data); setPagination(res.pagination); }
+      if (res.success) { setVehicles(res.data?.data ?? []); setPagination({ page: res.data?.page ?? 1, limit: res.data?.limit ?? 10, total: res.data?.total ?? 0, totalPages: Math.ceil((res.data?.total ?? 0) / (res.data?.limit ?? 10)) }); }
     } catch {
       toast.error("Failed to load vehicles");
     } finally {
@@ -89,8 +89,8 @@ const Vehicle360Dashboard: React.FC = () => {
     setIsDeleting(true); setDeleteError(null);
     try {
       const res = await hardDeleteVehicle(deleteTarget.id);
-      if (res.status) { setDeleteTarget(null); fetchVehicles(); }
-      else setDeleteError(res.message || "Failed to delete vehicle");
+      if (res.success) { setDeleteTarget(null); fetchVehicles(); }
+      else setDeleteError(res.error?.message || "Failed to delete vehicle");
     } catch (err: unknown) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete vehicle");
     } finally {

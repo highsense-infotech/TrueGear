@@ -88,7 +88,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
 }
 
 
-export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = false, readOnly = false }: VehicleTableProps) {
+export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false }: VehicleTableProps) {
   const [vehicles, setVehicles] = useState<DisplayVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,13 +134,10 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
       if (includeAll) params.includeAll = "true";
 
       const res = await listVehicles(params);
-      if (res.status) {
-        setVehicles(res.data.map(mapVehicleItem));
-        setTotalPages(res.pagination.totalPages);
-        setTotalItems(res.pagination.total);
-        if (res.stats) {
-          onStatsLoaded?.(res.stats);
-        }
+      if (res.success) {
+        setVehicles((res.data?.data ?? []).map(mapVehicleItem));
+        setTotalPages(Math.ceil((res.data?.total ?? 0) / (res.data?.limit ?? 10)));
+        setTotalItems(res.data?.total ?? 0);
       } else {
         setVehicles([]);
         setTotalPages(1);
@@ -183,7 +180,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
     setIsLookingUp(true);
     try {
       const res = await vinLookup(vin);
-      const hasData = res.found && res.data && (
+      const hasData = res.data?.found && res.data && (
         Object.keys(res.data.CustomerDetail).length > 0 || Object.keys(res.data.Vehicles).length > 0
       );
       if (hasData) {
@@ -196,8 +193,8 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
 
       // Step 2: Not in third-party — search local DB
       const localRes = await searchVehicles(vin);
-      if (localRes.status && localRes.data.length > 0) {
-        const found = localRes.data[0];
+      if (localRes.success && (localRes.data ?? []).length > 0) {
+        const found = (localRes.data ?? [])[0];
         const vehicleId = found.vehicle.id;
         await reEntryVehicle(vehicleId);
         toast.success("Vehicle found! Previous photos cleared for new visit.");
@@ -234,11 +231,11 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
     setDeleteError(null);
     try {
       const res = await deleteVehicle(deleteTarget.id);
-      if (res.status) {
+      if (res.success) {
         setDeleteTarget(null);
         fetchVehicles();
       } else {
-        setDeleteError(res.message || "Failed to delete vehicle");
+        setDeleteError(res.error?.message || "Failed to delete vehicle");
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to delete vehicle";

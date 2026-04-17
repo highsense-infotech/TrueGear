@@ -1,5 +1,6 @@
 import api from "./axios";
-import type { VehicleItem, VehiclePagination } from "./vehicle.api";
+import type { ApiResponse } from "./types";
+import type { VehicleItem } from "./vehicle.api";
 
 export interface QCOutDashboardParams {
   page?: number;
@@ -10,27 +11,15 @@ export interface QCOutDashboardParams {
   dateTo?: string;
 }
 
-export interface QCOutStats {
-  readyForBilling: number;
-  readyForBillingYesterday: number;
-  completedToday: number;
-  completedYesterday: number;
-  totalExits: number;
-  totalExitsYesterday: number;
-  avgTimeInWorkshop: string;
-  avgTimeInWorkshopYesterday: string;
-}
-
 export interface QCOutVehicleItem extends VehicleItem {
   updatedAt?: string;
 }
 
-export interface QCOutDashboardResponse {
-  status: boolean;
-  message: string;
+export interface QCOutListData {
   data: QCOutVehicleItem[];
-  stats: QCOutStats;
-  pagination: VehiclePagination;
+  total: number;
+  page: number;
+  limit: number;
 }
 
 const FILTER_STATUS_MAP: Record<"ALL" | "READY_FOR_BILLING" | "COMPLETED", string | undefined> = {
@@ -41,7 +30,7 @@ const FILTER_STATUS_MAP: Record<"ALL" | "READY_FOR_BILLING" | "COMPLETED", strin
 
 export const getQCOutDashboard = async (
   params: QCOutDashboardParams = {}
-): Promise<QCOutDashboardResponse> => {
+): Promise<ApiResponse<QCOutListData>> => {
   const { filter = "ALL", ...rest } = params;
   const status = FILTER_STATUS_MAP[filter];
   const { data } = await api.get("/vehicles", {
@@ -55,7 +44,7 @@ export const getQCOutDashboard = async (
 
 export const markVehicleCompleted = async (
   vehicleId: string
-): Promise<{ status: boolean; message: string; data: { id: string; status: string } }> => {
+): Promise<ApiResponse<{ id: string; status: string }>> => {
   const { data } = await api.put(`/service-advisor/vehicles/${vehicleId}/status`, {
     status: "Completed",
   });

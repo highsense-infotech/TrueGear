@@ -163,7 +163,7 @@ const AppointmentReview: React.FC = () => {
         },
       });
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? "Failed to create appointment. Please try again.";
+      const msg = err?.response?.data?.error?.message ?? "Failed to create appointment. Please try again.";
       setSubmitError(msg);
     } finally {
       setIsSubmitting(false);

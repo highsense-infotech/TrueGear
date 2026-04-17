@@ -91,7 +91,7 @@ const AddVehicle: React.FC = () => {
 
       getVehicleDetails(vehicleIdFromUrl)
         .then((res) => {
-          if (res.status) {
+          if (res.success) {
             const { vehicle, customer, images } = res.data;
             setCustomerData({
               firstName: customer.firstName,
@@ -148,8 +148,8 @@ const AddVehicle: React.FC = () => {
         })
         .catch((err: unknown) => {
           if (err && typeof err === "object" && "response" in err) {
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            setFetchError(axiosErr.response?.data?.message || "Failed to load vehicle details");
+            const axiosErr = err as { response?: { data?: { error?: { message?: string } } } };
+            setFetchError(axiosErr.response?.data?.error?.message || "Failed to load vehicle details");
           } else {
             setFetchError("Failed to load vehicle details");
           }
@@ -250,7 +250,7 @@ const AddVehicle: React.FC = () => {
         if (slot.imageId) {
           // Replace existing image
           const res = await replaceVehicleImage(vehicleId, slot.imageId, stampedFile, slot.title);
-          if (res.status) {
+          if (res.success) {
             setPhotoSlots((prev) => {
               const updated = [...prev];
               updated[slotIndex] = {
@@ -265,7 +265,7 @@ const AddVehicle: React.FC = () => {
         } else {
           // Upload new image
           const res = await uploadVehicleImages(vehicleId, [stampedFile], slot.title);
-          if (res.status && res.data.uploaded.length > 0) {
+          if (res.success && res.data.uploaded.length > 0) {
             const uploaded = res.data.uploaded[0];
             setPhotoSlots((prev) => {
               const updated = [...prev];
@@ -337,7 +337,7 @@ const AddVehicle: React.FC = () => {
 
     try {
       const res = await confirmVehicleEntry(vehicleId, odometerInput ? Number(odometerInput) : undefined);
-      if (res.status) {
+      if (res.success) {
         toast.success("Vehicle entry confirmed");
         setIsModalOpen(false);
         sessionStorage.removeItem("customerData");
@@ -349,15 +349,15 @@ const AddVehicle: React.FC = () => {
           navigate(ROUTES.VEHICLE_ENTRY_SUCCESS);
         }
       } else {
-        const msg = res.message || "Failed to confirm entry.";
+        const msg = res.error?.message || "Failed to confirm entry.";
         setConfirmError(msg);
         toast.error(msg);
       }
     } catch (err: unknown) {
       let msg = "Failed to confirm entry.";
       if (err && typeof err === "object" && "response" in err) {
-        const axiosErr = err as { response?: { data?: { message?: string } } };
-        msg = axiosErr.response?.data?.message || msg;
+        const axiosErr = err as { response?: { data?: { error?: { message?: string } } } };
+        msg = axiosErr.response?.data?.error?.message || msg;
       }
       setConfirmError(msg);
       toast.error(msg);

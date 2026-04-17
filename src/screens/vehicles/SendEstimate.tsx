@@ -93,7 +93,7 @@ export const SendEstimate = () => {
     setSending(true);
     try {
       const res = await shareEstimate(latestJobCardId, currency);
-      if (res.status) {
+      if (res.success) {
         setWhatsappSent(res.data.whatsappSent);
         setEmailSent(res.data.emailSent);
         setApprovalUrl(res.data.approvalUrl);

@@ -106,8 +106,8 @@ const AppointmentDashboard: React.FC = () => {
 
     listAppointments(params as any)
       .then((res) => {
-        setAppointments(res.data ?? []);
-        if (res.stats) setStats(res.stats);
+        setAppointments(res.data?.data ?? []);
+        if (res.data?.stats) setStats(res.data.stats);
       })
       .catch(() => setAppointments([]))
       .finally(() => setLoading(false));
@@ -220,7 +220,7 @@ const AppointmentDashboard: React.FC = () => {
         newTime: rescheduleTime,
         reason: rescheduleReason.trim() || undefined,
       });
-      if (res.status) {
+      if (res.success) {
         setAppointments((prev) =>
           prev.map((a) =>
             a.id === rescheduleTarget.id
@@ -231,7 +231,7 @@ const AppointmentDashboard: React.FC = () => {
         closeRescheduleModal();
       }
     } catch (err: any) {
-      setRescheduleError(err?.response?.data?.message ?? "Failed to reschedule. Please try again.");
+      setRescheduleError(err?.response?.data?.error?.message ?? "Failed to reschedule. Please try again.");
     } finally {
       setRescheduling(false);
     }

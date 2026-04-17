@@ -1,4 +1,5 @@
 import api from './axios';
+import type { ApiResponse } from './types';
 
 export interface ServiceTypeItem {
   id: string;
@@ -9,7 +10,7 @@ export interface ServiceTypeItem {
   isActive: boolean;
 }
 
-export const listServiceTypes = async (category?: string): Promise<{ status: boolean; data: ServiceTypeItem[] }> => {
+export const listServiceTypes = async (category?: string): Promise<ApiResponse<ServiceTypeItem[]>> => {
   const { data } = await api.get('/service-types', { params: category ? { category } : {} });
   return data;
 };

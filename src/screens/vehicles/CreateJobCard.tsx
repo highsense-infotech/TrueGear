@@ -83,7 +83,7 @@ const CreateJobCard: React.FC = () => {
         setSuggestedJobs(suggestions.map((s: SASuggestedJob) => s.suggestedDescription));
 
         // Service types
-        if (stRes.status && Array.isArray(stRes.data)) {
+        if (stRes.success && Array.isArray(stRes.data)) {
           setServiceTypeOptions(
             stRes.data.map((s: any) => ({ id: s.id, name: s.name }))
           );
@@ -244,7 +244,7 @@ const CreateJobCard: React.FC = () => {
         `/model-service-type-assignments/by-category/${categoryCode}`,
         { params }
       );
-      if (!data?.status || !Array.isArray(data.data) || data.data.length === 0) {
+      if (!data?.success || !Array.isArray(data.data) || data.data.length === 0) {
         toast.error("No parts found for this combination");
         // Still update the category name on the row
         setJobs((prev) =>
@@ -446,7 +446,7 @@ const CreateJobCard: React.FC = () => {
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
         });
-        if (res.status) {
+        if (res.success) {
           toast.success("Job card updated successfully");
           navigate(`/service-advisor-dashboard/job-card-detail/${editJobCardId}`);
         }
@@ -458,13 +458,13 @@ const CreateJobCard: React.FC = () => {
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
         });
-        if (res.status) {
+        if (res.success) {
           toast.success("Job card saved as draft");
           navigate(`/service-advisor-dashboard/job-card-detail/${res.data.jobCard.id}`);
         }
       }
     } catch (error: any) {
-      const msg = error?.response?.data?.message || "Failed to save job card";
+      const msg = error?.response?.data?.error?.message || "Failed to save job card";
       toast.error(msg);
     } finally {
       setSavingType(null);

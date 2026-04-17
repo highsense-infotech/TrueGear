@@ -1,4 +1,5 @@
 import api from "./axios";
+import type { ApiResponse } from "./types";
 
 // ─── Dashboard ──────────────────────────────────────────────────────────────
 
@@ -47,19 +48,15 @@ export interface SAPagination {
   totalPages: number;
 }
 
-export interface SADashboardResponse {
-  status: boolean;
-  message: string;
-  data: {
-    stats: SAStats;
-    activeVehicles: SAVehicle[];
-    pagination: SAPagination;
-  };
+export interface SADashboardData {
+  stats: SAStats;
+  activeVehicles: SAVehicle[];
+  pagination: SAPagination;
 }
 
 export const getServiceAdvisorDashboard = async (
   params: SADashboardParams = {}
-): Promise<SADashboardResponse> => {
+): Promise<ApiResponse<SADashboardData>> => {
   const { data } = await api.get("/service-advisor/dashboard", { params });
   return data;
 };
@@ -103,15 +100,9 @@ export interface SAVehicleDetail {
   } | null;
 }
 
-export interface SAVehicleDetailResponse {
-  status: boolean;
-  message: string;
-  data: SAVehicleDetail;
-}
-
 export const getVehicleDetail = async (
   vehicleId: string
-): Promise<SAVehicleDetailResponse> => {
+): Promise<ApiResponse<SAVehicleDetail>> => {
   const { data } = await api.get(`/service-advisor/vehicles/${vehicleId}`);
   return data;
 };
@@ -150,15 +141,9 @@ export interface SAQCReport {
   failedItems: SAQCItem[];
 }
 
-export interface SAQCReportResponse {
-  status: boolean;
-  message: string;
-  data: SAQCReport;
-}
-
 export const getVehicleQCReport = async (
   vehicleId: string
-): Promise<SAQCReportResponse> => {
+): Promise<ApiResponse<SAQCReport>> => {
   const { data } = await api.get(`/service-advisor/vehicles/${vehicleId}/qc-report`);
   return data;
 };
@@ -178,17 +163,9 @@ export interface SAHistoryItem {
   updatedAt: string;
 }
 
-export interface SAVehicleHistoryResponse {
-  status: boolean;
-  message: string;
-  data: {
-    history: SAHistoryItem[];
-  };
-}
-
 export const getVehicleHistory = async (
   vehicleId: string
-): Promise<SAVehicleHistoryResponse> => {
+): Promise<ApiResponse<{ history: SAHistoryItem[] }>> => {
   const { data } = await api.get(`/service-advisor/vehicles/${vehicleId}/history`);
   return data;
 };
@@ -216,17 +193,9 @@ export interface SAJobCard {
   description: string | null;
 }
 
-export interface SAJobCardsResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCards: SAJobCard[];
-  };
-}
-
 export const getVehicleJobCards = async (
   vehicleId: string
-): Promise<SAJobCardsResponse> => {
+): Promise<ApiResponse<{ jobCards: SAJobCard[] }>> => {
   const { data } = await api.get(`/service-advisor/vehicles/${vehicleId}/job-cards`);
   return data;
 };
@@ -242,17 +211,9 @@ export interface SASuggestedJob {
   suggestedDescription: string;
 }
 
-export interface SASuggestedJobsResponse {
-  status: boolean;
-  message: string;
-  data: {
-    suggestedJobs: SASuggestedJob[];
-  };
-}
-
 export const getSuggestedJobs = async (
   vehicleId: string
-): Promise<SASuggestedJobsResponse> => {
+): Promise<ApiResponse<{ suggestedJobs: SASuggestedJob[] }>> => {
   const { data } = await api.get(`/service-advisor/vehicles/${vehicleId}/suggested-jobs`);
   return data;
 };
@@ -281,58 +242,47 @@ export interface CreateJobCardPayload {
   currencyCode?: string;
 }
 
-export interface CreateJobCardResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCard: SAJobCard;
-    items: any[];
-  };
-}
-
 export const createJobCard = async (
   vehicleId: string,
   payload: CreateJobCardPayload
-): Promise<CreateJobCardResponse> => {
+): Promise<ApiResponse<{ jobCard: SAJobCard; items: any[] }>> => {
   const { data } = await api.post(`/service-advisor/vehicles/${vehicleId}/job-cards`, payload);
   return data;
 };
 
 // ─── Get Job Card Detail ───────────────────────────────────────────────────
 
-export interface SAJobCardDetailResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCard: SAJobCard;
-    items: {
-      id: string;
-      jobCardId: string;
-      jobDescription: string;
-      partsRequired: string | null;
-      serviceType: string | null;
-      serviceCategory: string | null;
-      partsCost: string;
-      labourCost: string;
-      quantity: number;
-      lineTotal: string;
-      sortOrder: number;
-      isApprovedByCustomer: boolean | null;
-      partStatus: 'pending' | 'available' | 'unavailable' | 'dispatched' | null;
-      partExpectedTime: string | null;
-    }[];
-    vehicle: {
-      registrationNumber: string;
-      brand: string;
-      model: string;
-      customerName: string | null;
-    } | null;
-  };
+export interface SAJobCardItem {
+  id: string;
+  jobCardId: string;
+  jobDescription: string;
+  partsRequired: string | null;
+  serviceType: string | null;
+  serviceCategory: string | null;
+  partsCost: string;
+  labourCost: string;
+  quantity: number;
+  lineTotal: string;
+  sortOrder: number;
+  isApprovedByCustomer: boolean | null;
+  partStatus: 'pending' | 'available' | 'unavailable' | 'dispatched' | null;
+  partExpectedTime: string | null;
+}
+
+export interface SAJobCardDetailData {
+  jobCard: SAJobCard;
+  items: SAJobCardItem[];
+  vehicle: {
+    registrationNumber: string;
+    brand: string;
+    model: string;
+    customerName: string | null;
+  } | null;
 }
 
 export const getJobCardDetail = async (
   jobCardId: string
-): Promise<SAJobCardDetailResponse> => {
+): Promise<ApiResponse<SAJobCardDetailData>> => {
   const { data } = await api.get(`/service-advisor/job-cards/${jobCardId}`);
   return data;
 };
@@ -349,72 +299,46 @@ export interface UpdateJobCardPayload {
 export const updateJobCard = async (
   jobCardId: string,
   payload: UpdateJobCardPayload
-): Promise<CreateJobCardResponse> => {
+): Promise<ApiResponse<{ jobCard: SAJobCard; items: any[] }>> => {
   const { data } = await api.put(`/service-advisor/job-cards/${jobCardId}`, payload);
   return data;
 };
 
 // ─── Share Estimate ────────────────────────────────────────────────────────
 
-export interface ShareEstimateResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCardId: string;
-    status: string;
-    sharedAt: string;
-    vehicleStatus: string;
-    whatsappSent: boolean;
-    emailSent: boolean;
-    emailFailReason?: string;
-    approvalUrl: string;
-  };
+export interface ShareEstimateData {
+  jobCardId: string;
+  status: string;
+  sharedAt: string;
+  vehicleStatus: string;
+  whatsappSent: boolean;
+  emailSent: boolean;
+  emailFailReason?: string;
+  approvalUrl: string;
 }
 
 export const shareEstimate = async (
   jobCardId: string,
   currencyCode?: string,
-): Promise<ShareEstimateResponse> => {
+): Promise<ApiResponse<ShareEstimateData>> => {
   const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/share`, { currencyCode });
   return data;
 };
 
 // ─── Approve Job Card ──────────────────────────────────────────────────────
 
-export interface ApproveJobCardResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCardId: string;
-    status: string;
-    approvedAt: string;
-    vehicleStatus: string;
-  };
-}
-
 export const approveJobCard = async (
   jobCardId: string
-): Promise<ApproveJobCardResponse> => {
+): Promise<ApiResponse<{ jobCardId: string; status: string; approvedAt: string; vehicleStatus: string }>> => {
   const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/approve`);
   return data;
 };
 
-
 // ─── Request Parts Confirmation ────────────────────────────────────────────
-
-export interface RequestPartsConfirmationResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCardId: string;
-    status: string;
-    partsRequestsCreated: number;
-  };
-}
 
 export const requestPartsConfirmation = async (
   jobCardId: string
-): Promise<RequestPartsConfirmationResponse> => {
+): Promise<ApiResponse<{ jobCardId: string; status: string; partsRequestsCreated: number }>> => {
   const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/request-parts`);
   return data;
 };

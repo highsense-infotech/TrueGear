@@ -1,4 +1,5 @@
 import api from "./axios";
+import type { ApiResponse } from "./types";
 
 export interface VehicleListParams {
   page?: number;
@@ -9,10 +10,25 @@ export interface VehicleListParams {
   dateFrom?: string;
   dateTo?: string;
   vin?: string;
+  customerId?: string;
   includeAll?: boolean;
 }
 
-export type VehicleStatus = "Entry (Draft)" | "Vehicle IN" | "Inspection (Draft)" | "Inspection Done" | "Job Card (Draft)" | "Job Card (Pending Parts Approval)" | "Job Card (Parts Approval Done)" | "Job Card (Pending Cust. Approval)" | "Job Card (Partial Cust. Approval)" | "Job Card (Full Cust. Approval)" | "In Service" | "Ready for Billing" | "Completed" | "Cancelled";
+export type VehicleStatus =
+  | "Entry (Draft)"
+  | "Vehicle IN"
+  | "Inspection (Draft)"
+  | "Inspection Done"
+  | "Job Card (Draft)"
+  | "Job Card (Pending Parts Approval)"
+  | "Job Card (Parts Approval Done)"
+  | "Job Card (Pending Cust. Approval)"
+  | "Job Card (Partial Cust. Approval)"
+  | "Job Card (Full Cust. Approval)"
+  | "In Service"
+  | "Ready for Billing"
+  | "Completed"
+  | "Cancelled";
 
 export interface VehicleItem {
   id: string;
@@ -30,32 +46,11 @@ export interface VehicleItem {
   frontImage: string | null;
 }
 
-export interface VehiclePagination {
+export interface VehicleListData {
+  data: VehicleItem[];
+  total: number;
   page: number;
   limit: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface VehicleStats {
-  vehiclesEnteredToday: number;
-  vehiclesEnteredYesterday: number;
-  currentlyInside: number;
-  currentlyInsideYesterday: number;
-  pendingInspection: number;
-  pendingExitYesterday: number;
-  inProgress: number;
-  completed: number;
-  avgTimeInside: string;
-  avgTimeInsideYesterday: string;
-}
-
-export interface VehicleListResponse {
-  status: boolean;
-  message: string;
-  data: VehicleItem[];
-  stats: VehicleStats;
-  pagination: VehiclePagination;
 }
 
 export interface SearchVehicleItem {
@@ -79,22 +74,14 @@ export interface SearchVehicleItem {
   imageCount: number;
 }
 
-export interface SearchVehicleResponse {
-  status: boolean;
-  message: string;
-  data: SearchVehicleItem[];
-}
-
 export const listVehicles = async (
   params: VehicleListParams = {}
-): Promise<VehicleListResponse> => {
+): Promise<ApiResponse<VehicleListData>> => {
   const { data } = await api.get("/vehicles", { params });
   return data;
 };
 
-export const searchVehicles = async (
-  vin: string
-): Promise<SearchVehicleResponse> => {
+export const searchVehicles = async (vin: string): Promise<ApiResponse<SearchVehicleItem[]>> => {
   const { data } = await api.get("/vehicles/search", { params: { vin } });
   return data;
 };
@@ -121,26 +108,20 @@ export interface AddVehiclePayload {
   serviceType?: string;
 }
 
-export interface AddVehicleResponse {
-  status: boolean;
-  message: string;
-  data: {
-    id: string;
-    customerId: string;
-    vin: string;
-    brand: string;
-    model: string;
-    manufacturingYear: number;
-    odometerLast: number;
-    registrationNumber: string;
-    status: string;
-    entryTime: string;
-  };
+export interface AddVehicleData {
+  id: string;
+  customerId: string;
+  vin: string;
+  brand: string;
+  model: string;
+  manufacturingYear: number;
+  odometerLast: number;
+  registrationNumber: string;
+  status: string;
+  entryTime: string;
 }
 
-export const addVehicle = async (
-  payload: AddVehiclePayload
-): Promise<AddVehicleResponse> => {
+export const addVehicle = async (payload: AddVehiclePayload): Promise<ApiResponse<AddVehicleData>> => {
   const { data } = await api.post("/vehicles", payload);
   return data;
 };
@@ -176,7 +157,6 @@ export interface VehicleDetailData {
     priority: string;
     serviceType: string;
     entryTime: string | null;
-    // warranty & insurance
     warrantyActive: boolean;
     warrantyStartDate: string | null;
     warrantyNumber: string | null;
@@ -190,15 +170,7 @@ export interface VehicleDetailData {
   imageCount: number;
 }
 
-export interface VehicleDetailResponse {
-  status: boolean;
-  message: string;
-  data: VehicleDetailData;
-}
-
-export const getVehicleDetails = async (
-  vehicleId: string
-): Promise<VehicleDetailResponse> => {
+export const getVehicleDetails = async (vehicleId: string): Promise<ApiResponse<VehicleDetailData>> => {
   const { data } = await api.get(`/vehicles/${vehicleId}`);
   return data;
 };
@@ -213,20 +185,11 @@ export interface UploadedImage {
   createdAt: string;
 }
 
-export interface UploadImagesResponse {
-  status: boolean;
-  message: string;
-  data: {
-    uploaded: UploadedImage[];
-    photosCaptured: string;
-  };
-}
-
 export const uploadVehicleImages = async (
   vehicleId: string,
   files: File[],
   category?: string
-): Promise<UploadImagesResponse> => {
+): Promise<ApiResponse<{ uploaded: UploadedImage[]; photosCaptured: string }>> => {
   const formData = new FormData();
   files.forEach((file) => formData.append("images", file));
   if (category) formData.append("category", category);
@@ -236,33 +199,25 @@ export const uploadVehicleImages = async (
   return data;
 };
 
-export interface ReplaceImageResponse {
-  status: boolean;
-  message: string;
-  data: UploadedImage;
-}
-
 export const replaceVehicleImage = async (
   vehicleId: string,
   imageId: string,
   file: File,
   category?: string
-): Promise<ReplaceImageResponse> => {
+): Promise<ApiResponse<UploadedImage>> => {
   const formData = new FormData();
   formData.append("images", file);
   if (category) formData.append("category", category);
-  const { data } = await api.put(
-    `/vehicles/${vehicleId}/images/${imageId}`,
-    formData,
-    { headers: { "Content-Type": "multipart/form-data" } }
-  );
+  const { data } = await api.put(`/vehicles/${vehicleId}/images/${imageId}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return data;
 };
 
 export const deleteVehicleImage = async (
   vehicleId: string,
   imageId: string
-): Promise<{ status: boolean; message: string }> => {
+): Promise<ApiResponse<null>> => {
   const { data } = await api.delete(`/vehicles/${vehicleId}/images/${imageId}`);
   return data;
 };
@@ -279,59 +234,34 @@ export interface VehicleModel {
   name: string;
 }
 
-export const listMakes = async (): Promise<{
-  status: boolean;
-  message: string;
-  data: VehicleMake[];
-}> => {
+export const listMakes = async (): Promise<ApiResponse<VehicleMake[]>> => {
   const { data } = await api.get("/vehicles/makes");
   return data;
 };
 
-export const listModelsByMake = async (
-  makeId: string
-): Promise<{
-  status: boolean;
-  message: string;
-  data: VehicleModel[];
-}> => {
+export const listModelsByMake = async (makeId: string): Promise<ApiResponse<VehicleModel[]>> => {
   const { data } = await api.get(`/vehicles/makes/${makeId}/models`);
   return data;
 };
 
 // ---- Delete Vehicle ----
 
-export const deleteVehicle = async (
-  vehicleId: string
-): Promise<{ status: boolean; message: string }> => {
+export const deleteVehicle = async (vehicleId: string): Promise<ApiResponse<null>> => {
   const { data } = await api.delete(`/vehicles/${vehicleId}`);
   return data;
 };
 
-export const hardDeleteVehicle = async (
-  vehicleId: string
-): Promise<{ status: boolean; message: string }> => {
+export const hardDeleteVehicle = async (vehicleId: string): Promise<ApiResponse<null>> => {
   const { data } = await api.delete(`/vehicles/${vehicleId}/permanent`);
   return data;
 };
 
 // ---- Confirm Entry ----
 
-export interface ConfirmEntryResponse {
-  status: boolean;
-  message: string;
-  data: {
-    registration: string;
-    owner: string;
-    photosCaptured: string;
-    entryTime: string;
-  };
-}
-
 export const confirmVehicleEntry = async (
   vehicleId: string,
   odometerReading?: number
-): Promise<ConfirmEntryResponse> => {
+): Promise<ApiResponse<{ registration: string; owner: string; photosCaptured: string; entryTime: string }>> => {
   const { data } = await api.post(`/vehicles/${vehicleId}/confirm`, { odometerReading });
   return data;
 };
@@ -339,26 +269,20 @@ export const confirmVehicleEntry = async (
 // ---- VIN Lookup (Third-Party) ----
 export type VinLookupFields = Record<string, string>;
 
-export interface VinLookupResponse {
-  status: boolean;
+export interface VinLookupData {
   found: boolean;
-  message: string;
-  data: {
-    CustomerDetail: VinLookupFields;
-    CustomerProfile: VinLookupFields;
-    Vehicles: VinLookupFields;
-  };
+  CustomerDetail: VinLookupFields;
+  CustomerProfile: VinLookupFields;
+  Vehicles: VinLookupFields;
 }
 
-export const vinLookup = async (
-  vin: string
-): Promise<VinLookupResponse> => {
+export const vinLookup = async (vin: string): Promise<ApiResponse<VinLookupData>> => {
   const { data } = await api.post("/vehicles/vin-lookup", { vin });
   return data;
 };
 
 // ─── Re-Entry Vehicle ─────────────────────────────────────────────────────────
-export const reEntryVehicle = async (vehicleId: string): Promise<{ status: boolean; message: string }> => {
+export const reEntryVehicle = async (vehicleId: string): Promise<ApiResponse<null>> => {
   const { data } = await api.post(`/vehicles/${vehicleId}/re-entry`);
   return data;
 };
@@ -408,7 +332,7 @@ export interface VehicleVisit {
   appointment: VisitAppointment | null;
 }
 
-export const getVehicleVisitHistory = async (vehicleId: string): Promise<{ status: boolean; data: VehicleVisit[] }> => {
+export const getVehicleVisitHistory = async (vehicleId: string): Promise<ApiResponse<VehicleVisit[]>> => {
   const { data } = await api.get(`/vehicles/${vehicleId}/visit-history`);
   return data;
 };

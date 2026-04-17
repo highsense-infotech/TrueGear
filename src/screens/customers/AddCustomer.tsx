@@ -82,7 +82,7 @@ const AddCustomer: React.FC = () => {
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const res = await searchCustomers(query.trim());
-        if (res.status) {
+        if (res.success) {
           setSearchResults(res.data);
         } else {
           setSearchResults([]);
@@ -110,7 +110,7 @@ const AddCustomer: React.FC = () => {
       setLoadingMakes(true);
       try {
         const res = await listMakes();
-        if (res.status) {
+        if (res.success) {
           setMakes(res.data);
         }
       } catch (err) {
@@ -199,7 +199,7 @@ const AddCustomer: React.FC = () => {
       setLoadingModels(true);
       try {
         const res = await listModelsByMake(selectedMakeId);
-        if (res.status) {
+        if (res.success) {
           setModels(res.data);
         }
       } catch (err) {
@@ -372,8 +372,8 @@ const AddCustomer: React.FC = () => {
           leadSource: "DIRECT",
         });
 
-        if (!customerRes.status) {
-          const msg = customerRes.message || "Failed to create customer";
+        if (!customerRes.success) {
+          const msg = customerRes.error?.message || "Failed to create customer";
           setSubmitError(msg);
           toast.error(msg);
           setIsSubmitting(false);
@@ -401,19 +401,19 @@ const AddCustomer: React.FC = () => {
         serviceType: formData.serviceType,
       });
 
-      if (res.status) {
+      if (res.success) {
         toast.success("Vehicle added successfully");
         navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${res.data.id}`);
       } else {
-        const msg = res.message || "Failed to add vehicle";
+        const msg = res.error?.message || "Failed to add vehicle";
         setSubmitError(msg);
         toast.error(msg);
       }
     } catch (err: unknown) {
       let msg = "Failed to add vehicle. Please try again.";
       if (err && typeof err === "object" && "response" in err) {
-        const axiosErr = err as { response?: { data?: { message?: string } } };
-        msg = axiosErr.response?.data?.message || msg;
+        const axiosErr = err as { response?: { data?: { error?: { message?: string } } } };
+        msg = axiosErr.response?.data?.error?.message || msg;
       }
       setSubmitError(msg);
       toast.error(msg);

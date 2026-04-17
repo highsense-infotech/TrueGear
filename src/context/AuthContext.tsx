@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { User, AuthData } from '../types/user.types';
+import { logout as logoutApi } from '../api/auth.api';
 
 const STORAGE_KEY = 'tg_auth';
 
@@ -8,7 +9,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   login: (data: AuthData) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   hasRole: (roleSlug: string) => boolean;
   hasPermission: (resource: string, action: string) => boolean;
 }
@@ -38,7 +39,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await logoutApi();
     setUser(null);
     setToken(null);
     localStorage.removeItem(STORAGE_KEY);

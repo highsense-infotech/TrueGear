@@ -71,7 +71,7 @@ const Vehicle360VehicleDetail: React.FC = () => {
     if (!vehicleId) return;
     setLoading(true);
     getVehicleDetails(vehicleId)
-      .then((res) => { if (res.status) setData(res.data); })
+      .then((res) => { if (res.success) setData(res.data); })
       .catch(() => setError("Failed to load vehicle details"))
       .finally(() => setLoading(false));
   }, [vehicleId]);
@@ -80,7 +80,7 @@ const Vehicle360VehicleDetail: React.FC = () => {
     if (tab !== "service" || !vehicleId) return;
     setVLoading(true);
     getVehicleVisitHistory(vehicleId)
-      .then((res) => { if (res.status) setVisits(res.data); })
+      .then((res) => { if (res.success) setVisits(res.data ?? []); })
       .catch(() => setVisits([]))
       .finally(() => setVLoading(false));
   }, [tab, vehicleId]);

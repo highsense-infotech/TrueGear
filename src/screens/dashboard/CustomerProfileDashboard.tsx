@@ -54,7 +54,7 @@ function CustomerProfileDashboard() {
           setNotesForm({ notes: localCustomer.notes ?? "" });
           // Fetch customer's vehicles
           getVehiclesByCustomer(localCustomer.id)
-            .then((vRes) => setCustomerVehicles(vRes.data ?? []))
+            .then((vRes) => setCustomerVehicles(vRes.data?.data ?? []))
             .catch(() => {});
         }
       } catch {

@@ -49,7 +49,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
     setLoading(true);
     try {
       const res = await getVehicleDetail(id);
-      if (res.status) {
+      if (res.success) {
         setVehicleDetail(res.data);
       }
     } catch (err) {
@@ -66,7 +66,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
     setQcLoading(true);
     try {
       const res = await getVehicleQCReport(id);
-      if (res.status) {
+      if (res.success) {
         setQcReport(res.data);
       }
     } catch (err) {
@@ -83,7 +83,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
     setHistoryLoading(true);
     try {
       const res = await getVehicleHistory(id);
-      if (res.status) {
+      if (res.success) {
         setHistory(res.data.history);
       }
     } catch (err) {
@@ -100,7 +100,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
     setJobCardsLoading(true);
     try {
       const res = await getVehicleJobCards(id);
-      if (res.status) {
+      if (res.success) {
         setJobCards(res.data.jobCards);
       }
     } catch (err) {

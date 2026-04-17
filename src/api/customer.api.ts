@@ -1,4 +1,5 @@
 import api from "./axios";
+import type { ApiResponse } from "./types";
 
 export interface CustomerSearchItem {
   id: string;
@@ -13,15 +14,7 @@ export interface CustomerSearchItem {
   contactNumber: string | null;
 }
 
-export interface CustomerSearchResponse {
-  status: boolean;
-  message: string;
-  data: CustomerSearchItem[];
-}
-
-export const searchCustomers = async (
-  q: string
-): Promise<CustomerSearchResponse> => {
+export const searchCustomers = async (q: string): Promise<ApiResponse<CustomerSearchItem[]>> => {
   const { data } = await api.get("/customers/search", { params: { q } });
   return data;
 };
@@ -39,45 +32,35 @@ export interface CreateCustomerPayload {
   leadSource?: string;
 }
 
-export interface CreateCustomerResponse {
-  status: boolean;
-  message: string;
-  data: CustomerSearchItem;
-}
-
 export const createCustomer = async (
   payload: CreateCustomerPayload
-): Promise<CreateCustomerResponse> => {
+): Promise<ApiResponse<CustomerSearchItem>> => {
   const { data } = await api.post("/customers", payload);
   return data;
 };
 
 // ─── IRM Sync ────────────────────────────────────────────────────────────────
 
-export interface IrmSyncResponse {
-  status: boolean;
-  message: string;
-  data: {
-    synced: boolean;
-    local: boolean;
-    irmData: {
-      CustomerDetail: Record<string, string>;
-      CustomerProfile: Record<string, string>;
-      Vehicles: Record<string, string>;
-      AccountsReceivable: Record<string, string | number | boolean>;
-    } | null;
-    updated?: {
-      firstName: string;
-      lastName: string;
-      companyName: string | null;
-      primaryEmail: string | null;
-    };
+export interface IrmSyncData {
+  synced: boolean;
+  local: boolean;
+  irmData: {
+    CustomerDetail: Record<string, string>;
+    CustomerProfile: Record<string, string>;
+    Vehicles: Record<string, string>;
+    AccountsReceivable: Record<string, string | number | boolean>;
+  } | null;
+  updated?: {
+    firstName: string;
+    lastName: string;
+    companyName: string | null;
+    primaryEmail: string | null;
   };
 }
 
 export const syncCustomerFromIrm = async (
   customerId: string
-): Promise<IrmSyncResponse> => {
+): Promise<ApiResponse<IrmSyncData>> => {
   const { data } = await api.post(`/customers/${customerId}/irm-sync`);
   return data;
 };
@@ -118,55 +101,39 @@ export interface CustomerFullDetail {
   profile: Record<string, unknown> | null;
 }
 
-export interface CustomerDetailResponse {
-  status: boolean;
-  message: string;
-  data: CustomerFullDetail;
-}
-
 export const getCustomerDetails = async (
   customerId: string
-): Promise<CustomerDetailResponse> => {
+): Promise<ApiResponse<CustomerFullDetail>> => {
   const { data } = await api.get(`/customers/${customerId}`);
   return data;
 };
 
 // ─── Lookup by CustSequenceID ─────────────────────────────────────────────────
 
-export interface CustomerLookupResponse {
-  status: boolean;
-  message: string;
-  data: {
-    source: "irm" | "local" | "not_found";
-    irmData: {
-      CustomerDetail: Record<string, string>;
-      CustomerProfile: Record<string, string>;
-      Vehicles: Record<string, string>;
-      AccountsReceivable: Record<string, string | number | boolean>;
-    } | null;
-    localData: (CustomerFullDetail & { fullName: string }) | null;
-  };
+export interface CustomerLookupData {
+  source: "irm" | "local" | "not_found";
+  irmData: {
+    CustomerDetail: Record<string, string>;
+    CustomerProfile: Record<string, string>;
+    Vehicles: Record<string, string>;
+    AccountsReceivable: Record<string, string | number | boolean>;
+  } | null;
+  localData: (CustomerFullDetail & { fullName: string }) | null;
 }
 
 export const lookupCustomerBySequence = async (
   custSequenceId: string
-): Promise<CustomerLookupResponse> => {
+): Promise<ApiResponse<CustomerLookupData>> => {
   const { data } = await api.get("/customers/lookup", { params: { custSequenceId } });
   return data;
 };
 
 // ─── Add / Update Internal Notes ─────────────────────────────────────────────
 
-export interface AddNoteResponse {
-  status: boolean;
-  message: string;
-  data: { id: string; notes: string | null };
-}
-
 export const addCustomerNote = async (
   customerId: string,
   notes: string
-): Promise<AddNoteResponse> => {
+): Promise<ApiResponse<{ id: string; notes: string | null }>> => {
   const { data } = await api.patch(`/customers/${customerId}/notes`, { notes });
   return data;
 };

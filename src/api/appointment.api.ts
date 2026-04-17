@@ -1,4 +1,5 @@
 import api from './axios';
+import type { ApiResponse } from './types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -7,12 +8,6 @@ export interface SlotInfo {
   booked:   number;
   capacity: number;
   status:   'available' | 'limited' | 'full' | 'closed';
-}
-
-export interface SlotAvailabilityResponse {
-  status:  boolean;
-  message: string;
-  data:    { date: string; slots: SlotInfo[] };
 }
 
 export interface VehicleListItem {
@@ -26,12 +21,6 @@ export interface VehicleListItem {
   transmissionType:   string | null;
   odometerLast:       number;
   status:             string;
-}
-
-export interface VehiclesListResponse {
-  status:  boolean;
-  message: string;
-  data:    VehicleListItem[];
 }
 
 export interface ServiceAdvisorUser {
@@ -115,28 +104,33 @@ export interface AppointmentStats {
   todayCancelled: number;
 }
 
-export interface ListAppointmentsResponse {
-  status:  boolean;
-  message: string;
-  data:    AppointmentRecord[];
-  total:   number;
-  page:    number;
-  limit:   number;
-  stats:   AppointmentStats;
+export interface AppointmentListData {
+  data:  AppointmentRecord[];
+  total: number;
+  page:  number;
+  limit: number;
+  stats: AppointmentStats;
+}
+
+export interface VehiclesByCustomerData {
+  data:  VehicleListItem[];
+  total: number;
+  page:  number;
+  limit: number;
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────────
 
 export const getSlotAvailability = async (
   date: string,
-): Promise<SlotAvailabilityResponse> => {
+): Promise<ApiResponse<{ date: string; slots: SlotInfo[] }>> => {
   const { data } = await api.get('/appointments/slots', { params: { date } });
   return data;
 };
 
 export const getVehiclesByCustomer = async (
   customerId: string,
-): Promise<VehiclesListResponse> => {
+): Promise<ApiResponse<VehiclesByCustomerData>> => {
   const { data } = await api.get('/vehicles', { params: { customerId, includeAll: 'true' } });
   return data;
 };
@@ -154,7 +148,7 @@ export const listServiceAdvisors = async (): Promise<ServiceAdvisorUser[]> => {
 
 export const createAppointment = async (
   payload: CreateAppointmentPayload,
-): Promise<{ status: boolean; message: string; data: AppointmentRecord }> => {
+): Promise<ApiResponse<AppointmentRecord>> => {
   const { data } = await api.post('/appointments', payload);
   return data;
 };
@@ -166,7 +160,7 @@ export const listAppointments = async (params?: {
   customerId?:       string;
   page?:             number;
   limit?:            number;
-}): Promise<ListAppointmentsResponse> => {
+}): Promise<ApiResponse<AppointmentListData>> => {
   const { data } = await api.get('/appointments', { params });
   return data;
 };
@@ -175,7 +169,7 @@ export const updateAppointmentStatus = async (
   id:                 string,
   status:             string,
   cancellationReason?: string,
-): Promise<{ status: boolean; data: AppointmentRecord }> => {
+): Promise<ApiResponse<AppointmentRecord>> => {
   const { data } = await api.patch(`/appointments/${id}/status`, {
     status,
     ...(cancellationReason ? { cancellationReason } : {}),
@@ -192,14 +186,14 @@ export interface ReschedulePayload {
 export const rescheduleAppointment = async (
   id: string,
   payload: ReschedulePayload,
-): Promise<{ status: boolean; message: string; data: AppointmentRecord }> => {
+): Promise<ApiResponse<AppointmentRecord>> => {
   const { data } = await api.patch(`/appointments/${id}/reschedule`, payload);
   return data;
 };
 
 export const getAppointmentByVehicle = async (
   vehicleId: string,
-): Promise<{ status: boolean; data: AppointmentRecord | null }> => {
+): Promise<ApiResponse<AppointmentRecord | null>> => {
   const { data } = await api.get(`/appointments/vehicle/${vehicleId}`);
   return data;
 };
@@ -229,7 +223,7 @@ export interface IrmCustomerResult {
   firstName:       string;
   lastName:        string;
   companyName:     string;
-  customerType:    string;   // 'C' = company, 'I' = individual
+  customerType:    string;
   idNumber:        string;
   phone:           string;
   email:           string;
@@ -238,11 +232,6 @@ export interface IrmCustomerResult {
   postalCode:      string;
   country:         string;
   vehicle:         IrmVehicleResult | null;
-}
-
-export interface IrmSearchResponse {
-  status: boolean;
-  data:   IrmCustomerResult[];
 }
 
 export interface InternalCustomer {
@@ -276,7 +265,7 @@ export const irmCustomerSearch = async (params: {
   phone?: string;
   reg?:   string;
   vin?:   string;
-}): Promise<IrmSearchResponse> => {
+}): Promise<ApiResponse<IrmCustomerResult[]>> => {
   const { data } = await api.get('/appointments/irm-search', { params });
   return data;
 };
@@ -284,7 +273,7 @@ export const irmCustomerSearch = async (params: {
 export const linkAppointmentToCheckIn = async (
   appointmentId: string,
   checkInId:     string,
-): Promise<{ status: boolean; data: AppointmentRecord }> => {
+): Promise<ApiResponse<AppointmentRecord>> => {
   const { data } = await api.patch(`/appointments/${appointmentId}/check-in`, { checkInId });
   return data;
 };

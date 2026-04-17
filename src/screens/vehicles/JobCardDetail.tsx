@@ -57,7 +57,7 @@ const JobCardDetail: React.FC = () => {
     const fetchDetail = async () => {
       try {
         const res = await getJobCardDetail(jobCardId);
-        if (res.status) {
+        if (res.success) {
           setData(res.data);
           const { jobCard } = res.data;
           if (jobCard.status === 'SHARED' && jobCard.approvalToken) {
@@ -80,7 +80,7 @@ const JobCardDetail: React.FC = () => {
     setSharing(true);
     try {
       const res = await shareEstimate(jobCardId, currency);
-      if (res.status) {
+      if (res.success) {
         if (res.data.emailSent) {
           toast.success("Estimate sent to customer via email");
         } else {
@@ -105,7 +105,7 @@ const JobCardDetail: React.FC = () => {
         );
       }
     } catch (error: any) {
-      const msg = error?.response?.data?.message || "Failed to share estimate";
+      const msg = error?.response?.data?.error?.message || "Failed to share estimate";
       toast.error(msg);
     } finally {
       setSharing(false);
@@ -117,14 +117,14 @@ const JobCardDetail: React.FC = () => {
     setRequestingParts(true);
     try {
       const res = await requestPartsConfirmation(jobCardId);
-      if (res.status) {
+      if (res.success) {
         toast.success(`Parts confirmation sent to Parts Manager (${res.data.partsRequestsCreated} part(s))`);
         setData((prev) =>
           prev ? { ...prev, jobCard: { ...prev.jobCard, status: res.data.status } } : prev
         );
       }
     } catch (error: any) {
-      const msg = error?.response?.data?.message || "Failed to send parts confirmation request";
+      const msg = error?.response?.data?.error?.message || "Failed to send parts confirmation request";
       toast.error(msg);
     } finally {
       setRequestingParts(false);

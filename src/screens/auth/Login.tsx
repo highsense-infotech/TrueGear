@@ -39,17 +39,17 @@ const Login: React.FC = () => {
     try {
       const res = await loginApi(email, password);
 
-      if (res.status && res.data) {
+      if (res.success && res.data) {
         login({ token: res.data.token, user: res.data.user });
 
         const roleSlug = res.data.user.role?.slug;
         const defaultRoute = ROLE_DEFAULT_ROUTES[roleSlug] || ROUTES.HOME;
         navigate(defaultRoute, { replace: true });
       } else {
-        setError(res.message || "Login failed");
+        setError(res.error?.message || "Login failed");
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || "Login failed. Please try again.";
+      const msg = err.response?.data?.error?.message || "Login failed. Please try again.";
       setError(msg);
     } finally {
       setLoading(false);

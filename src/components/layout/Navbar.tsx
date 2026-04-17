@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Bell, Settings, LogOut, Menu, ChevronDown } from "lucide-react";
+import { Bell, Settings, LogOut, Menu, ChevronDown, Loader2 } from "lucide-react";
 import userAvatar from "../../assets/user.jpg";
 import Button from "../common/Button";
 import { ROUTES } from "../../constants/routes";
@@ -12,12 +12,15 @@ interface Props {
 
 export function Header({ toggleSidebar }: Props) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    await logout();
     navigate(ROUTES.LOGIN, { replace: true });
   };
 
@@ -108,8 +111,9 @@ export function Header({ toggleSidebar }: Props) {
         <Button
           variant="outline"
           className="bg-[#faedee] p-2! h-10! border-[#ffc0d1] hover:bg-[#ffe5ed]"
-          icon={<LogOut className="w-5 h-5 text-[#FE306C]" />}
+          icon={loggingOut ? <Loader2 className="w-5 h-5 text-[#FE306C] animate-spin" /> : <LogOut className="w-5 h-5 text-[#FE306C]" />}
           onClick={handleLogout}
+          disabled={loggingOut}
         />
       </div>
 
@@ -174,10 +178,11 @@ export function Header({ toggleSidebar }: Props) {
 
               <Button
                 className="w-full justify-start gap-3 px-3 py-3! bg-[#faedee] hover:bg-[#ffe5ed]"
-                icon={<LogOut className="w-5 h-5 text-[#FE306C]" />}
+                icon={loggingOut ? <Loader2 className="w-5 h-5 text-[#FE306C] animate-spin" /> : <LogOut className="w-5 h-5 text-[#FE306C]" />}
                 onClick={handleLogout}
+                disabled={loggingOut}
               >
-                <span className="text-sm text-[#FE306C]">Logout</span>
+                <span className="text-sm text-[#FE306C]">{loggingOut ? 'Logging out...' : 'Logout'}</span>
               </Button>
             </div>
           </div>

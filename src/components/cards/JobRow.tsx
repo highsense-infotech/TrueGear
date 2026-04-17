@@ -144,7 +144,7 @@ export function JobRow({
     setSearchOpen(true);
     try {
       const { data } = await api.get("/parts/search", { params: { query: q } });
-      if (data?.status && Array.isArray(data.data)) {
+      if (data?.success && Array.isArray(data.data)) {
         setPartResults(data.data);
       } else {
         setPartResults([]);

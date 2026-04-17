@@ -94,7 +94,7 @@ const AppointmentVehicleDetails: React.FC = () => {
     if (!state.customerId) return;
     setIsLoading(true);
     getVehiclesByCustomer(state.customerId)
-      .then((res) => setVehicles(res.data ?? []))
+      .then((res) => setVehicles(res.data?.data ?? []))
       .catch(() => setLoadError("Could not load vehicles."))
       .finally(() => setIsLoading(false));
   }, [state.customerId]);

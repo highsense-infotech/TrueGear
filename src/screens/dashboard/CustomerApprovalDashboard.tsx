@@ -72,7 +72,7 @@ function CustomerApprovalDashboard() {
     const fetchEstimate = async () => {
       try {
         const res = await getEstimateByToken(token);
-        if (res.status) {
+        if (res.success) {
           setEstimateData(res.data);
 
           // Map API items to Job format
@@ -95,7 +95,7 @@ function CustomerApprovalDashboard() {
         }
       } catch (err: any) {
         setError(
-          err.response?.data?.message ||
+          err.response?.data?.error?.message ||
             "Unable to load estimate. The link may be invalid or expired."
         );
       } finally {
@@ -142,11 +142,11 @@ function CustomerApprovalDashboard() {
     try {
       const approvedItemIds = selectedJobs.map((j) => j.itemId);
       const res = await approveEstimate(token, approvedItemIds);
-      if (res.status) {
+      if (res.success) {
         setCurrentScreen("approve");
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to approve estimate");
+      setError(err.response?.data?.error?.message || "Failed to approve estimate");
     } finally {
       setApproving(false);
     }
@@ -157,11 +157,11 @@ function CustomerApprovalDashboard() {
     setSubmittingModification(true);
     try {
       const res = await requestModification(token, notes);
-      if (res.status) {
+      if (res.success) {
         setCurrentScreen("modificationSubmitted");
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to submit modification request");
+      setError(err.response?.data?.error?.message || "Failed to submit modification request");
     } finally {
       setSubmittingModification(false);
     }

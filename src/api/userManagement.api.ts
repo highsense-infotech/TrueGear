@@ -1,4 +1,5 @@
 import api from './axios';
+import type { ApiResponse } from './types';
 
 export interface ManagedRole {
   id: string;
@@ -19,26 +20,26 @@ export interface ManagedUser {
 }
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
-export const listRoles = (): Promise<{ status: boolean; data: ManagedRole[] }> =>
+export const listRoles = (): Promise<ApiResponse<ManagedRole[]>> =>
   api.get('/user-management/roles').then((res) => res.data);
 
 export const createRole = (data: {
   name: string;
   slug: string;
-}): Promise<{ status: boolean; data: ManagedRole }> =>
+}): Promise<ApiResponse<ManagedRole>> =>
   api.post('/user-management/roles', data).then((res) => res.data);
 
 export const updateRole = (
   id: string,
   data: { name?: string; slug?: string; isActive?: boolean },
-): Promise<{ status: boolean; data: ManagedRole }> =>
+): Promise<ApiResponse<ManagedRole>> =>
   api.put(`/user-management/roles/${id}`, data).then((res) => res.data);
 
-export const deleteRole = (id: string): Promise<{ status: boolean; message: string }> =>
+export const deleteRole = (id: string): Promise<ApiResponse<null>> =>
   api.delete(`/user-management/roles/${id}`).then((res) => res.data);
 
 // ─── Users ───────────────────────────────────────────────────────────────────
-export const listUsers = (roleSlug?: string): Promise<{ status: boolean; data: ManagedUser[] }> =>
+export const listUsers = (roleSlug?: string): Promise<ApiResponse<ManagedUser[]>> =>
   api
     .get('/user-management/users', { params: roleSlug ? { roleSlug } : undefined })
     .then((res) => res.data);
@@ -48,16 +49,16 @@ export const createUser = (data: {
   email: string;
   password: string;
   roleSlug: string;
-}): Promise<{ status: boolean; data: ManagedUser }> =>
+}): Promise<ApiResponse<ManagedUser>> =>
   api.post('/user-management/users', data).then((res) => res.data);
 
 export const updateUser = (
   id: string,
   data: { username?: string; email?: string; roleSlug?: string; isActive?: boolean },
-): Promise<{ status: boolean; data: ManagedUser }> =>
+): Promise<ApiResponse<ManagedUser>> =>
   api.put(`/user-management/users/${id}`, data).then((res) => res.data);
 
-export const deleteUser = (id: string): Promise<{ status: boolean; message: string }> =>
+export const deleteUser = (id: string): Promise<ApiResponse<null>> =>
   api.delete(`/user-management/users/${id}`).then((res) => res.data);
 
 // ─── Role Permissions ─────────────────────────────────────────────────────────
@@ -67,11 +68,11 @@ export interface RolePermission {
   action: string;
 }
 
-export const getRolePermissions = (roleId: string): Promise<{ status: boolean; data: RolePermission[] }> =>
+export const getRolePermissions = (roleId: string): Promise<ApiResponse<RolePermission[]>> =>
   api.get(`/user-management/roles/${roleId}/permissions`).then((res) => res.data);
 
 export const updateRolePermissions = (
   roleId: string,
   permissions: RolePermission[],
-): Promise<{ status: boolean; message: string }> =>
+): Promise<ApiResponse<null>> =>
   api.put(`/user-management/roles/${roleId}/permissions`, { permissions }).then((res) => res.data);

@@ -1,4 +1,5 @@
 import api from "./axios";
+import type { ApiResponse } from "./types";
 
 // --- Dashboard API ---
 
@@ -44,19 +45,15 @@ export interface QCPagination {
   totalPages: number;
 }
 
-export interface QCDashboardResponse {
-  status: boolean;
-  message: string;
-  data: {
-    stats: QCStats;
-    queue: QCQueueItem[];
-    pagination: QCPagination;
-  };
+export interface QCDashboardData {
+  stats: QCStats;
+  queue: QCQueueItem[];
+  pagination: QCPagination;
 }
 
 export const getQCDashboard = async (
   params: QCDashboardParams = {}
-): Promise<QCDashboardResponse> => {
+): Promise<ApiResponse<QCDashboardData>> => {
   const { data } = await api.get("/qc-inspections/dashboard", { params });
   return data;
 };
@@ -69,35 +66,31 @@ export interface StartInspectionPayload {
   priority?: string;
 }
 
-export interface StartInspectionResponse {
-  status: boolean;
-  message: string;
-  data: {
-    inspection: {
-      id: string;
-      vehicleCheckInId: string;
-      serviceType: string;
-      priority: string;
-      status: string;
-      currentStep: number;
-      startedAt: string;
-    };
-    items: {
-      id: string;
-      inspectionId: string;
-      category: string;
-      itemCode: string;
-      itemLabel: string;
-      sortOrder: number;
-      result: string | null;
-      comment: string | null;
-    }[];
+export interface StartInspectionData {
+  inspection: {
+    id: string;
+    vehicleCheckInId: string;
+    serviceType: string;
+    priority: string;
+    status: string;
+    currentStep: number;
+    startedAt: string;
   };
+  items: {
+    id: string;
+    inspectionId: string;
+    category: string;
+    itemCode: string;
+    itemLabel: string;
+    sortOrder: number;
+    result: string | null;
+    comment: string | null;
+  }[];
 }
 
 export const startInspection = async (
   payload: StartInspectionPayload
-): Promise<StartInspectionResponse> => {
+): Promise<ApiResponse<StartInspectionData>> => {
   const { data } = await api.post("/qc-inspections", payload);
   return data;
 };
@@ -151,32 +144,28 @@ export interface InspectionFindings {
   criticalIssuesDetected: boolean;
 }
 
-export interface InspectionDetailsResponse {
-  status: boolean;
-  message: string;
-  data: {
-    inspection: {
-      id: string;
-      vehicleCheckInId: string;
-      status: string;
-      currentStep: number;
-      serviceType: string;
-      priority: string;
-    };
-    vehicle: InspectionVehicle;
-    categories: {
-      EXTERIOR: InspectionItem[];
-      INTERIOR: InspectionItem[];
-      BRAKE: InspectionItem[];
-    };
-    summary: InspectionSummary;
-    findings: InspectionFindings;
+export interface InspectionDetailsData {
+  inspection: {
+    id: string;
+    vehicleCheckInId: string;
+    status: string;
+    currentStep: number;
+    serviceType: string;
+    priority: string;
   };
+  vehicle: InspectionVehicle;
+  categories: {
+    EXTERIOR: InspectionItem[];
+    INTERIOR: InspectionItem[];
+    BRAKE: InspectionItem[];
+  };
+  summary: InspectionSummary;
+  findings: InspectionFindings;
 }
 
 export const getInspectionDetails = async (
   inspectionId: string
-): Promise<InspectionDetailsResponse> => {
+): Promise<ApiResponse<InspectionDetailsData>> => {
   const { data } = await api.get(`/qc-inspections/${inspectionId}`);
   return data;
 };
@@ -192,50 +181,31 @@ export interface SaveStepItemsPayload {
   }[];
 }
 
-export interface SaveStepItemsResponse {
-  status: boolean;
-  message: string;
-  data: {
-    currentStep: number;
-    categories: {
-      EXTERIOR: InspectionItem[];
-      INTERIOR: InspectionItem[];
-      BRAKE: InspectionItem[];
-    };
-    summary: InspectionSummary;
+export interface SaveStepItemsData {
+  currentStep: number;
+  categories: {
+    EXTERIOR: InspectionItem[];
+    INTERIOR: InspectionItem[];
+    BRAKE: InspectionItem[];
   };
+  summary: InspectionSummary;
 }
 
 export const saveStepItems = async (
   inspectionId: string,
   payload: SaveStepItemsPayload
-): Promise<SaveStepItemsResponse> => {
-  const { data } = await api.put(
-    `/qc-inspections/${inspectionId}/items`,
-    payload
-  );
+): Promise<ApiResponse<SaveStepItemsData>> => {
+  const { data } = await api.put(`/qc-inspections/${inspectionId}/items`, payload);
   return data;
 };
 
 // --- Upload Item Photo API ---
 
-export interface UploadItemPhotoResponse {
-  status: boolean;
-  message: string;
-  data: {
-    photo: {
-      id: string;
-      imageUrl: string;
-    };
-    photoCount: number;
-  };
-}
-
 export const uploadItemPhoto = async (
   inspectionId: string,
   itemId: string,
   file: File
-): Promise<UploadItemPhotoResponse> => {
+): Promise<ApiResponse<{ photo: { id: string; imageUrl: string }; photoCount: number }>> => {
   const formData = new FormData();
   formData.append("photo", file);
   const { data } = await api.post(
@@ -252,7 +222,7 @@ export const deleteItemPhoto = async (
   inspectionId: string,
   itemId: string,
   photoId: string
-): Promise<{ status: boolean; message: string }> => {
+): Promise<ApiResponse<null>> => {
   const { data } = await api.delete(
     `/qc-inspections/${inspectionId}/items/${itemId}/photos/${photoId}`
   );
@@ -284,11 +254,8 @@ export interface SaveConfirmationPayload {
 export const saveConfirmation = async (
   inspectionId: string,
   payload: SaveConfirmationPayload
-): Promise<{ status: boolean; message: string }> => {
-  const { data } = await api.put(
-    `/qc-inspections/${inspectionId}/confirmation`,
-    payload
-  );
+): Promise<ApiResponse<null>> => {
+  const { data } = await api.put(`/qc-inspections/${inspectionId}/confirmation`, payload);
   return data;
 };
 
@@ -297,7 +264,7 @@ export const saveConfirmation = async (
 export const uploadSignature = async (
   inspectionId: string,
   file: Blob
-): Promise<{ status: boolean; message: string; data: { signatureUrl: string } }> => {
+): Promise<ApiResponse<{ signatureUrl: string }>> => {
   const formData = new FormData();
   formData.append("file", file, "signature.png");
   const { data } = await api.post(
@@ -319,47 +286,29 @@ export interface SaveFindingsPayload {
   finalRemarks?: string | null;
 }
 
-export interface SaveFindingsResponse {
-  status: boolean;
-  message: string;
-  data: {
-    inspection: Record<string, unknown>;
-    currentStep: number;
-  };
-}
-
 export const saveFindings = async (
   inspectionId: string,
   payload: SaveFindingsPayload
-): Promise<SaveFindingsResponse> => {
-  const { data } = await api.put(
-    `/qc-inspections/${inspectionId}/findings`,
-    payload
-  );
+): Promise<ApiResponse<{ inspection: Record<string, unknown>; currentStep: number }>> => {
+  const { data } = await api.put(`/qc-inspections/${inspectionId}/findings`, payload);
   return data;
 };
 
 // --- Submit Inspection API ---
 
-export interface SubmitInspectionResponse {
-  status: boolean;
-  message: string;
-  data: {
-    inspectionId: string;
-    vehicleCheckInId: string;
-    registrationNumber: string;
-    vehicleModel: string;
-    overallStatus: string;
-    completedAt: string;
-    vehicleStatus: string;
-  };
+export interface SubmitInspectionData {
+  inspectionId: string;
+  vehicleCheckInId: string;
+  registrationNumber: string;
+  vehicleModel: string;
+  overallStatus: string;
+  completedAt: string;
+  vehicleStatus: string;
 }
 
 export const submitInspection = async (
   inspectionId: string
-): Promise<SubmitInspectionResponse> => {
-  const { data } = await api.post(
-    `/qc-inspections/${inspectionId}/submit`
-  );
+): Promise<ApiResponse<SubmitInspectionData>> => {
+  const { data } = await api.post(`/qc-inspections/${inspectionId}/submit`);
   return data;
 };

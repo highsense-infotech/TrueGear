@@ -113,7 +113,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       if (serviceCategoryId) params.serviceCategoryId = serviceCategoryId;
       if (search.trim()) params.search = search.trim();
       const { data } = await api.get("/model-service-type-assignments", { params });
-      if (data?.status) {
+      if (data?.success) {
         setAssignments(Array.isArray(data.data) ? data.data : []);
         setTotalPages(data.totalPages ?? 1);
         setTotalItems(data.total ?? 0);
@@ -135,19 +135,19 @@ const ModelServiceTypeAssignment: React.FC = () => {
           listServiceTypes('service_category'),
         ]);
 
-        if (makesRes.status && Array.isArray(makesRes.data)) {
+        if (makesRes.success && Array.isArray(makesRes.data)) {
           setMakes(
             makesRes.data.map((m: any) => ({ id: m.id ?? m._id, name: m.name }))
           );
         }
 
-        if (stRes.status && Array.isArray(stRes.data)) {
+        if (stRes.success && Array.isArray(stRes.data)) {
           setServiceTypes(
             stRes.data.map((s: any) => ({ id: s.id ?? s._id, name: s.name }))
           );
         }
 
-        if (scRes.status && Array.isArray(scRes.data)) {
+        if (scRes.success && Array.isArray(scRes.data)) {
           setServiceCategoryOptions(
             scRes.data.map((s: any) => ({ id: s.id ?? s._id, name: s.name }))
           );
@@ -205,7 +205,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       setModelsLoading(true);
       try {
         const res = await listModelsByMake(selectedMake);
-        if (res.status && Array.isArray(res.data)) {
+        if (res.success && Array.isArray(res.data)) {
           setModels(
             res.data.map((m: any) => ({ id: m.id ?? m._id, name: m.name }))
           );
@@ -307,7 +307,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       await loadAssignments(1);
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.message ?? "Failed to create assignment"
+        err?.response?.data?.error?.message ?? "Failed to create assignment"
       );
     } finally {
       setSaving(false);
@@ -359,7 +359,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       await loadAssignments(1);
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.message ?? "Failed to update assignment"
+        err?.response?.data?.error?.message ?? "Failed to update assignment"
       );
     } finally {
       setEditSaving(false);
@@ -395,7 +395,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       await loadAssignments(1);
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.message ?? "Failed to delete assignment"
+        err?.response?.data?.error?.message ?? "Failed to delete assignment"
       );
     } finally {
       setDeleting(false);
