@@ -198,10 +198,10 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
       const localRes = await searchVehicles(vin);
       if (localRes.status && localRes.data.length > 0) {
         const found = localRes.data[0];
-        const vehicleId = found.vehicle.id;
-        await reEntryVehicle(vehicleId);
-        toast.success("Vehicle found! Previous photos cleared for new visit.");
-        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicleId}&reentry=true`);
+        const reEntryRes = await reEntryVehicle(found.vehicle.id);
+        const newVehicleId = reEntryRes.data?.id ?? found.vehicle.id;
+        toast.success("Vehicle found! New entry created for this visit.");
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${newVehicleId}&reentry=true`);
         return;
       }
 
