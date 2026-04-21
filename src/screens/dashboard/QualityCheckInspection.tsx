@@ -918,7 +918,7 @@ const QualityCheckInspection: React.FC = () => {
           </div>
           <div>
             <p className="text-[#333] text-[16px] mb-0.5">
-              {vehicle?.registrationNumber || "—"}
+              {(vehicle?.registrationNumber || "—").toUpperCase()}
             </p>
             <p className="text-[#999] text-[12px]">
               {vehicle ? `${vehicle.brand} ${vehicle.model}` : "—"}

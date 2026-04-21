@@ -134,7 +134,7 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
         <div className="flex-1 min-w-0">
           <h1 className="text-[#222] text-[15px] font-semibold leading-tight">
-            {vehicle.registrationNumber || vehicle.vin}
+            {(vehicle.registrationNumber || vehicle.vin || "").toUpperCase()}
           </h1>
           <p className="text-[#999] text-[12px] truncate">
             {vehicle.brand} {vehicle.model}{vehicle.modelVariant ? ` · ${vehicle.modelVariant}` : ""}
@@ -182,8 +182,8 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
           {/* Vehicle Identification */}
           <Section title="Vehicle Identification">
-            <InfoRow label="Registration"  value={vehicle.registrationNumber} />
-            <InfoRow label="VIN"           value={vehicle.vin} />
+            <InfoRow label="Registration"  value={vehicle.registrationNumber?.toUpperCase()} />
+            <InfoRow label="VIN"           value={vehicle.vin?.toUpperCase()} />
             <InfoRow label="Engine No."    value={vehicle.engineNumber} />
             <InfoRow label="Make / Model"  value={`${vehicle.brand} ${vehicle.model}`} />
             <InfoRow label="Variant"       value={vehicle.transmissionType} />

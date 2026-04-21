@@ -7,6 +7,7 @@ import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
 import { createCustomer, searchCustomers, type CustomerSearchItem } from "../../api/customer.api";
 import { addVehicle, listMakes, listModelsByMake, type VehicleMake, type VehicleModel, type VinLookupFields } from "../../api/vehicle.api";
+import { listServiceTypes, type ServiceTypeItem } from "../../api/serviceType.api";
 import SearchableDropdown from "../../components/common/SearchableDropdown";
 
 interface CustomerData {
@@ -48,6 +49,25 @@ const AddCustomer: React.FC = () => {
   const [selectedMakeId, setSelectedMakeId] = useState<string>("");
   const [loadingMakes, setLoadingMakes] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [serviceTypes, setServiceTypes] = useState<ServiceTypeItem[]>([]);
+
+  // Fetch service types from DB (same source as appointment booking)
+  useEffect(() => {
+    listServiceTypes('service_assignment')
+      .then((res) => {
+        const list = res.data ?? [];
+        setServiceTypes(list);
+        // If the current default doesn't exist in the loaded list, switch to the first one
+        if (list.length > 0) {
+          setFormData((prev) =>
+            list.some((t) => t.code === prev.serviceType)
+              ? prev
+              : { ...prev, serviceType: list[0].code },
+          );
+        }
+      })
+      .catch(() => { /* optional */ });
+  }, []);
 
   const [formData, setFormData] = useState<CustomerData>({
     firstName: "",
@@ -61,7 +81,7 @@ const AddCustomer: React.FC = () => {
     manufacturingYear: "",
     odometerLast: "",
     priority: "STANDARD",
-    serviceType: "GENERAL_SERVICE",
+    serviceType: "",
   });
 
   const [errors, setErrors] = useState<Partial<CustomerData>>({});
@@ -291,7 +311,7 @@ const AddCustomer: React.FC = () => {
       manufacturingYear: "",
       odometerLast: "",
       priority: "STANDARD",
-      serviceType: "GENERAL_SERVICE",
+      serviceType: "",
     });
   };
 
@@ -316,6 +336,11 @@ const AddCustomer: React.FC = () => {
       newErrors.phoneNumber = "Phone number is required";
     } else if (!/^\d{10}$/.test(formData.phoneNumber.replace(/\s/g, ""))) {
       newErrors.phoneNumber = "Enter a valid 10-digit phone number";
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Enter a valid email address";
     }
     if (!formData.vin.trim()) {
       newErrors.vin = "VIN is required";
@@ -359,10 +384,10 @@ const AddCustomer: React.FC = () => {
 
       // If adding a new customer, create them first
       if (!customerId && showNewCustomerForm) {
+        const phone = formData.phoneNumber.trim();
         const customerRes = await createCustomer({
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
-          contactNumber: formData.phoneNumber.trim(),
           primaryEmail: formData.email.trim() || undefined,
           crmReferenceNo: `CRM-${Date.now()}`,
           custSequenceId: `CUST-${Date.now()}`,
@@ -370,6 +395,9 @@ const AddCustomer: React.FC = () => {
           activeCustomer: true,
           leadType: "WALK_IN",
           leadSource: "DIRECT",
+          contacts: phone
+            ? [{ contactType: "MOBILE", countryCode: "+91", contactNumber: phone }]
+            : undefined,
         });
 
         if (!customerRes.status) {
@@ -445,7 +473,7 @@ const AddCustomer: React.FC = () => {
       manufacturingYear: "",
       odometerLast: "",
       priority: "STANDARD",
-      serviceType: "GENERAL_SERVICE",
+      serviceType: "",
     });
   };
 
@@ -678,7 +706,7 @@ const AddCustomer: React.FC = () => {
               {/* Email */}
               <div>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
-                  Email <span className="text-[#999]">(Optional)</span>
+                  Email <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#999]" />
@@ -689,11 +717,16 @@ const AddCustomer: React.FC = () => {
                     onChange={handleChange}
                     readOnly={!!selectedCustomer}
                     placeholder="Enter email address"
-                    className={`w-full h-11 sm:h-12 border border-[#e5e7eb] rounded-[10px] pl-10 pr-3 sm:pr-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none focus:border-[#04c397] transition-colors ${
-                      selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
-                    }`}
+                    className={`w-full h-11 sm:h-12 border rounded-[10px] pl-10 pr-3 sm:pr-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
+                      errors.email
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-[#e5e7eb] focus:border-[#04c397]"
+                    } ${selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""}`}
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-red-500 text-[11px] mt-1">{errors.email}</p>
+                )}
               </div>
             </div>
           </div>
@@ -716,7 +749,6 @@ const AddCustomer: React.FC = () => {
                   name="vin"
                   value={formData.vin}
                   onChange={handleChange}
-                  maxLength={7}
                   placeholder="e.g., ABC1234"
                   className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors uppercase ${
                     errors.vin
@@ -799,26 +831,24 @@ const AddCustomer: React.FC = () => {
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
                   Manufacturing Year <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="manufacturingYear"
+                <SearchableDropdown
+                  options={Array.from(
+                    { length: new Date().getFullYear() - 1999 },
+                    (_, i) => {
+                      const y = String(new Date().getFullYear() - i);
+                      return { id: y, name: y };
+                    },
+                  )}
                   value={formData.manufacturingYear}
-                  onChange={(e) => {
-                    setFormData((prev) => ({ ...prev, manufacturingYear: e.target.value }));
+                  onChange={(id) => {
+                    setFormData((prev) => ({ ...prev, manufacturingYear: id }));
                     if (errors.manufacturingYear) {
                       setErrors((prev) => ({ ...prev, manufacturingYear: "" }));
                     }
                   }}
-                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] outline-none transition-colors bg-white ${
-                    errors.manufacturingYear
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-[#e5e7eb] focus:border-[#04c397]"
-                  } ${!formData.manufacturingYear ? "text-[#bfbfbf]" : ""}`}
-                >
-                  <option value="">Select Year</option>
-                  {Array.from({ length: new Date().getFullYear() - 1999 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-                    <option key={year} value={String(year)}>{year}</option>
-                  ))}
-                </select>
+                  placeholder="Select Year"
+                  hasError={!!errors.manufacturingYear}
+                />
                 {errors.manufacturingYear && (
                   <p className="text-red-500 text-[11px] mt-1">{errors.manufacturingYear}</p>
                 )}
@@ -851,26 +881,25 @@ const AddCustomer: React.FC = () => {
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
                   Service Type <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="serviceType"
+                <SearchableDropdown
+                  options={
+                    serviceTypes.length === 0
+                      ? [{ id: "GENERAL_SERVICE", name: "General Service" }]
+                      : serviceTypes.map((t) => ({
+                          id: t.code,
+                          name: t.emoji ? `${t.emoji} ${t.name}` : t.name,
+                        }))
+                  }
                   value={formData.serviceType}
-                  onChange={(e) => {
-                    setFormData((prev) => ({ ...prev, serviceType: e.target.value }));
+                  onChange={(id) => {
+                    setFormData((prev) => ({ ...prev, serviceType: id }));
                     if (errors.serviceType) {
                       setErrors((prev) => ({ ...prev, serviceType: "" }));
                     }
                   }}
-                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] outline-none transition-colors bg-white ${
-                    errors.serviceType
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-[#e5e7eb] focus:border-[#04c397]"
-                  }`}
-                >
-                  <option value="GENERAL_SERVICE">General Service</option>
-                  <option value="REPAIR">Repair</option>
-                  <option value="WARRANTY">Warranty</option>
-                  <option value="INSPECTION">Inspection</option>
-                </select>
+                  placeholder="Select Service Type"
+                  hasError={!!errors.serviceType}
+                />
                 {errors.serviceType && (
                   <p className="text-red-500 text-[11px] mt-1">{errors.serviceType}</p>
                 )}
@@ -881,19 +910,19 @@ const AddCustomer: React.FC = () => {
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
                   Priority
                 </label>
-                <select
-                  name="priority"
+                <SearchableDropdown
+                  options={[
+                    { id: "STANDARD", name: "Standard" },
+                    { id: "URGENT", name: "Urgent" },
+                    { id: "EXPRESS", name: "Express" },
+                    { id: "BASIC", name: "Basic" },
+                  ]}
                   value={formData.priority}
-                  onChange={(e) => {
-                    setFormData((prev) => ({ ...prev, priority: e.target.value }));
+                  onChange={(id) => {
+                    setFormData((prev) => ({ ...prev, priority: id }));
                   }}
-                  className="w-full h-11 sm:h-12 border border-[#e5e7eb] focus:border-[#04c397] rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] outline-none transition-colors bg-white"
-                >
-                  <option value="STANDARD">Standard</option>
-                  <option value="URGENT">Urgent</option>
-                  <option value="EXPRESS">Express</option>
-                  <option value="BASIC">Basic</option>
-                </select>
+                  placeholder="Select Priority"
+                />
               </div>
             </div>
           </div>

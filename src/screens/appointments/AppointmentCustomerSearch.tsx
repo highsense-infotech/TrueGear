@@ -452,7 +452,7 @@ const AppointmentCustomerSearch: React.FC = () => {
                                   )}
                                   {customer.vehicle?.registrationNumber && (
                                     <p className="text-xs text-[#999]">
-                                      {customer.vehicle.registrationNumber}
+                                      {customer.vehicle.registrationNumber.toUpperCase()}
                                       {customer.vehicle.brand ? ` — ${customer.vehicle.brand} ${customer.vehicle.model} ${customer.vehicle.year}`.trim() : ""}
                                     </p>
                                   )}
@@ -616,7 +616,7 @@ const AppointmentCustomerSearch: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#999]">Vehicle</span>
                 <span className="text-sm text-[#999]">
-                  {selected?.vehicle?.registrationNumber ?? "—"}
+                  {selected?.vehicle?.registrationNumber?.toUpperCase() ?? "—"}
                 </span>
               </div>
               <hr className="border-[#f0f0f0]" />

@@ -86,7 +86,7 @@ export function AssetsTab({ vehicles, lastService, nextService }: AssetsTabProps
                       </h4>
                     </div>
                     <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 md:mt-1">
-                      VIN: {vehicle.vin || vehicle.registrationNumber || "—"}
+                      VIN: {(vehicle.vin || vehicle.registrationNumber || "—").toUpperCase()}
                     </p>
                   </div>
                 </div>

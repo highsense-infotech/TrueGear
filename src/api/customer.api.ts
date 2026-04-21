@@ -26,10 +26,15 @@ export const searchCustomers = async (
   return data;
 };
 
+export interface CustomerContactPayload {
+  contactType: string;
+  countryCode?: string;
+  contactNumber?: string;
+}
+
 export interface CreateCustomerPayload {
   firstName: string;
   lastName: string;
-  contactNumber: string;
   primaryEmail?: string;
   crmReferenceNo?: string;
   custSequenceId?: string;
@@ -37,6 +42,7 @@ export interface CreateCustomerPayload {
   activeCustomer?: boolean;
   leadType?: string;
   leadSource?: string;
+  contacts?: CustomerContactPayload[];
 }
 
 export interface CreateCustomerResponse {

@@ -200,7 +200,7 @@ function CustomerApprovalDashboard() {
 
   const { jobCard, vehicle } = estimateData;
   const fmt = makeFmt(jobCard.currencyCode);
-  const vehicleNumber = vehicle?.registrationNumber || "—";
+  const vehicleNumber = (vehicle?.registrationNumber || "—").toUpperCase();
   const vehicleModel = vehicle ? `${vehicle.brand} ${vehicle.model}` : "—";
 
   // Modification submitted success screen

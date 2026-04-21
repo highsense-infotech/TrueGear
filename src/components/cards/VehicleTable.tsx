@@ -82,7 +82,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
   const { time, date } = formatEntryTime(v.entryTime);
   return {
     id: v.id,
-    registration: v.registrationNumber || v.vin,
+    registration: (v.registrationNumber || v.vin || "").toUpperCase(),
     model: `${v.brand} ${v.model}`,
     odometer: v.odometerLast ? `${v.odometerLast.toLocaleString()} KM` : "N/A",
     brand: v.brand,

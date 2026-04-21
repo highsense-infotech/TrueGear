@@ -68,7 +68,7 @@ const CreateJobCard: React.FC = () => {
         const v = vehicleRes.data.vehicle;
         const c = vehicleRes.data.customer;
         setVehicleData({
-          registration: v.registrationNumber,
+          registration: v.registrationNumber?.toUpperCase() ?? "",
           model: `${v.brand} ${v.model}`,
           customerName: c.name || "",
         });

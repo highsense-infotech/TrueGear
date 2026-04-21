@@ -301,7 +301,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
         </div>
 
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">{vehicle.registrationNumber}</h2>
+          <h2 className="text-2xl font-bold text-gray-800">{vehicle.registrationNumber?.toUpperCase()}</h2>
           <p className="text-sm text-gray-400">
             {vehicle.brand} {vehicle.model}
             {vehicle.modelVariant ? ` ${vehicle.modelVariant}` : ""}
