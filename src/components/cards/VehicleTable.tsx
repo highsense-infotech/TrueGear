@@ -30,6 +30,11 @@ interface DisplayVehicle {
   frontImage?: string | null;
 }
 
+// Statuses where gate keeper may still edit/delete the vehicle entry.
+// Once QC inspection starts (or later stages), the record is locked.
+const EDITABLE_STATUSES = new Set(["Entry (Draft)", "Vehicle IN"]);
+const isEditable = (status: string) => EDITABLE_STATUSES.has(status);
+
 const statusConfig: Record<string, { color: string; bg: string }> = {
   "Entry (Draft)": { color: "text-[#0066FF]", bg: "bg-[#0066FF]" },
   "Vehicle IN": { color: "text-[#FF8800]", bg: "bg-[#FF8800]" },
@@ -443,7 +448,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
 
                     <td>
                       <div className="flex gap-2">
-                        {!readOnly && (
+                        {!readOnly && isEditable(vehicle.status) && (
                           <>
                             <Button
                               variant="custom"
@@ -508,7 +513,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
                   </div>
 
                   <div className="flex gap-1">
-                    {!readOnly && (
+                    {!readOnly && isEditable(vehicle.status) && (
                       <>
                         <button
                           onClick={() => handleEditVehicle(vehicle)}
