@@ -3,7 +3,7 @@ import truck from "../../assets/truck.png";
 import { Pagination } from "../common/Pagination";
 import Button from "../common/Button";
 import { DatePicker } from "../common/DatePicker";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ROUTES from "../../constants/routes";
 import toast from "react-hot-toast";
@@ -56,6 +56,8 @@ interface VehicleTableProps {
   onStatsLoaded?: (stats: VehicleStats) => void;
   includeAll?: boolean;
   readOnly?: boolean;
+  /** Increment this value from a parent to open the "Add New Vehicle" input. */
+  addVehicleSignal?: number;
 }
 
 function formatEntryTime(isoString: string | null | undefined): { time: string; date: string } {
@@ -93,7 +95,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
 }
 
 
-export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = false, readOnly = false }: VehicleTableProps) {
+export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal }: VehicleTableProps) {
   const [vehicles, setVehicles] = useState<DisplayVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +110,19 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
   const [showVehicleInput, setShowVehicleInput] = useState(false);
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
+
+  // When a parent increments addVehicleSignal, open the Add New Vehicle input.
+  // Skip the first render so mounting with the initial value doesn't auto-open it.
+  const didMountAddSignal = useRef(false);
+  useEffect(() => {
+    if (!didMountAddSignal.current) {
+      didMountAddSignal.current = true;
+      return;
+    }
+    if (addVehicleSignal === undefined) return;
+    setShowVehicleInput(true);
+    setVehicleNumber("");
+  }, [addVehicleSignal]);
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
