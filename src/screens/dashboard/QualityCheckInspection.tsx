@@ -40,9 +40,11 @@ interface ValidationErrors {
   [key: string]: string;
 }
 
-// Map API result to local status
+// Map API result to local status.
+// Items that haven't been answered yet come back as result=null — keep them
+// unanswered (null) so the UI doesn't default them to "NA".
 function mapResultToStatus(result: string | null): ChecklistStatus {
-  if (!result) return 'na';
+  if (!result) return null;
   switch (result.toUpperCase()) {
     case "PASS":
       return "pass";
