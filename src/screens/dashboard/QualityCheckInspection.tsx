@@ -44,7 +44,7 @@ interface ValidationErrors {
 // Items that haven't been answered yet come back as result=null — keep them
 // unanswered (null) so the UI doesn't default them to "NA".
 function mapResultToStatus(result: string | null): ChecklistStatus {
-  if (!result) return null;
+  if (!result) return "na";
   switch (result.toUpperCase()) {
     case "PASS":
       return "pass";
