@@ -95,7 +95,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
 }
 
 
-export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal }: VehicleTableProps) {
+export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal }: VehicleTableProps) {
   const [vehicles, setVehicles] = useState<DisplayVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,8 +213,8 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = fal
 
       // Step 2: Not in third-party — search local DB
       const localRes = await searchVehicles(vin);
-      if (localRes.status && localRes.data.length > 0) {
-        const found = localRes.data[0];
+      if (localRes.success && (localRes.data ?? []).length > 0) {
+        const found = (localRes.data ?? [])[0];
         const reEntryRes = await reEntryVehicle(found.vehicle.id);
         const newVehicleId = reEntryRes.data?.id ?? found.vehicle.id;
         toast.success("Vehicle found! New entry created for this visit.");

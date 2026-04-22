@@ -284,7 +284,7 @@ export const vinLookup = async (vin: string): Promise<ApiResponse<VinLookupData>
 // ─── Re-Entry Vehicle ─────────────────────────────────────────────────────────
 export const reEntryVehicle = async (
   vehicleId: string,
-): Promise<{ status: boolean; message: string; data: { id: string } & Record<string, unknown> }> => {
+): Promise<ApiResponse<{ id: string } & Record<string, unknown>>> => {
   const { data } = await api.post(`/vehicles/${vehicleId}/re-entry`);
   return data;
 };
