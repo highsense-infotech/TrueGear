@@ -1,5 +1,11 @@
-import { Check } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 
+export type AvailabilityState = "delayed" | "none";
+
+export interface AvailabilityBadge {
+  state: AvailabilityState;
+  label: string;
+}
 
 interface JobCardProps {
   title: string;
@@ -8,9 +14,11 @@ interface JobCardProps {
   price: string;
   isSelected: boolean;
   onToggle: () => void;
+  availability?: AvailabilityBadge;
 }
 
-export function JobCard({ title, description, details, price, isSelected, onToggle }: JobCardProps) {
+export function JobCard({ title, description, details, price, isSelected, onToggle, availability }: JobCardProps) {
+  const showDelayBadge = availability?.state === "delayed";
   return (
     <button
       onClick={onToggle}
@@ -39,6 +47,12 @@ export function JobCard({ title, description, details, price, isSelected, onTogg
             <p className="text-[16px] font-semibold text-[#333]">{title}</p>
             <p className="text-[12px] text-[#999]">{description}</p>
             <p className="text-[12px] text-[#999]">{details}</p>
+            {showDelayBadge && (
+              <span className="inline-flex items-center gap-1.5 self-start px-2 py-1 rounded-full text-[11px] font-medium bg-[#FFF1E0] text-[#DA5A00]">
+                <Clock size={12} />
+                {availability!.label}
+              </span>
+            )}
           </div>
         </div>
 

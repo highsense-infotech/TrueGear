@@ -14,6 +14,8 @@ import {
   type EstimateItem,
 } from "../../api/customerApproval.api";
 
+import type { AvailabilityBadge } from "../../components/cards/JobCard";
+
 interface Job {
   id: number;
   itemId: string;
@@ -22,6 +24,7 @@ interface Job {
   details: string;
   price: number;
   selected: boolean;
+  availability?: AvailabilityBadge;
 }
 
 type ScreenType = "dashboard" | "requestModification" | "approve" | "modificationSubmitted";
@@ -86,6 +89,9 @@ function CustomerApprovalDashboard() {
             details: `Parts: ${fmtForMapping(Number(item.partsCost))} | Labour: ${fmtForMapping(Number(item.labourCost))}`,
             price: Number(item.lineTotal),
             selected: true,
+            availability: item.partAvailability && item.partAvailability.state !== "none"
+              ? { state: item.partAvailability.state, label: item.partAvailability.label }
+              : undefined,
           }));
           setJobs(mappedJobs);
 
@@ -290,6 +296,7 @@ function CustomerApprovalDashboard() {
                   onToggle={function () {
                     toggleJob(job.id);
                   }}
+                  availability={job.availability}
                 />
               );
             })}
