@@ -40,9 +40,11 @@ interface ValidationErrors {
   [key: string]: string;
 }
 
-// Map API result to local status
+// Map API result to local status.
+// Items that haven't been answered yet come back as result=null — keep them
+// unanswered (null) so the UI doesn't default them to "NA".
 function mapResultToStatus(result: string | null): ChecklistStatus {
-  if (!result) return 'na';
+  if (!result) return "na";
   switch (result.toUpperCase()) {
     case "PASS":
       return "pass";
@@ -918,7 +920,7 @@ const QualityCheckInspection: React.FC = () => {
           </div>
           <div>
             <p className="text-[#333] text-[16px] mb-0.5">
-              {vehicle?.registrationNumber || "—"}
+              {(vehicle?.registrationNumber || "—").toUpperCase()}
             </p>
             <p className="text-[#999] text-[12px]">
               {vehicle ? `${vehicle.brand} ${vehicle.model}` : "—"}

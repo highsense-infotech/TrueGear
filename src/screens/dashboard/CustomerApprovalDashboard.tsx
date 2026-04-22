@@ -11,6 +11,7 @@ import {
   approveEstimate,
   requestModification,
   type EstimateData,
+  type EstimateItem,
 } from "../../api/customerApproval.api";
 
 interface Job {
@@ -77,7 +78,7 @@ function CustomerApprovalDashboard() {
 
           // Map API items to Job format
           const fmtForMapping = makeFmt(res.data.jobCard.currencyCode);
-          const mappedJobs: Job[] = res.data.items.map((item, idx) => ({
+          const mappedJobs: Job[] = res.data.items.map((item: EstimateItem, idx: number) => ({
             id: idx + 1,
             itemId: item.id,
             title: item.jobDescription,
@@ -199,7 +200,7 @@ function CustomerApprovalDashboard() {
 
   const { jobCard, vehicle } = estimateData;
   const fmt = makeFmt(jobCard.currencyCode);
-  const vehicleNumber = vehicle?.registrationNumber || "—";
+  const vehicleNumber = (vehicle?.registrationNumber || "—").toUpperCase();
   const vehicleModel = vehicle ? `${vehicle.brand} ${vehicle.model}` : "—";
 
   // Modification submitted success screen

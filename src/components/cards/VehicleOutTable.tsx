@@ -188,7 +188,7 @@ export function VehicleOutTable({ filter, onFilterChange, selectedDate, onDateCh
                           <img src={truck} alt="Vehicle" className="max-w-17.5 object-contain" />
                         </div>
                         <div>
-                          <p className="text-[#333] text-[16px] mb-0.5">{vehicle.registrationNumber}</p>
+                          <p className="text-[#333] text-[16px] mb-0.5">{vehicle.registrationNumber?.toUpperCase()}</p>
                           <p className="text-[#999] text-[12px]">{vehicle.brand} {vehicle.model}</p>
                         </div>
                       </div>
@@ -240,7 +240,7 @@ export function VehicleOutTable({ filter, onFilterChange, selectedDate, onDateCh
                     <img src={truck} alt="Vehicle" className="max-w-15 object-contain" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#333]">{vehicle.registrationNumber}</p>
+                    <p className="text-sm font-medium text-[#333]">{vehicle.registrationNumber?.toUpperCase()}</p>
                     <p className="text-xs text-[#999]">{vehicle.brand} {vehicle.model}</p>
                   </div>
                 </div>

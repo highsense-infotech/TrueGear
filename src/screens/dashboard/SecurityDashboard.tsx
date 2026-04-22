@@ -10,6 +10,7 @@ import type { VehicleStats } from "../../api/vehicle.api";
 const SecurityDashboard: React.FC = () => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [addVehicleSignal, setAddVehicleSignal] = useState(0);
   const [stats, setStats] = useState<VehicleStats>({
     vehiclesEnteredToday: 0,
     vehiclesEnteredYesterday: 0,
@@ -99,12 +100,17 @@ const SecurityDashboard: React.FC = () => {
             <VehicleLookup
               value={searchQuery}
               onSearch={handleSearch}
+              onAddNewVehicle={() => setAddVehicleSignal((s) => s + 1)}
             />
           </div>
 
           {/* Vehicle Table */}
           <div className="overflow-x-auto">
-            <VehicleTable searchQuery={searchQuery} onStatsLoaded={setStats} />
+            <VehicleTable
+              searchQuery={searchQuery}
+              onStatsLoaded={setStats}
+              addVehicleSignal={addVehicleSignal}
+            />
           </div>
         </>
       )}

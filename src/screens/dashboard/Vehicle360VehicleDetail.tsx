@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, User, Calendar, Wrench, ClipboardCheck, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Loader2, User, Calendar, Wrench, ClipboardCheck, Image as ImageIcon, Clock } from "lucide-react";
 import truck from "../../assets/truck.png";
 import { getVehicleDetails, getVehicleVisitHistory } from "../../api/vehicle.api";
 import type { VehicleDetailData, VehicleVisit } from "../../api/vehicle.api";
@@ -134,7 +134,7 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
         <div className="flex-1 min-w-0">
           <h1 className="text-[#222] text-[15px] font-semibold leading-tight">
-            {vehicle.registrationNumber || vehicle.vin}
+            {(vehicle.registrationNumber || vehicle.vin || "").toUpperCase()}
           </h1>
           <p className="text-[#999] text-[12px] truncate">
             {vehicle.brand} {vehicle.model}{vehicle.modelVariant ? ` · ${vehicle.modelVariant}` : ""}
@@ -182,8 +182,8 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
           {/* Vehicle Identification */}
           <Section title="Vehicle Identification">
-            <InfoRow label="Registration"  value={vehicle.registrationNumber} />
-            <InfoRow label="VIN"           value={vehicle.vin} />
+            <InfoRow label="Registration"  value={vehicle.registrationNumber?.toUpperCase()} />
+            <InfoRow label="VIN"           value={vehicle.vin?.toUpperCase()} />
             <InfoRow label="Engine No."    value={vehicle.engineNumber} />
             <InfoRow label="Make / Model"  value={`${vehicle.brand} ${vehicle.model}`} />
             <InfoRow label="Variant"       value={vehicle.transmissionType} />
@@ -388,6 +388,34 @@ const Vehicle360VehicleDetail: React.FC = () => {
                                   <span className="text-[#999]">Status</span>
                                   <span className="text-[#222] font-medium">{v.jobCard.status.replace(/_/g, " ")}</span>
                                 </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Timeline */}
+                          {v.events && v.events.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <Clock size={13} className="text-[#999]" />
+                                <p className="text-[#999] text-[12px] font-medium">Timeline</p>
+                              </div>
+                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3">
+                                <ol className="relative border-l border-[#e5e5e5] ml-1.5 space-y-3">
+                                  {v.events.map((ev, i) => {
+                                    const d = new Date(ev.at);
+                                    const when = `${d.toLocaleDateString("en-CA")} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                                    return (
+                                      <li key={`${ev.type}-${i}`} className="ml-3">
+                                        <span className="absolute -left-[5px] mt-1 w-2.5 h-2.5 rounded-full bg-[#f47920] border-2 border-white" />
+                                        <p className="text-[12px] text-[#222] font-medium leading-snug">{ev.label}</p>
+                                        <p className="text-[11px] text-[#999] mt-0.5">
+                                          {when}
+                                          {ev.by && <> · by <span className="text-[#555]">{ev.by}</span></>}
+                                        </p>
+                                      </li>
+                                    );
+                                  })}
+                                </ol>
                               </div>
                             </div>
                           )}

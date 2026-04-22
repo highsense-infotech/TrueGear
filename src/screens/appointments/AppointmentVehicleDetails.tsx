@@ -297,7 +297,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                       </span>
                     </div>
                     {irmVehicle.registrationNumber && (
-                      <p className="text-xs text-[#999]">Reg: {irmVehicle.registrationNumber}</p>
+                      <p className="text-xs text-[#999]">Reg: {irmVehicle.registrationNumber.toUpperCase()}</p>
                     )}
                     <p className="text-xs text-[#999]">
                       {irmVehicle.fuelType || "—"} · {irmVehicle.transmissionType || "—"}
@@ -349,7 +349,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                           {makeLabel} {vehicle.model} {vehicle.manufacturingYear}
                         </p>
                         {vehicle.registrationNumber && (
-                          <p className="text-xs text-[#999]">Reg: {vehicle.registrationNumber}</p>
+                          <p className="text-xs text-[#999]">Reg: {vehicle.registrationNumber.toUpperCase()}</p>
                         )}
                         <p className="text-xs text-[#999]">
                           {vehicle.fuelType ?? "—"} · {vehicle.transmissionType ?? "—"}
