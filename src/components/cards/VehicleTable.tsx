@@ -3,7 +3,7 @@ import truck from "../../assets/truck.png";
 import { Pagination } from "../common/Pagination";
 import Button from "../common/Button";
 import { DatePicker } from "../common/DatePicker";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ROUTES from "../../constants/routes";
 import toast from "react-hot-toast";
@@ -30,6 +30,11 @@ interface DisplayVehicle {
   frontImage?: string | null;
 }
 
+// Statuses where gate keeper may still edit/delete the vehicle entry.
+// Once QC inspection starts (or later stages), the record is locked.
+const EDITABLE_STATUSES = new Set(["Entry (Draft)", "Vehicle IN"]);
+const isEditable = (status: string) => EDITABLE_STATUSES.has(status);
+
 const statusConfig: Record<string, { color: string; bg: string }> = {
   "Entry (Draft)": { color: "text-[#0066FF]", bg: "bg-[#0066FF]" },
   "Vehicle IN": { color: "text-[#FF8800]", bg: "bg-[#FF8800]" },
@@ -51,6 +56,8 @@ interface VehicleTableProps {
   onStatsLoaded?: (stats: VehicleStats) => void;
   includeAll?: boolean;
   readOnly?: boolean;
+  /** Increment this value from a parent to open the "Add New Vehicle" input. */
+  addVehicleSignal?: number;
 }
 
 function formatEntryTime(isoString: string | null | undefined): { time: string; date: string } {
@@ -75,7 +82,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
   const { time, date } = formatEntryTime(v.entryTime);
   return {
     id: v.id,
-    registration: v.registrationNumber || v.vin,
+    registration: (v.registrationNumber || v.vin || "").toUpperCase(),
     model: `${v.brand} ${v.model}`,
     odometer: v.odometerLast ? `${v.odometerLast.toLocaleString()} KM` : "N/A",
     brand: v.brand,
@@ -88,7 +95,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
 }
 
 
-export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false }: VehicleTableProps) {
+export function VehicleTable({ searchQuery = "", onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal }: VehicleTableProps) {
   const [vehicles, setVehicles] = useState<DisplayVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +110,19 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
   const [showVehicleInput, setShowVehicleInput] = useState(false);
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
+
+  // When a parent increments addVehicleSignal, open the Add New Vehicle input.
+  // Skip the first render so mounting with the initial value doesn't auto-open it.
+  const didMountAddSignal = useRef(false);
+  useEffect(() => {
+    if (!didMountAddSignal.current) {
+      didMountAddSignal.current = true;
+      return;
+    }
+    if (addVehicleSignal === undefined) return;
+    setShowVehicleInput(true);
+    setVehicleNumber("");
+  }, [addVehicleSignal]);
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
@@ -193,12 +213,12 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
 
       // Step 2: Not in third-party — search local DB
       const localRes = await searchVehicles(vin);
-      if (localRes.success && (localRes.data ?? []).length > 0) {
-        const found = (localRes.data ?? [])[0];
-        const vehicleId = found.vehicle.id;
-        await reEntryVehicle(vehicleId);
-        toast.success("Vehicle found! Previous photos cleared for new visit.");
-        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicleId}&reentry=true`);
+      if (localRes.status && localRes.data.length > 0) {
+        const found = localRes.data[0];
+        const reEntryRes = await reEntryVehicle(found.vehicle.id);
+        const newVehicleId = reEntryRes.data?.id ?? found.vehicle.id;
+        toast.success("Vehicle found! New entry created for this visit.");
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${newVehicleId}&reentry=true`);
         return;
       }
 
@@ -440,7 +460,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
 
                     <td>
                       <div className="flex gap-2">
-                        {!readOnly && (
+                        {!readOnly && isEditable(vehicle.status) && (
                           <>
                             <Button
                               variant="custom"
@@ -505,7 +525,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                   </div>
 
                   <div className="flex gap-1">
-                    {!readOnly && (
+                    {!readOnly && isEditable(vehicle.status) && (
                       <>
                         <button
                           onClick={() => handleEditVehicle(vehicle)}

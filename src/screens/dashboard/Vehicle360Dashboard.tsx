@@ -184,7 +184,7 @@ const Vehicle360Dashboard: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[#222] text-[13px] font-semibold">
-                          {v.registrationNumber || v.vin}
+                          {(v.registrationNumber || v.vin || "").toUpperCase()}
                         </span>
                         {isExpired && <AlertTriangle className="w-3.5 h-3.5 text-[#f43f5e] shrink-0" />}
                       </div>
@@ -284,7 +284,7 @@ const Vehicle360Dashboard: React.FC = () => {
       <ConfirmDeleteModal
         variant="delete-vehicle"
         isOpen={!!deleteTarget}
-        registration={deleteTarget?.registrationNumber || deleteTarget?.vin || ""}
+        registration={(deleteTarget?.registrationNumber || deleteTarget?.vin || "").toUpperCase()}
         model={deleteTarget ? `${deleteTarget.brand} ${deleteTarget.model}` : ""}
         onConfirm={handleConfirmDelete}
         onClose={() => setDeleteTarget(null)}

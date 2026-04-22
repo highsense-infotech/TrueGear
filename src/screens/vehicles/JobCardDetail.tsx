@@ -203,7 +203,7 @@ const JobCardDetail: React.FC = () => {
       {/* Vehicle Summary */}
       {vehicle && (
         <VehicleSummaryCard
-          registration={vehicle.registrationNumber}
+          registration={vehicle.registrationNumber?.toUpperCase() ?? ""}
           model={`${vehicle.brand} ${vehicle.model}`}
           customerName={vehicle.customerName || "Unknown Customer"}
           status={statusConfig.label}

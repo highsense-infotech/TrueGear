@@ -1,5 +1,11 @@
 import axios from 'axios';
 
+interface ApiResponse<T> {
+  status: boolean;
+  message?: string;
+  data: T;
+}
+
 // Public API instance — no auth token needed
 const publicApi = axios.create({
   baseURL: 'https://workshopbackend-fjvw.onrender.com/api',
@@ -41,43 +47,23 @@ export interface EstimateData {
   customerPhone: string;
 }
 
-export interface EstimateResponse {
-  status: boolean;
-  data: EstimateData;
-}
-
-export interface ApprovalActionResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCardId: string;
-    status: string;
-    approvedAt?: string;
-  };
-}
-
-export interface RequestModificationResponse {
-  status: boolean;
-  message: string;
-  data: {
-    jobCardId: string;
-    status: string;
-  };
+export interface ApprovalActionData {
+  jobCardId: string;
+  status: string;
+  approvedAt?: string;
 }
 
 // ─── API Functions ──────────────────────────────────────────────────────────
 
-export const getEstimateByToken = async (
-  token: string
-): Promise<EstimateResponse> => {
+export const getEstimateByToken = async (token: string): Promise<ApiResponse<EstimateData>> => {
   const { data } = await publicApi.get(`/customer-approval/estimate/${token}`);
   return data;
 };
 
 export const approveEstimate = async (
   token: string,
-  approvedItems?: string[]
-): Promise<ApprovalActionResponse> => {
+  approvedItems?: string[],
+): Promise<ApiResponse<ApprovalActionData>> => {
   const { data } = await publicApi.post(`/customer-approval/estimate/${token}/approve`, {
     approvedItems,
   });
@@ -86,15 +72,13 @@ export const approveEstimate = async (
 
 export const requestModification = async (
   token: string,
-  note: string
-): Promise<RequestModificationResponse> => {
+  note: string,
+): Promise<ApiResponse<{ jobCardId: string; status: string }>> => {
   const { data } = await publicApi.post(`/customer-approval/estimate/${token}/request-modification`, { note });
   return data;
 };
 
-export const rejectEstimate = async (
-  token: string
-): Promise<ApprovalActionResponse> => {
+export const rejectEstimate = async (token: string): Promise<ApiResponse<ApprovalActionData>> => {
   const { data } = await publicApi.post(`/customer-approval/estimate/${token}/reject`);
   return data;
 };

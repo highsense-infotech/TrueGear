@@ -99,7 +99,7 @@ const AddVehicle: React.FC = () => {
               phoneNumber: customer.contactNumber || "",
               email: customer.primaryEmail || "",
               vin: vehicle.vin,
-              vehicleNumber: vehicle.registrationNumber || vehicle.vin,
+              vehicleNumber: (vehicle.registrationNumber || vehicle.vin || "").toUpperCase(),
               vehicleMake: vehicle.brand,
               vehicleModel: vehicle.model,
               odometerLast: vehicle.odometerLast ?? 0,

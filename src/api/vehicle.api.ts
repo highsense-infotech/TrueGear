@@ -282,7 +282,9 @@ export const vinLookup = async (vin: string): Promise<ApiResponse<VinLookupData>
 };
 
 // ─── Re-Entry Vehicle ─────────────────────────────────────────────────────────
-export const reEntryVehicle = async (vehicleId: string): Promise<ApiResponse<null>> => {
+export const reEntryVehicle = async (
+  vehicleId: string,
+): Promise<{ status: boolean; message: string; data: { id: string } & Record<string, unknown> }> => {
   const { data } = await api.post(`/vehicles/${vehicleId}/re-entry`);
   return data;
 };
@@ -319,6 +321,23 @@ export interface VisitAppointment {
   status: string;
 }
 
+export interface VisitEvent {
+  type:
+    | "ENTRY"
+    | "CHECK_IN_CONFIRMED"
+    | "QC_STARTED"
+    | "QC_COMPLETED"
+    | "JOB_CARD_CREATED"
+    | "JOB_CARD_SHARED"
+    | "JOB_CARD_APPROVED"
+    | "VISIT_COMPLETED"
+    | "VISIT_CANCELLED";
+  label: string;
+  at: string;
+  byId: string | null;
+  by: string | null;
+}
+
 export interface VehicleVisit {
   id: string;
   checkInTime: string;
@@ -330,6 +349,7 @@ export interface VehicleVisit {
   inspection: VisitInspection | null;
   jobCard: VisitJobCard | null;
   appointment: VisitAppointment | null;
+  events: VisitEvent[];
 }
 
 export const getVehicleVisitHistory = async (vehicleId: string): Promise<ApiResponse<VehicleVisit[]>> => {
