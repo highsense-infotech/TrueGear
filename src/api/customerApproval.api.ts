@@ -1,5 +1,4 @@
 import axios from 'axios';
-
 interface ApiResponse<T> {
   status: boolean;
   message?: string;
@@ -14,6 +13,22 @@ const publicApi = axios.create({
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+export type PartStatus = 'pending' | 'available' | 'unavailable' | 'dispatched';
+
+export interface EstimatePart {
+  partName: string;
+  partNumber: string | null;
+  quantity: number;
+  status: PartStatus;
+  expectedTime: string | null;
+}
+
+export interface PartAvailability {
+  state: 'delayed' | 'none';
+  label: string;
+  expectedTime: string | null;
+}
+
 export interface EstimateItem {
   id: string;
   jobDescription: string;
@@ -22,6 +37,8 @@ export interface EstimateItem {
   labourCost: string;
   quantity: number;
   lineTotal: string;
+  parts?: EstimatePart[];
+  partAvailability?: PartAvailability;
 }
 
 export interface EstimateData {
