@@ -130,9 +130,9 @@ const DEFAULT_STATE: WizardState = {
   isNewVehicle:        false,
   newVehicleData:      null,
 
-  serviceType:              'periodic',
-  serviceTypeBackend:       'PERIODIC',
-  serviceLabel:             'Periodic Service',
+  serviceType:              '',
+  serviceTypeBackend:       '',
+  serviceLabel:             '',
   complaints:               [],
   estimatedDurationMinutes: 150,
   isOverrideEnabled:        false,

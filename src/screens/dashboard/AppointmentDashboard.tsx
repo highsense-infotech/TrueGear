@@ -69,10 +69,28 @@ const AppointmentDashboard: React.FC = () => {
   const [stats,        setStats]        = useState<AppointmentStats>({ todayTotal: 0, todayConfirmed: 0, todayCancelled: 0 });
   const [loading,      setLoading]      = useState(false);
 
-  const [searchQuery,   setSearchQuery]   = useState("");
-  const [dateFilter,    setDateFilter]    = useState("all");
-  const [advisorFilter, setAdvisorFilter] = useState("all");
-  const [statusFilter,  setStatusFilter]  = useState("all");
+  const [searchQuery,    setSearchQuery]    = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [dateFilter,     setDateFilter]     = useState("all");
+  const [advisorFilter,  setAdvisorFilter]  = useState("all");
+  const [statusFilter,   setStatusFilter]   = useState("all");
+
+  // Pagination state
+  const PAGE_SIZE = 20;
+  const [page,       setPage]       = useState(1);
+  const [total,      setTotal]      = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Debounce search input so we don't hammer the API on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, dateFilter, statusFilter, advisorFilter]);
 
   // Cancel modal state
   const [cancelTarget,   setCancelTarget]   = useState<AppointmentRecord | null>(null);
@@ -95,25 +113,32 @@ const AppointmentDashboard: React.FC = () => {
     return { year: d.getFullYear(), month: d.getMonth() };
   });
 
-  // Fetch appointments whenever date/status filter changes
+  // Fetch appointments whenever filters or page change
   useEffect(() => {
     if (!isIndexRoute) return;
     setLoading(true);
-    const params: Record<string, string | number> = { limit: 200, page: 1 };
+    const params: Record<string, string | number> = { page, limit: PAGE_SIZE };
     if (dateFilter === "today")    params.date = toDateString(0);
     if (dateFilter === "tomorrow") params.date = toDateString(1);
     if (statusFilter !== "all")    params.status = statusFilter;
+    if (debouncedSearch)           params.search = debouncedSearch;
 
     listAppointments(params as any)
       .then((res) => {
         setAppointments(res.data?.data ?? []);
+        setTotal(res.data?.total ?? 0);
+        setTotalPages(res.data?.totalPages ?? 1);
         if (res.data?.stats) setStats(res.data.stats);
       })
-      .catch(() => setAppointments([]))
+      .catch(() => {
+        setAppointments([]);
+        setTotal(0);
+        setTotalPages(1);
+      })
       .finally(() => setLoading(false));
-  }, [dateFilter, statusFilter, isIndexRoute]);
+  }, [dateFilter, statusFilter, debouncedSearch, page, isIndexRoute]);
 
-  // Unique advisors derived from loaded data
+  // Unique advisors derived from loaded data (current page only)
   const advisors = useMemo(() => {
     const names = appointments
       .map((a) => a.advisorUsername)
@@ -121,23 +146,11 @@ const AppointmentDashboard: React.FC = () => {
     return [...new Set(names)].sort();
   }, [appointments]);
 
-  // Client-side filter for search + advisor
+  // Advisor filter is still client-side (applied on top of the paginated page)
   const filtered = useMemo(() => {
-    return appointments.filter((appt) => {
-      const q    = searchQuery.toLowerCase();
-      const name = `${appt.customerFirstName ?? ""} ${appt.customerLastName ?? ""}`.trim().toLowerCase();
-      const veh  = `${appt.vehicleBrand ?? ""} ${appt.vehicleModel ?? ""}`.trim().toLowerCase();
-      const matchesSearch =
-        !q ||
-        appt.bookingRef.toLowerCase().includes(q) ||
-        name.includes(q) ||
-        veh.includes(q) ||
-        (appt.vehicleReg ?? "").toLowerCase().includes(q);
-      const matchesAdvisor =
-        advisorFilter === "all" || appt.advisorUsername === advisorFilter;
-      return matchesSearch && matchesAdvisor;
-    });
-  }, [appointments, searchQuery, advisorFilter]);
+    if (advisorFilter === "all") return appointments;
+    return appointments.filter((a) => a.advisorUsername === advisorFilter);
+  }, [appointments, advisorFilter]);
 
   // ─── Cancel handlers ─────────────────────────────────────────────────────────
 
@@ -466,6 +479,45 @@ const AppointmentDashboard: React.FC = () => {
             )}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        {!loading && total > 0 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] bg-[#fafafa] text-sm text-[#666]">
+            <span>
+              Showing{" "}
+              <span className="font-semibold text-[#333]">
+                {(page - 1) * PAGE_SIZE + 1}
+              </span>
+              –
+              <span className="font-semibold text-[#333]">
+                {Math.min(page * PAGE_SIZE, total)}
+              </span>{" "}
+              of <span className="font-semibold text-[#333]">{total}</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-[#e5e7eb] rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={13} />
+                Prev
+              </button>
+              <span className="text-xs">
+                Page <span className="font-semibold text-[#333]">{page}</span> of{" "}
+                <span className="font-semibold text-[#333]">{totalPages}</span>
+              </span>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-[#e5e7eb] rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cancel Modal */}

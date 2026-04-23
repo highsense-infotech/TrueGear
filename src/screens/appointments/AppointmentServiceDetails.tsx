@@ -55,8 +55,9 @@ const AppointmentServiceDetails: React.FC = () => {
       .catch(() => {/* optional */});
   }, []);
 
-  // Pre-fill from context
-  const [selectedService, setSelectedService] = useState(state.serviceType || "periodic");
+  // Pre-fill from context — no default so user must explicitly choose
+  const [selectedService, setSelectedService] = useState(state.serviceType || "");
+  const [serviceError,    setServiceError]    = useState("");
   const [complaints,      setComplaints]      = useState<string[]>(state.complaints.length ? state.complaints : []);
   const [complaintText,   setComplaintText]   = useState("");
   const [overrideEnabled, setOverrideEnabled] = useState(state.isOverrideEnabled);
@@ -85,6 +86,7 @@ const AppointmentServiceDetails: React.FC = () => {
 
   const handleServiceChange = (id: string) => {
     setSelectedService(id);
+    setServiceError("");
     if (!overrideEnabled) {
       const d = serviceTypes.find((t) => t.code === id)?.estimatedDurationMinutes
         ?? SERVICE_DURATION_MAP[id]
@@ -119,6 +121,11 @@ const AppointmentServiceDetails: React.FC = () => {
     || SERVICE_LABEL_MAP[selectedService] || selectedService;
 
   const handleNext = () => {
+    console.log("Selected Service:", selectedService);
+    if (!selectedService) {
+      setServiceError("Please select a service type to continue.");
+      return;
+    }
     setState({
       serviceType:              selectedService,
       serviceTypeBackend:       SERVICE_TYPE_MAP[selectedService] || selectedService.toUpperCase(),
@@ -185,8 +192,12 @@ const AppointmentServiceDetails: React.FC = () => {
         <div className="flex-[2] flex flex-col gap-5">
 
           {/* Service Type */}
-          <div className="bg-white border border-[#e5e7eb] rounded-[10px] p-6 shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
-            <h3 className="text-base font-bold text-[#333] mb-1">Service Type</h3>
+          <div className={`bg-white border rounded-[10px] p-6 shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)] ${
+            serviceError ? "border-red-400" : "border-[#e5e7eb]"
+          }`}>
+            <h3 className="text-base font-bold text-[#333] mb-1">
+              Service Type <span className="text-red-500">*</span>
+            </h3>
             <p className="text-sm text-[#999] mb-4">Select the type of service required</p>
             <div className="grid grid-cols-3 gap-3">
               {serviceTypes.map((type) => {
@@ -196,7 +207,11 @@ const AppointmentServiceDetails: React.FC = () => {
                     key={type.code}
                     onClick={() => handleServiceChange(type.code)}
                     className={`border rounded-lg p-4 cursor-pointer transition-all flex flex-col items-center gap-2 text-center ${
-                      isSelected ? "border-[#ff5100] bg-[#ff5100]/5" : "border-[#e5e7eb] hover:border-[#999]"
+                      isSelected
+                        ? "border-[#ff5100] bg-[#ff5100]/5"
+                        : serviceError
+                          ? "border-red-300 hover:border-red-400"
+                          : "border-[#e5e7eb] hover:border-[#999]"
                     }`}
                   >
                     <span className="text-2xl">{type.emoji}</span>
@@ -212,6 +227,9 @@ const AppointmentServiceDetails: React.FC = () => {
                 );
               })}
             </div>
+            {serviceError && (
+              <p className="text-xs text-red-500 mt-3">{serviceError}</p>
+            )}
           </div>
 
           {/* Customer Complaints */}
@@ -390,7 +408,7 @@ const AppointmentServiceDetails: React.FC = () => {
           <Button variant="outline" onClick={() => navigate(ROUTES.APPOINTMENT_CREATE_VEHICLE)}>
             Previous
           </Button>
-          <Button variant="gradient" onClick={handleNext}>
+          <Button variant="gradient" onClick={handleNext} disabled={!selectedService}>
             Next
             <ChevronRight size={16} />
           </Button>

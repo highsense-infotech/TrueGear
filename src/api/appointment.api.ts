@@ -105,11 +105,12 @@ export interface AppointmentStats {
 }
 
 export interface AppointmentListData {
-  data:  AppointmentRecord[];
-  total: number;
-  page:  number;
-  limit: number;
-  stats: AppointmentStats;
+  data:       AppointmentRecord[];
+  total:      number;
+  page:       number;
+  limit:      number;
+  totalPages: number;
+  stats:      AppointmentStats;
 }
 
 export interface VehiclesByCustomerData {
@@ -155,9 +156,12 @@ export const createAppointment = async (
 
 export const listAppointments = async (params?: {
   date?:             string;
+  dateFrom?:         string;
+  dateTo?:           string;
   status?:           string;
   serviceAdvisorId?: string;
   customerId?:       string;
+  search?:           string;
   page?:             number;
   limit?:            number;
 }): Promise<ApiResponse<AppointmentListData>> => {

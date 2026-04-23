@@ -53,25 +53,31 @@ export interface VehicleListData {
   limit: number;
 }
 
+export interface VehicleStats {
+  vehiclesEnteredToday: number;
+  vehiclesEnteredYesterday: number;
+  currentlyInside: number;
+  currentlyInsideYesterday: number;
+  pendingInspection: number;
+  pendingExitYesterday: number;
+  inProgress: number;
+  completed: number;
+  avgTimeInside: string;
+  avgTimeInsideYesterday: string;
+}
+
 export interface SearchVehicleItem {
-  vehicle: {
-    id: string;
-    vin: string;
-    registrationNumber: string | null;
-    brand: string;
-    model: string;
-    manufacturingYear: number;
-    odometerLast: number | null;
-    status: VehicleStatus;
-    entryTime: string | null;
-  };
-  customer: {
-    id: string;
-    fullName: string;
-    primaryEmail: string;
-  };
-  images: { id: string; vehicleId: string; imageCategory: string | null; imagePath: string; createdAt: string }[];
-  imageCount: number;
+  id: string;
+  customerId: string | null;
+  vin: string;
+  registrationNumber: string | null;
+  brand: string;
+  model: string;
+  manufacturingYear: number;
+  odometerLast: number | null;
+  status: VehicleStatus;
+  entryTime: string | null;
+  primaryImageUrl: string | null;
 }
 
 export const listVehicles = async (

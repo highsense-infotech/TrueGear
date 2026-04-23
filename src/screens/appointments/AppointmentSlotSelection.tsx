@@ -320,7 +320,7 @@ const AppointmentSlotSelection: React.FC = () => {
           </div>
 
           {/* ── Card 2: Pickup & Drop ── */}
-          <div className="bg-white border border-[#e5e7eb] rounded-[10px] p-6 shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
+          {/* <div className="bg-white border border-[#e5e7eb] rounded-[10px] p-6 shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-1">
               <div>
                 <h3 className="text-base font-bold text-[#333]">Pickup & Drop</h3>
@@ -366,7 +366,7 @@ const AppointmentSlotSelection: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* ── Card 3: Assignment ── */}
           <div className="bg-white border border-[#e5e7eb] rounded-[10px] p-6 shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
