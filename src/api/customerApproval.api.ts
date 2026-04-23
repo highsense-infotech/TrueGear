@@ -1,9 +1,13 @@
 import axios from 'axios';
 
 interface ApiResponse<T> {
-  status: boolean;
-  message?: string;
+  success: {
+    status: boolean;
+    code: number;
+    message?: string;
+  };
   data: T;
+  error: unknown;
 }
 
 // Public API instance — no auth token needed
