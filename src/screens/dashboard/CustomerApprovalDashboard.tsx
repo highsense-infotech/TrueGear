@@ -22,6 +22,8 @@ interface Job {
   details: string;
   price: number;
   selected: boolean;
+  partStatus: EstimateItem['partStatus'];
+  partExpectedTime: string | null;
 }
 
 type ScreenType = "dashboard" | "requestModification" | "approve" | "modificationSubmitted";
@@ -86,6 +88,8 @@ function CustomerApprovalDashboard() {
             details: `Parts: ${fmtForMapping(Number(item.partsCost))} | Labour: ${fmtForMapping(Number(item.labourCost))}`,
             price: Number(item.lineTotal),
             selected: true,
+            partStatus: item.partStatus ?? null,
+            partExpectedTime: item.partExpectedTime ?? null,
           }));
           setJobs(mappedJobs);
 
@@ -287,6 +291,8 @@ function CustomerApprovalDashboard() {
                   details={job.details}
                   price={fmt(job.price)}
                   isSelected={job.selected}
+                  partStatus={job.partStatus}
+                  partExpectedTime={job.partExpectedTime}
                   onToggle={function () {
                     toggleJob(job.id);
                   }}

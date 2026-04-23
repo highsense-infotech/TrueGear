@@ -18,6 +18,16 @@ const publicApi = axios.create({
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+export type PartStatus = 'pending' | 'available' | 'unavailable' | 'dispatched';
+
+export interface EstimatePart {
+  partName: string;
+  partNumber: string | null;
+  quantity: number;
+  status: PartStatus;
+  expectedTime: string | null;
+}
+
 export interface EstimateItem {
   id: string;
   jobDescription: string;
@@ -26,6 +36,9 @@ export interface EstimateItem {
   labourCost: string;
   quantity: number;
   lineTotal: string;
+  partStatus: PartStatus | null;
+  partExpectedTime: string | null;
+  parts: EstimatePart[];
 }
 
 export interface EstimateData {

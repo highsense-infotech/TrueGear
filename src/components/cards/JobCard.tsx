@@ -1,5 +1,6 @@
-import { Check } from "lucide-react";
+import { AlertTriangle, Check, Clock } from "lucide-react";
 
+type PartStatus = 'pending' | 'available' | 'unavailable' | 'dispatched';
 
 interface JobCardProps {
   title: string;
@@ -8,9 +9,31 @@ interface JobCardProps {
   price: string;
   isSelected: boolean;
   onToggle: () => void;
+  partStatus?: PartStatus | null;
+  partExpectedTime?: string | null;
 }
 
-export function JobCard({ title, description, details, price, isSelected, onToggle }: JobCardProps) {
+function PartStatusBadge({ status, expectedTime }: { status: PartStatus; expectedTime: string | null }) {
+  if (status === 'unavailable') {
+    return (
+      <div className="mt-2 inline-flex items-center gap-2 bg-[#fef2f2] border border-[#fecaca] text-[#b91c1c] rounded-[6px] px-2.5 py-1.5 text-[12px] font-medium">
+        <AlertTriangle size={14} />
+        <span>Part not in stock{expectedTime ? ` · ETA: ${expectedTime}` : ''}</span>
+      </div>
+    );
+  }
+  if (status === 'pending') {
+    return (
+      <div className="mt-2 inline-flex items-center gap-2 bg-[#fff8e6] border border-[#fde68a] text-[#a16207] rounded-[6px] px-2.5 py-1.5 text-[12px] font-medium">
+        <Clock size={14} />
+        <span>Part availability pending</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+export function JobCard({ title, description, details, price, isSelected, onToggle, partStatus, partExpectedTime }: JobCardProps) {
   return (
     <button
       onClick={onToggle}
@@ -39,6 +62,9 @@ export function JobCard({ title, description, details, price, isSelected, onTogg
             <p className="text-[16px] font-semibold text-[#333]">{title}</p>
             <p className="text-[12px] text-[#999]">{description}</p>
             <p className="text-[12px] text-[#999]">{details}</p>
+            {partStatus && (partStatus === 'unavailable' || partStatus === 'pending') && (
+              <PartStatusBadge status={partStatus} expectedTime={partExpectedTime ?? null} />
+            )}
           </div>
         </div>
 
