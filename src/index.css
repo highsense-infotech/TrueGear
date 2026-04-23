@@ -1,0 +1,24 @@
+@import "tailwindcss";
+body {
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Custom scrollbar-hide utility */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Chrome, Safari, Edge */
+.date-picker-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+/* Firefox */
+.date-picker-input {
+  appearance: none;
+}
