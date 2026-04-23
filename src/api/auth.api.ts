@@ -6,6 +6,7 @@ export interface AuthUser {
   username: string;
   email: string;
   role: { name: string; slug: string } | null;
+  permissions: string[];
 }
 
 export interface SessionInfo {

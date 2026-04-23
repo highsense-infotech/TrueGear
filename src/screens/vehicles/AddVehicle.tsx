@@ -91,7 +91,7 @@ const AddVehicle: React.FC = () => {
 
       getVehicleDetails(vehicleIdFromUrl)
         .then((res) => {
-          if (res.success) {
+          if (res.success && res.data) {
             const { vehicle, customer, images } = res.data;
             setCustomerData({
               firstName: customer.firstName,
@@ -250,13 +250,14 @@ const AddVehicle: React.FC = () => {
         if (slot.imageId) {
           // Replace existing image
           const res = await replaceVehicleImage(vehicleId, slot.imageId, stampedFile, slot.title);
-          if (res.success) {
+          if (res.success && res.data) {
+            const imgData = res.data;
             setPhotoSlots((prev) => {
               const updated = [...prev];
               updated[slotIndex] = {
                 ...updated[slotIndex],
-                imageId: res.data.id,
-                capturedImage: res.data.imagePath,
+                imageId: imgData.id,
+                capturedImage: imgData.imagePath,
                 isUploading: false,
               };
               return updated;
@@ -265,7 +266,7 @@ const AddVehicle: React.FC = () => {
         } else {
           // Upload new image
           const res = await uploadVehicleImages(vehicleId, [stampedFile], slot.title);
-          if (res.success && res.data.uploaded.length > 0) {
+          if (res.success && res.data && res.data.uploaded.length > 0) {
             const uploaded = res.data.uploaded[0];
             setPhotoSlots((prev) => {
               const updated = [...prev];

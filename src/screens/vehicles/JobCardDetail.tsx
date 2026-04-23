@@ -12,7 +12,7 @@ import {
   getJobCardDetail,
   shareEstimate,
   requestPartsConfirmation,
-  type SAJobCardDetailResponse,
+  type SAJobCardDetailData,
 } from "../../api/serviceAdvisor.api";
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
@@ -43,7 +43,7 @@ const JobCardDetail: React.FC = () => {
   const { jobCardId } = useParams<{ jobCardId: string }>();
   const { formatCurrency, currency } = useCurrency();
 
-  const [data, setData] = useState<SAJobCardDetailResponse["data"] | null>(null);
+  const [data, setData] = useState<SAJobCardDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState(false);
   const [requestingParts, setRequestingParts] = useState(false);
@@ -57,7 +57,7 @@ const JobCardDetail: React.FC = () => {
     const fetchDetail = async () => {
       try {
         const res = await getJobCardDetail(jobCardId);
-        if (res.success) {
+        if (res.success && res.data) {
           setData(res.data);
           const { jobCard } = res.data;
           if (jobCard.status === 'SHARED' && jobCard.approvalToken) {
@@ -80,25 +80,26 @@ const JobCardDetail: React.FC = () => {
     setSharing(true);
     try {
       const res = await shareEstimate(jobCardId, currency);
-      if (res.success) {
-        if (res.data.emailSent) {
+      if (res.success && res.data) {
+        const shareData = res.data;
+        if (shareData.emailSent) {
           toast.success("Estimate sent to customer via email");
         } else {
-          const reason = res.data.emailFailReason || "check SMTP settings";
+          const reason = shareData.emailFailReason || "check SMTP settings";
           toast.error(`Email not sent: ${reason}`);
         }
-        if (res.data.whatsappSent) {
+        if (shareData.whatsappSent) {
           toast.success("Estimate sent to customer via WhatsApp");
         }
-        setApprovalUrl(res.data.approvalUrl);
+        setApprovalUrl(shareData.approvalUrl);
         setData((prev) =>
           prev
             ? {
                 ...prev,
                 jobCard: {
                   ...prev.jobCard,
-                  status: res.data.status,
-                  sharedAt: res.data.sharedAt,
+                  status: shareData.status,
+                  sharedAt: shareData.sharedAt,
                 },
               }
             : prev
@@ -117,10 +118,11 @@ const JobCardDetail: React.FC = () => {
     setRequestingParts(true);
     try {
       const res = await requestPartsConfirmation(jobCardId);
-      if (res.success) {
-        toast.success(`Parts confirmation sent to Parts Manager (${res.data.partsRequestsCreated} part(s))`);
+      if (res.success && res.data) {
+        const partsData = res.data;
+        toast.success(`Parts confirmation sent to Parts Manager (${partsData.partsRequestsCreated} part(s))`);
         setData((prev) =>
-          prev ? { ...prev, jobCard: { ...prev.jobCard, status: res.data.status } } : prev
+          prev ? { ...prev, jobCard: { ...prev.jobCard, status: partsData.status } } : prev
         );
       }
     } catch (error: any) {

@@ -7,7 +7,7 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  role: UserRole;
+  role: UserRole | null;
   permissions: string[];
 }
 

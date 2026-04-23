@@ -43,7 +43,7 @@ const Login: React.FC = () => {
         login({ token: res.data.token, user: res.data.user });
 
         const roleSlug = res.data.user.role?.slug;
-        const defaultRoute = ROLE_DEFAULT_ROUTES[roleSlug] || ROUTES.HOME;
+        const defaultRoute = (roleSlug && ROLE_DEFAULT_ROUTES[roleSlug]) || ROUTES.HOME;
         navigate(defaultRoute, { replace: true });
       } else {
         setError(res.error?.message || "Login failed");

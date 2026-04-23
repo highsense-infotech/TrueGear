@@ -50,6 +50,7 @@ const SparePartsDashboard = () => {
   const fetchDashboard = async () => {
     try {
       const res = await getPartsDashboard();
+      if (!res.data) return;
       setStats(res.data.stats);
       setJobCardGroups(res.data.jobCardGroups);
 

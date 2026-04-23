@@ -61,6 +61,7 @@ export const SendEstimate = () => {
           getVehicleJobCards(vehicleId),
         ]);
 
+        if (!vehicleRes.data || !jobCardsRes.data) return;
         const customer = vehicleRes.data.customer;
         setCustomerName(customer.name || "N/A");
         setCustomerPhone(customer.phone || "N/A");
@@ -93,20 +94,21 @@ export const SendEstimate = () => {
     setSending(true);
     try {
       const res = await shareEstimate(latestJobCardId, currency);
-      if (res.success) {
-        setWhatsappSent(res.data.whatsappSent);
-        setEmailSent(res.data.emailSent);
-        setApprovalUrl(res.data.approvalUrl);
+      if (res.success && res.data) {
+        const d = res.data;
+        setWhatsappSent(d.whatsappSent);
+        setEmailSent(d.emailSent);
+        setApprovalUrl(d.approvalUrl);
         setIsEstimateSent(true);
 
-        if (res.data.emailSent) {
+        if (d.emailSent) {
           toast.success("Estimate sent to customer via email");
         } else {
-          const reason = res.data.emailFailReason || "check SMTP settings";
+          const reason = d.emailFailReason || "check SMTP settings";
           toast.error(`Email not sent: ${reason}`);
         }
 
-        if (res.data.whatsappSent) {
+        if (d.whatsappSent) {
           toast.success("Estimate sent to customer via WhatsApp");
         }
       }

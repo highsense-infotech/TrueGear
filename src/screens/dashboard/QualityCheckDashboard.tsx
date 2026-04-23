@@ -63,7 +63,7 @@ const QualityCheckDashboard: React.FC = () => {
         page, limit: 10, filter, sortOrder: "desc",
         ...(selectedDate ? { dateFrom: selectedDate, dateTo: selectedDate } : {}),
       });
-      if (res.success) {
+      if (res.success && res.data) {
         setStats(res.data.stats);
         setQueue(res.data.queue);
         setPagination(res.data.pagination);
@@ -100,7 +100,7 @@ const QualityCheckDashboard: React.FC = () => {
         serviceType: vehicle.serviceType || undefined,
         priority: vehicle.priority,
       });
-      if (res.success) {
+      if (res.success && res.data) {
         setActionLoadingId(null);
         navigate(ROUTES.QUALITY_CHECK_INSPECTION.replace(':inspectionId', res.data.inspection.id));
       }

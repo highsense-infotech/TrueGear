@@ -43,10 +43,11 @@ function CustomerProfileDashboard() {
     (async () => {
       try {
         const res = await lookupCustomerBySequence(custSequenceId);
+        if (res.data) {
         if (res.data.irmData) {
           setIrmDetail(res.data.irmData.CustomerDetail);
           setIrmAr(res.data.irmData.AccountsReceivable ?? null);
-        } 
+        }
         if (res.data.localData) {
           const localCustomer = res.data.localData as CustomerFullDetail;
           setCustomer(localCustomer);
@@ -56,6 +57,7 @@ function CustomerProfileDashboard() {
           getVehiclesByCustomer(localCustomer.id)
             .then((vRes) => setCustomerVehicles(vRes.data?.data ?? []))
             .catch(() => {});
+        }
         }
       } catch {
 
@@ -69,7 +71,7 @@ function CustomerProfileDashboard() {
     setIsSavingNotes(true);
     try {
       const res = await addCustomerNote(customer.id, notesForm.notes);
-      setInternalNotes(res.data.notes ?? null);
+      setInternalNotes(res.data?.notes ?? null);
       setIsAddNotesOpen(false);
     } catch {
       // keep modal open on error

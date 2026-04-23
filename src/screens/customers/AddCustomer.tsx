@@ -102,7 +102,7 @@ const AddCustomer: React.FC = () => {
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const res = await searchCustomers(query.trim());
-        if (res.success) {
+        if (res.success && res.data) {
           setSearchResults(res.data);
         } else {
           setSearchResults([]);
@@ -130,7 +130,7 @@ const AddCustomer: React.FC = () => {
       setLoadingMakes(true);
       try {
         const res = await listMakes();
-        if (res.success) {
+        if (res.success && res.data) {
           setMakes(res.data);
         }
       } catch (err) {
@@ -219,7 +219,7 @@ const AddCustomer: React.FC = () => {
       setLoadingModels(true);
       try {
         const res = await listModelsByMake(selectedMakeId);
-        if (res.success) {
+        if (res.success && res.data) {
           setModels(res.data);
         }
       } catch (err) {
@@ -400,7 +400,7 @@ const AddCustomer: React.FC = () => {
             : undefined,
         });
 
-        if (!customerRes.success) {
+        if (!customerRes.success || !customerRes.data) {
           const msg = customerRes.error?.message || "Failed to create customer";
           setSubmitError(msg);
           toast.error(msg);
@@ -429,7 +429,7 @@ const AddCustomer: React.FC = () => {
         serviceType: formData.serviceType,
       });
 
-      if (res.success) {
+      if (res.success && res.data) {
         toast.success("Vehicle added successfully");
         navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${res.data.id}`);
       } else {

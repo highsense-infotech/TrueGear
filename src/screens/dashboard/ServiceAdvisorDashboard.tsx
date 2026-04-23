@@ -42,7 +42,7 @@ const ServiceAdvisorDashboard: React.FC = () => {
         sortOrder: "desc",
         ...(selectedDate ? { dateFrom: selectedDate, dateTo: selectedDate } : {}),
       });
-      if (res.success) {
+      if (res.success && res.data) {
         setStats(res.data.stats);
         setVehicles(res.data.activeVehicles);
         setPagination(res.data.pagination);

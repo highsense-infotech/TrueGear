@@ -146,6 +146,10 @@ const AppointmentReview: React.FC = () => {
         } : undefined,
       });
 
+      if (!res.data) {
+        throw new Error(res.error?.message || "Failed to create appointment");
+      }
+
       reset();
 
       navigate(ROUTES.APPOINTMENT_CREATE_SUCCESS, {

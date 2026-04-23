@@ -65,6 +65,7 @@ const CreateJobCard: React.FC = () => {
         ]);
 
         // Set vehicle info
+        if (!vehicleRes.data || !suggestedRes.data) return;
         const v = vehicleRes.data.vehicle;
         const c = vehicleRes.data.customer;
         setVehicleData({
@@ -92,6 +93,7 @@ const CreateJobCard: React.FC = () => {
         // Edit mode: reconstruct separate job rows grouped by serviceType + serviceCategory
         if (editJobCardId) {
           const jobCardRes = await getJobCardDetail(editJobCardId);
+          if (!jobCardRes.data) return;
           const existingItems = jobCardRes.data.items;
           if (existingItems.length > 0) {
             const reconstructed: Job[] = [];
@@ -458,7 +460,7 @@ const CreateJobCard: React.FC = () => {
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
         });
-        if (res.success) {
+        if (res.success && res.data) {
           toast.success("Job card saved as draft");
           navigate(`/service-advisor-dashboard/job-card-detail/${res.data.jobCard.id}`);
         }

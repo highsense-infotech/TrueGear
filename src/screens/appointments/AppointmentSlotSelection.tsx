@@ -15,7 +15,6 @@ import {
   CheckSquare,
   Check,
   Info,
-  Pencil,
   Loader2,
 } from "lucide-react";
 import Button from "../../components/common/Button";
@@ -77,9 +76,8 @@ const AppointmentSlotSelection: React.FC = () => {
   const [slotsLoading, setSlotsLoading] = useState(false);
 
   // Pickup state
-  const [pickupEnabled,  setPickupEnabled]  = useState(state.pickupRequired);
-  const [pickupAddress,  setPickupAddress]  = useState(state.pickupAddress);
-  const [editingAddress, setEditingAddress] = useState(false);
+  const [pickupEnabled]  = useState(state.pickupRequired);
+  const [pickupAddress]  = useState(state.pickupAddress);
 
   // Service advisors
   const [advisors,        setAdvisors]        = useState<ServiceAdvisorUser[]>([]);

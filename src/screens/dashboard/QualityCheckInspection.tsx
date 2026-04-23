@@ -142,7 +142,7 @@ const QualityCheckInspection: React.FC = () => {
     setLoading(true);
     try {
       const res = await getInspectionDetails(inspectionId);
-      if (res.success) {
+      if (res.success && res.data) {
         const { inspection, vehicle: vehicleData, categories, summary: summaryData, findings: _findingsData } = res.data;
 
         setVehicle(vehicleData);
@@ -340,7 +340,7 @@ const QualityCheckInspection: React.FC = () => {
           category: "EXTERIOR",
           items,
         });
-        if (res.success) {
+        if (res.success && res.data) {
           const nextStep = res.data.currentStep;
           setCurrentStep(nextStep);
           setMaxStep((prev) => Math.max(prev, nextStep));
@@ -357,7 +357,7 @@ const QualityCheckInspection: React.FC = () => {
           category: "INTERIOR",
           items,
         });
-        if (res.success) {
+        if (res.success && res.data) {
           const nextStep = res.data.currentStep;
           setCurrentStep(nextStep);
           setMaxStep((prev) => Math.max(prev, nextStep));
@@ -374,7 +374,7 @@ const QualityCheckInspection: React.FC = () => {
           category: "BRAKE",
           items,
         });
-        if (res.success) {
+        if (res.success && res.data) {
           const nextStep = res.data.currentStep;
           setCurrentStep(nextStep);
           setMaxStep((prev) => Math.max(prev, nextStep));
@@ -435,12 +435,13 @@ const QualityCheckInspection: React.FC = () => {
   const handlePhotoUpload = async (itemId: string, file: File) => {
     if (!inspectionId) return;
     const res = await uploadItemPhoto(inspectionId, itemId, file);
-    if (res.success) {
+    if (res.success && res.data) {
+      const newPhoto = res.data.photo;
       // Update photo count in the relevant category
       const updatePhotos = (items: InspectionItem[]) =>
         items.map((item) =>
           item.id === itemId
-            ? { ...item, photos: [...item.photos, res.data.photo] }
+            ? { ...item, photos: [...item.photos, newPhoto] }
             : item
         );
       setExteriorItems((prev) => updatePhotos(prev));
@@ -453,7 +454,7 @@ const QualityCheckInspection: React.FC = () => {
   const handlePhotoDelete = async (itemId: string, photoId: string) => {
     if (!inspectionId) return;
     const res = await deleteItemPhoto(inspectionId, itemId, photoId);
-    if (res.success) {
+    if (res.success && res.data) {
       const removePhoto = (items: InspectionItem[]) =>
         items.map((item) =>
           item.id === itemId

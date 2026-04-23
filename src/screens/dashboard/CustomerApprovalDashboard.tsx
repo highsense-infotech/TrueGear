@@ -73,7 +73,7 @@ function CustomerApprovalDashboard() {
     const fetchEstimate = async () => {
       try {
         const res = await getEstimateByToken(token);
-        if (res.success) {
+        if (res.status) {
           setEstimateData(res.data);
 
           // Map API items to Job format
@@ -143,7 +143,7 @@ function CustomerApprovalDashboard() {
     try {
       const approvedItemIds = selectedJobs.map((j) => j.itemId);
       const res = await approveEstimate(token, approvedItemIds);
-      if (res.success) {
+      if (res.status) {
         setCurrentScreen("approve");
       }
     } catch (err: any) {
@@ -158,7 +158,7 @@ function CustomerApprovalDashboard() {
     setSubmittingModification(true);
     try {
       const res = await requestModification(token, notes);
-      if (res.success) {
+      if (res.status) {
         setCurrentScreen("modificationSubmitted");
       }
     } catch (err: any) {
