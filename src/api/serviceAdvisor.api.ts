@@ -80,6 +80,7 @@ export interface SAVehicleDetail {
     modelVariant: string | null;
     vin: string;
     status: string;
+    imageUrl: string | null;
   };
   customer: {
     name: string | null;
@@ -277,6 +278,7 @@ export interface SAJobCardDetailData {
     brand: string;
     model: string;
     customerName: string | null;
+    imageUrl: string | null;
   } | null;
 }
 

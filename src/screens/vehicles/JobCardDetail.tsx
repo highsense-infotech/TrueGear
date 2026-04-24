@@ -209,6 +209,7 @@ const JobCardDetail: React.FC = () => {
           model={`${vehicle.brand} ${vehicle.model}`}
           customerName={vehicle.customerName || "Unknown Customer"}
           status={statusConfig.label}
+          imageUrl={vehicle.imageUrl}
         />
       )}
 

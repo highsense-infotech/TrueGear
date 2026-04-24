@@ -6,22 +6,33 @@ interface VehicleInfoBarProps {
   customerName: string;
   customerPhone: string;
   onCreateJobCard?: () => void;
+  imageUrl?: string | null;
 }
 
 export function VehicleInfoBar({
   customerName,
   customerPhone,
   onCreateJobCard,
+  imageUrl,
 }: VehicleInfoBarProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm mb-6">
       <div className="flex items-center gap-3 md:gap-4">
-        <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-          <img
-            src={truckImg}
-            alt="Vehicle"
-            className="max-w-17.5 object-contain "
-          />
+        <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden flex items-center justify-center">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt="Vehicle"
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = truckImg; }}
+            />
+          ) : (
+            <img
+              src={truckImg}
+              alt="Vehicle"
+              className="max-w-17.5 object-contain"
+            />
+          )}
         </div>
         <div>
           <h3 className="text-base font-semibold text-gray-800">

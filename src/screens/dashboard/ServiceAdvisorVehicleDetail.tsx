@@ -311,6 +311,7 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
         <VehicleInfoBar
           customerName={customer.name || "Unknown Customer"}
           customerPhone={customer.phone || "—"}
+          imageUrl={vehicle.imageUrl}
           onCreateJobCard={() =>
             navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card/${id}`)
           }
