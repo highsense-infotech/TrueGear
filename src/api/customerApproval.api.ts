@@ -12,7 +12,7 @@ interface ApiResponse<T> {
 
 // Public API instance — no auth token needed
 const publicApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: 'https://workshopbackend-fjvw.onrender.com/api',
   headers: { 'Content-Type': 'application/json' },
 });
 
