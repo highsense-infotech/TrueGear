@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   Home,
   ChevronRight,
@@ -10,12 +11,13 @@ import {
   CheckSquare,
   Check,
   Plus,
+  Pencil,
   Loader2,
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
 import { getVehiclesByCustomer, type VehicleListItem } from "../../api/appointment.api";
-import { listMakes, listModelsByMake, type VehicleMake, type VehicleModel } from "../../api/vehicle.api";
+import { listMakes, listModelsByMake, updateVehicle, type VehicleMake, type VehicleModel } from "../../api/vehicle.api";
 import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -55,6 +57,9 @@ const AppointmentVehicleDetails: React.FC = () => {
   const [modelOpen,   setModelOpen]   = useState(false);
   const makeRef  = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
+  // Holds the model name to auto-select once models for the chosen make finish loading
+  // (used by the edit-vehicle flow, since we only have brand/model strings to start with).
+  const pendingModelNameRef = useRef<string>("");
 
   // Selected existing vehicle. "__irm__" is a sentinel for the IRM pre-filled vehicle.
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
@@ -78,6 +83,11 @@ const AppointmentVehicleDetails: React.FC = () => {
   const [transmission, setTransmission] = useState("");
   const [year,         setYear]         = useState("");
   const [odometer]     = useState("");
+
+  // Edit mode for an existing saved vehicle. When set, the form below saves
+  // changes via PUT /vehicles/:id instead of advancing the wizard.
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // ─── Click-outside to close comboboxes ──────────────────────────────────────
   useEffect(() => {
@@ -119,6 +129,13 @@ const AppointmentVehicleDetails: React.FC = () => {
       .then((res) => {
         const list = res.data ?? [];
         setModels(list);
+        // Edit flow: if we stashed a model name to match, select its ID now.
+        if (pendingModelNameRef.current) {
+          const target = pendingModelNameRef.current.toLowerCase();
+          const match = list.find((m) => m.name.toLowerCase() === target);
+          if (match) setModelId(match.id);
+          pendingModelNameRef.current = "";
+        }
       })
       .catch(() => setModels([]))
       .finally(() => setLoadingModels(false));
@@ -154,6 +171,94 @@ const AppointmentVehicleDetails: React.FC = () => {
   const handleSelectVehicle = (id: string) => {
     setSelectedVehicleId(id);
     setShowNewForm(false);
+  };
+
+  const handleEditVehicle = (vehicle: VehicleListItem) => {
+    // Pre-fill the form with the vehicle's current values and switch to edit mode.
+    setEditingVehicleId(vehicle.id);
+    setShowNewForm(true);
+    setSelectedVehicleId(null);
+    setRegNumber(vehicle.registrationNumber ?? "");
+    setVin(vehicle.vin ?? "");
+    setFuelType(vehicle.fuelType ?? "");
+    setTransmission(vehicle.transmissionType ?? "");
+    setYear(String(vehicle.manufacturingYear ?? ""));
+
+    // Try to map brand/model strings back to make/model IDs from the loaded master data.
+    const make = makes.find((m) => m.name.toLowerCase() === vehicle.brand?.toLowerCase());
+    if (make) {
+      setMakeId(make.id);
+      // Models for the new make load via the existing useEffect; we'll select by name once they arrive.
+      // Stash the desired model name on a sentinel so the model effect can match it.
+      pendingModelNameRef.current = vehicle.model ?? "";
+    } else {
+      setMakeId("");
+      setModelId("");
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingVehicleId(null);
+    setShowNewForm(false);
+    setRegNumber(""); setVin(""); setMakeId(""); setModelId("");
+    setFuelType(""); setTransmission(""); setYear("");
+  };
+
+  // IRM card "edit" — pre-fill the new-vehicle form with IRM values so the
+  // receptionist can change VIN/regNumber before submission. The vehicle
+  // doesn't yet exist in our DB, so this isn't a PUT — Next will create it
+  // with the modified values via the appointment booking flow.
+  const handleEditIrmVehicle = () => {
+    if (!irmVehicle) return;
+    setEditingVehicleId(null);
+    setShowNewForm(true);
+    setSelectedVehicleId(null);
+    setRegNumber(irmVehicle.registrationNumber ?? "");
+    setVin(irmVehicle.vin ?? "");
+    setFuelType(irmVehicle.fuelType ?? "");
+    setTransmission(irmVehicle.transmissionType ?? "");
+    setYear(String(irmVehicle.manufacturingYear ?? ""));
+
+    const make = makes.find((m) => m.name.toLowerCase() === irmVehicle.brand?.toLowerCase());
+    if (make) {
+      setMakeId(make.id);
+      pendingModelNameRef.current = irmVehicle.model ?? "";
+    } else {
+      setMakeId("");
+      setModelId("");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingVehicleId) return;
+    setIsSavingEdit(true);
+    try {
+      const res = await updateVehicle(editingVehicleId, {
+        vin:                vin.trim(),
+        registrationNumber: regNumber.trim(),
+        brand:              selectedMakeName,
+        model:              selectedModelName,
+        manufacturingYear:  Number(year),
+        fuelType,
+        transmissionType:   transmission,
+      });
+      if (res.success) {
+        toast.success("Vehicle updated");
+        // Refresh the saved vehicles list
+        if (state.customerId) {
+          const refreshed = await getVehiclesByCustomer(state.customerId);
+          setVehicles(refreshed.data?.data ?? []);
+        }
+        cancelEdit();
+      } else {
+        toast.error(res.error?.message || "Failed to update vehicle");
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || "Failed to update vehicle";
+      toast.error(msg);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleNext = () => {
@@ -303,6 +408,15 @@ const AppointmentVehicleDetails: React.FC = () => {
                       {irmVehicle.fuelType || "—"} · {irmVehicle.transmissionType || "—"}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleEditIrmVehicle(); }}
+                    className="p-2 rounded-md text-[#999] hover:text-[#ff5100] hover:bg-[#ff5100]/5 transition-colors shrink-0"
+                    aria-label="Edit vehicle"
+                    title="Edit vehicle"
+                  >
+                    <Pencil size={16} />
+                  </button>
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
                     selectedVehicleId === "__irm__" ? "border-[#ff5100]" : "border-[#ccc]"
                   }`}>
@@ -356,6 +470,15 @@ const AppointmentVehicleDetails: React.FC = () => {
                           {vehicle.odometerLast ? ` · ${vehicle.odometerLast.toLocaleString()} KM` : ""}
                         </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleEditVehicle(vehicle); }}
+                        className="p-2 rounded-md text-[#999] hover:text-[#ff5100] hover:bg-[#ff5100]/5 transition-colors shrink-0"
+                        aria-label="Edit vehicle"
+                        title="Edit vehicle"
+                      >
+                        <Pencil size={16} />
+                      </button>
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
                         isSelected ? "border-[#ff5100]" : "border-[#ccc]"
                       }`}>
@@ -379,8 +502,14 @@ const AppointmentVehicleDetails: React.FC = () => {
             </button>
           ) : (
             <div className="bg-white border border-[#e5e7eb] rounded-[10px] p-6 shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
-              <h3 className="text-base font-bold text-[#333] mb-1">Add New Vehicle</h3>
-              <p className="text-sm text-[#999] mb-4">Enter vehicle details to register a new vehicle</p>
+              <h3 className="text-base font-bold text-[#333] mb-1">
+                {editingVehicleId ? "Edit Vehicle" : "Add New Vehicle"}
+              </h3>
+              <p className="text-sm text-[#999] mb-4">
+                {editingVehicleId
+                  ? "Update the saved vehicle's details"
+                  : "Enter vehicle details to register a new vehicle"}
+              </p>
 
               <div className="flex flex-col gap-4">
                 {/* Registration */}
@@ -551,12 +680,33 @@ const AppointmentVehicleDetails: React.FC = () => {
 
               </div>
 
-              <button
-                onClick={() => { setShowNewForm(false); setSelectedVehicleId(null); }}
-                className="mt-4 text-xs text-[#999] hover:text-[#333] underline"
-              >
-                Cancel — select existing instead
-              </button>
+              {editingVehicleId ? (
+                <div className="mt-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={isSavingEdit || !regNumber.trim() || !vin.trim() || !makeId || !modelId || !fuelType || !transmission || !year}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-linear-to-b from-[#ff4f31] to-[#fe2b73] text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSavingEdit && <Loader2 size={14} className="animate-spin" />}
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-[#e5e7eb] text-[#333] hover:bg-[#f5f5f5]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setShowNewForm(false); setSelectedVehicleId(null); }}
+                  className="mt-4 text-xs text-[#999] hover:text-[#333] underline"
+                >
+                  Cancel — select existing instead
+                </button>
+              )}
             </div>
           )}
         </div>

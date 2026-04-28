@@ -132,6 +132,16 @@ export const addVehicle = async (payload: AddVehiclePayload): Promise<ApiRespons
   return data;
 };
 
+export type UpdateVehiclePayload = Partial<AddVehiclePayload>;
+
+export const updateVehicle = async (
+  vehicleId: string,
+  payload: UpdateVehiclePayload,
+): Promise<ApiResponse<AddVehicleData>> => {
+  const { data } = await api.put(`/vehicles/${vehicleId}`, payload);
+  return data;
+};
+
 export interface VehicleDetailCustomer {
   id: string;
   crmReferenceNo: string;
