@@ -103,10 +103,11 @@ export const SendEstimate = () => {
 
         if (d.emailSent) {
           toast.success("Estimate sent to customer via email");
-        } else {
-          const reason = d.emailFailReason || "check SMTP settings";
-          toast.error(`Email not sent: ${reason}`);
-        }
+        } 
+        // else {
+        //   const reason = d.emailFailReason || "check SMTP settings";
+        //   toast.error(`Email not sent: ${reason}`);
+        // }
 
         if (d.whatsappSent) {
           toast.success("Estimate sent to customer via WhatsApp");
