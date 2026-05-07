@@ -59,7 +59,7 @@ interface PartSearchResult {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PAID_SERVICE_NAME = "Paid Service";
+const PAID_SERVICE_NAME = "Repair";
 
 const SERVICE_CATEGORIES: DropdownOption[] = [
   { id: "B_SERVICE", name: "B Service" },

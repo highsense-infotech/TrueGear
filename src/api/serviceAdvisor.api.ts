@@ -118,6 +118,29 @@ export interface SAQCItem {
   comment: string | null;
 }
 
+export interface SAQCComponent {
+  id: string;
+  majorComponent: string | null;
+  itemNumber: string | null;
+  comment: string | null;
+  sortOrder: number;
+}
+
+export interface SAQCWorkshopRework {
+  majorComponent: string | null;
+  technician: string | null;
+  itemNumber: string | null;
+  comments: string | null;
+}
+
+export interface SAQCAppointment {
+  bookingRef: string;
+  serviceType: string;
+  complaints: string[];
+  appointmentDate: string;
+  appointmentTime: string;
+}
+
 export interface SAQCReport {
   inspectionId: string;
   overallStatus: string;
@@ -140,6 +163,9 @@ export interface SAQCReport {
     warningCount: number;
   };
   failedItems: SAQCItem[];
+  components: SAQCComponent[];
+  workshopRework: SAQCWorkshopRework | null;
+  appointment: SAQCAppointment | null;
 }
 
 export const getVehicleQCReport = async (

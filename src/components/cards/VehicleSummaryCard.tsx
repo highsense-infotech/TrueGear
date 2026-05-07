@@ -18,7 +18,7 @@ export function VehicleSummaryCard({
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden flex items-center justify-center">
+        <div className="w-20 h-20 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden flex items-center justify-center">
           {imageUrl ? (
             <img
               src={imageUrl}

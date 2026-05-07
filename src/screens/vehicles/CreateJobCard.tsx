@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { JobCardActions } from "../../components/cards/JobCardActions";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { JobDetails, type Job } from "../../components/cards/JobDetails";
@@ -15,7 +16,9 @@ import {
   createJobCard,
   getJobCardDetail,
   updateJobCard,
+  getVehicleQCReport,
   type SASuggestedJob,
+  type SAQCReport,
 } from "../../api/serviceAdvisor.api";
 import { listServiceTypes } from "../../api/serviceType.api";
 import { useCurrency } from "../../context/CurrencyContext";
@@ -39,12 +42,21 @@ const CreateJobCard: React.FC = () => {
     serviceCategory: "",
   }]);
   const [, setSuggestedJobs] = useState<string[]>([]);
-  const [vehicleData, setVehicleData] = useState({
+  const [vehicleData, setVehicleData] = useState<{
+    registration: string;
+    model: string;
+    customerName: string;
+    imageUrl: string | null;
+  }>({
     registration: "",
     model: "",
     customerName: "",
+    imageUrl: null,
   });
   const [inspectionId, setInspectionId] = useState<string | null>(null);
+  const [qcReport, setQcReport] = useState<SAQCReport | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [qcReportOpen, setQcReportOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingType, setSavingType] = useState<'draft' | 'estimate' | null>(null);
   const [jobErrors, setJobErrors] = useState<Record<number, JobErrors>>({});
@@ -72,11 +84,28 @@ const CreateJobCard: React.FC = () => {
           registration: v.registrationNumber?.toUpperCase() ?? "",
           model: `${v.brand} ${v.model}`,
           customerName: c.name || "",
+          imageUrl: v.imageUrl ?? null,
         });
 
         // Set inspection ID if available
         if (vehicleRes.data.latestInspection?.id) {
           setInspectionId(vehicleRes.data.latestInspection.id);
+        }
+
+        // Fetch QC report (complaints + components + workshop rework + items).
+        // 404 is expected when QC isn't completed yet — swallow silently.
+        try {
+          const qcRes = await getVehicleQCReport(vehicleId);
+          if (qcRes.success && qcRes.data) {
+            setQcReport(qcRes.data);
+            // Auto-expand QC Report if there are failed items — advisor must
+            // see those before quoting. Clean inspections stay collapsed.
+            if (qcRes.data.summary.failCount > 0) {
+              setQcReportOpen(true);
+            }
+          }
+        } catch {
+          /* no completed QC yet — leave qcReport null */
         }
 
         // Set suggested jobs from QC failed/NA items
@@ -100,7 +129,7 @@ const CreateJobCard: React.FC = () => {
             let counter = Date.now();
 
             for (const item of existingItems as any[]) {
-              const isPaidService = item.serviceType === "Paid Service";
+              const isPaidService = item.serviceType === "Repair";
               const hasCategory = Boolean(item.serviceCategory);
 
               if (hasCategory) {
@@ -134,7 +163,7 @@ const CreateJobCard: React.FC = () => {
               } else if (isPaidService) {
                 // Group into a paidParts job row
                 const existing = reconstructed.find(
-                  (j) => j.serviceType === "Paid Service" && Array.isArray(j.paidParts),
+                  (j) => j.serviceType === "Repair" && Array.isArray(j.paidParts),
                 );
                 const paidPart = {
                   id: item.id,
@@ -153,7 +182,7 @@ const CreateJobCard: React.FC = () => {
                     partsCost: 0,
                     labourCost: 0,
                     quantity: 1,
-                    serviceType: "Paid Service",
+                    serviceType: "Repair",
                     serviceCategory: "",
                     paidParts: [paidPart],
                   });
@@ -311,7 +340,7 @@ const CreateJobCard: React.FC = () => {
 
   const calculateLineTotal = (job: Job) => {
     // Paid Service: sum manually added paid parts
-    if (job.serviceType === "Paid Service") {
+    if (job.serviceType === "Repair") {
       return (job.paidParts ?? []).reduce(
         (sum, p) => sum + p.unitPrice * p.quantity, 0
       );
@@ -344,7 +373,7 @@ const CreateJobCard: React.FC = () => {
 
     jobs.forEach((job) => {
       const err: JobErrors = {};
-      const isPaidService = job.serviceType === "Paid Service";
+      const isPaidService = job.serviceType === "Repair";
       const hasAutoParts = job.autoParts && job.autoParts.length > 0;
       const hasPaidParts = job.paidParts && job.paidParts.length > 0;
 
@@ -408,7 +437,7 @@ const CreateJobCard: React.FC = () => {
       const jobsPayload = jobs.map((job) => {
         let items;
 
-        if (job.serviceType === "Paid Service" && job.paidParts && job.paidParts.length > 0) {
+        if (job.serviceType === "Repair" && job.paidParts && job.paidParts.length > 0) {
           items = job.paidParts.map((part) => ({
             jobDescription: part.partName,
             partsRequired: part.partCode,
@@ -483,7 +512,7 @@ const CreateJobCard: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-6 md:gap-8 w-full pb-8">
+      <div className="flex flex-col gap-3 md:gap-5 w-full pb-8">
         {/* Header Section */}
         <JobCardHeader onBackClick={handleBackClick} edit={isEditMode} />
 
@@ -492,7 +521,271 @@ const CreateJobCard: React.FC = () => {
           registration={vehicleData.registration}
           model={vehicleData.model}
           customerName={vehicleData.customerName}
+          imageUrl={vehicleData.imageUrl}
         />
+
+        {/* Summary card — collapsible. Header shows quick context so the
+            advisor can decide whether to expand. */}
+        <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSummaryOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 p-4 md:p-5 hover:bg-[#fafafa] transition-colors cursor-pointer"
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-left">
+              {summaryOpen ? (
+                <ChevronDown size={16} className="text-[#666]" />
+              ) : (
+                <ChevronRight size={16} className="text-[#666]" />
+              )}
+              <h3 className="text-[14px] font-semibold text-[#333]">Summary</h3>
+              {qcReport?.appointment?.bookingRef && (
+                <span className="text-[11px] font-semibold text-[#FF4F31] bg-[#FFF1EC] px-2 py-0.5 rounded">
+                  {qcReport.appointment.bookingRef}
+                </span>
+              )}
+              {!summaryOpen && (
+                <span className="text-[11px] text-[#666] truncate">
+                  {vehicleData.customerName || "—"} ·{" "}
+                  {vehicleData.model || "—"}
+                  {qcReport?.appointment?.complaints?.length
+                    ? ` · ${qcReport.appointment.complaints.length} complaint${qcReport.appointment.complaints.length > 1 ? "s" : ""}`
+                    : ""}
+                </span>
+              )}
+            </div>
+          </button>
+
+          {summaryOpen && (
+            <div className="px-4 pb-4 md:px-5 md:pb-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Customer</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {vehicleData.customerName || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Vehicle</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {vehicleData.model || "—"}
+              </p>
+              <p className="text-[11px] text-[#999]">
+                {vehicleData.registration || ""}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Service Type</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {qcReport?.appointment?.serviceType
+                  ? qcReport.appointment.serviceType.replace(/_/g, " ")
+                  : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Appointment</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {qcReport?.appointment
+                  ? `${qcReport.appointment.appointmentDate} · ${qcReport.appointment.appointmentTime}`
+                  : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#FFE0D6] bg-[#FFF7F3] p-3">
+            <p className="text-[12px] font-semibold text-[#333] mb-2">
+              Customer Complaints
+            </p>
+            {qcReport?.appointment?.complaints && qcReport.appointment.complaints.length > 0 ? (
+              <ul className="list-disc pl-5 space-y-1">
+                {qcReport.appointment.complaints.map((c, i) => (
+                  <li key={i} className="text-[#444] text-[13px] leading-normal">{c}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[#999] text-[12px] italic">
+                No complaints recorded for this appointment.
+              </p>
+            )}
+          </div>
+            </div>
+          )}
+        </div>
+
+        {/* QC Report — collapsible. Auto-expands when there are failed items. */}
+        {qcReport && (
+          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setQcReportOpen((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 p-4 md:p-5 hover:bg-[#fafafa] transition-colors cursor-pointer"
+            >
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-left">
+                {qcReportOpen ? (
+                  <ChevronDown size={16} className="text-[#666]" />
+                ) : (
+                  <ChevronRight size={16} className="text-[#666]" />
+                )}
+                <h3 className="text-[14px] font-semibold text-[#333]">QC Inspection Report</h3>
+                {qcReport.overallStatus && (
+                  <span
+                    className={`text-[11px] font-semibold uppercase px-2 py-0.5 rounded ${
+                      qcReport.overallStatus === "PASS"
+                        ? "bg-green-100 text-green-700"
+                        : qcReport.overallStatus === "FAIL"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {qcReport.overallStatus}
+                  </span>
+                )}
+                {!qcReportOpen && (
+                  <span className="text-[11px] text-[#666]">
+                    {qcReport.summary.passCount} pass ·{" "}
+                    <span className={qcReport.summary.failCount > 0 ? "text-red-600 font-semibold" : ""}>
+                      {qcReport.summary.failCount} fail
+                    </span>{" "}
+                    · {qcReport.summary.warningCount} N/A
+                    {qcReport.components.length > 0
+                      ? ` · ${qcReport.components.length} component${qcReport.components.length > 1 ? "s" : ""}`
+                      : ""}
+                  </span>
+                )}
+              </div>
+            </button>
+
+            {qcReportOpen && (
+              <div className="px-4 pb-4 md:px-5 md:pb-5">
+            {qcReport.completedAt && (
+              <p className="text-[11px] text-[#999] mb-3">
+                Completed: {new Date(qcReport.completedAt).toLocaleDateString()}
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="bg-[#fafafa] rounded-lg p-3">
+                <p className="text-[11px] text-[#999] uppercase">Total Items</p>
+                <p className="text-[16px] font-semibold text-[#333]">
+                  {qcReport.summary.totalItems}
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3">
+                <p className="text-[11px] text-green-700 uppercase">Pass</p>
+                <p className="text-[16px] font-semibold text-green-700">
+                  {qcReport.summary.passCount}
+                </p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3">
+                <p className="text-[11px] text-red-700 uppercase">Fail</p>
+                <p className="text-[16px] font-semibold text-red-700">
+                  {qcReport.summary.failCount}
+                </p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3">
+                <p className="text-[11px] text-yellow-700 uppercase">N/A</p>
+                <p className="text-[16px] font-semibold text-yellow-700">
+                  {qcReport.summary.warningCount}
+                </p>
+              </div>
+            </div>
+
+            {qcReport.failedItems.length > 0 && (
+              <div className="mb-4">
+                <p className="text-[12px] font-semibold text-[#333] mb-2">Failed Items</p>
+                <ul className="space-y-1">
+                  {qcReport.failedItems.map((item) => (
+                    <li
+                      key={item.id}
+                      className="text-[12px] text-[#444] flex flex-wrap items-baseline gap-2"
+                    >
+                      <span className="font-mono text-red-600">{item.itemCode}</span>
+                      <span>{item.itemLabel}</span>
+                      {item.comment && (
+                        <span className="text-[#999] italic">— {item.comment}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {qcReport.finalRemarks && (
+              <div className="mb-4">
+                <p className="text-[12px] font-semibold text-[#333] mb-1">Final Remarks</p>
+                <p className="text-[12px] text-[#666]">{qcReport.finalRemarks}</p>
+              </div>
+            )}
+
+            {qcReport.components.length > 0 && (
+              <div className="mb-4">
+                <p className="text-[12px] font-semibold text-[#333] mb-2">
+                  Components ({qcReport.components.length})
+                </p>
+                <div className="space-y-2">
+                  {qcReport.components.map((c, i) => (
+                    <div
+                      key={c.id}
+                      className="border border-[#E5E7EB] rounded-lg p-3 text-[12px]"
+                    >
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1">
+                        <span className="text-[#999]">#{i + 1}</span>
+                        <span className="font-semibold text-[#333]">
+                          {c.majorComponent || "—"}
+                        </span>
+                        <span className="text-[#666]">
+                          Item: {c.itemNumber || "—"}
+                        </span>
+                      </div>
+                      {c.comment && <p className="text-[#444]">{c.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {qcReport.workshopRework &&
+              (qcReport.workshopRework.majorComponent ||
+                qcReport.workshopRework.technician ||
+                qcReport.workshopRework.itemNumber ||
+                qcReport.workshopRework.comments) && (
+                <div>
+                  <p className="text-[12px] font-semibold text-[#333] mb-2">
+                    Workshop Rework
+                  </p>
+                  <div className="border border-[#FFE0D6] bg-[#FFF7F3] rounded-lg p-3 text-[12px]">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                      <div>
+                        <span className="text-[#999]">Component: </span>
+                        <span className="text-[#333]">
+                          {qcReport.workshopRework.majorComponent || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#999]">Technician: </span>
+                        <span className="text-[#333]">
+                          {qcReport.workshopRework.technician || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#999]">Item No: </span>
+                        <span className="text-[#333]">
+                          {qcReport.workshopRework.itemNumber || "—"}
+                        </span>
+                      </div>
+                    </div>
+                    {qcReport.workshopRework.comments && (
+                      <p className="text-[#444]">
+                        {qcReport.workshopRework.comments}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Suggested Jobs Chips — commented out for now
         <SuggestedJobsChips

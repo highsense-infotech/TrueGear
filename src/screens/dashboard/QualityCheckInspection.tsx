@@ -26,6 +26,7 @@ import {
   deleteItemPhoto,
   type InspectionItem,
   type InspectionVehicle,
+  type InspectionDetailsData,
   type InspectionSummary,
   // type InspectionFindings,
   type ConfirmationComponent,
@@ -98,6 +99,9 @@ const QualityCheckInspection: React.FC = () => {
   // Vehicle info from API
   const [vehicle, setVehicle] = useState<InspectionVehicle | null>(null);
 
+  // Appointment info from API (complaints, service type, booking ref)
+  const [appointment, setAppointment] = useState<InspectionDetailsData["appointment"]>(null);
+
   // Items from API categories
   const [exteriorItems, setExteriorItems] = useState<InspectionItem[]>([]);
   const [interiorItems, setInteriorItems] = useState<InspectionItem[]>([]);
@@ -143,9 +147,10 @@ const QualityCheckInspection: React.FC = () => {
     try {
       const res = await getInspectionDetails(inspectionId);
       if (res.success && res.data) {
-        const { inspection, vehicle: vehicleData, categories, summary: summaryData, findings: _findingsData } = res.data;
+        const { inspection, vehicle: vehicleData, appointment: appointmentData, categories, summary: summaryData, findings: _findingsData } = res.data;
 
         setVehicle(vehicleData);
+        setAppointment(appointmentData);
         setCurrentStep(inspection.currentStep);
         setMaxStep(inspection.currentStep);
         setSummary(summaryData);
@@ -261,12 +266,39 @@ const QualityCheckInspection: React.FC = () => {
       case 4:
         // Findings summary is view-only, no validation needed
         break;
-      case 5:
+      case 5: {
+        // Components — every row must have all three fields filled
+        components.forEach((c, idx) => {
+          if (!c.majorComponent?.trim()) {
+            newErrors[`comp_${idx}_majorComponent`] = "Major component is required";
+            isValid = false;
+          }
+          if (!c.itemNumber?.trim()) {
+            newErrors[`comp_${idx}_itemNumber`] = "Item number is required";
+            isValid = false;
+          }
+          if (!c.comment?.trim()) {
+            newErrors[`comp_${idx}_comment`] = "Comment is required";
+            isValid = false;
+          }
+        });
+
+        // Workshop Rework — optional (only relevant for post-repair
+        // re-inspections, not first-time entry QC). Skip validation entirely.
+
+        // Signature
         if (sigCanvasRef.current?.isEmpty()) {
           newErrors["signature"] = "Signature required to submit";
           isValid = false;
         }
+
+        if (!isValid) {
+          setSignatureError("Please fill in all required fields before submitting.");
+        } else {
+          setSignatureError("");
+        }
         break;
+      }
 
       default:
         break;
@@ -731,9 +763,9 @@ const QualityCheckInspection: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-3">
                   <div>
-                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Major Component</label>
+                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Major Component <span className="text-red-500">*</span></label>
                     <input
-                      className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100]"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none ${errors[`comp_${idx}_majorComponent`] ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#ff5100]"}`}
                       placeholder="Enter major component"
                       value={comp.majorComponent || ""}
                       onChange={(e) => {
@@ -742,11 +774,14 @@ const QualityCheckInspection: React.FC = () => {
                         setComponents(updated);
                       }}
                     />
+                    {errors[`comp_${idx}_majorComponent`] && (
+                      <p className="text-red-500 text-xs mt-1">{errors[`comp_${idx}_majorComponent`]}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Item Number</label>
+                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Item Number <span className="text-red-500">*</span></label>
                     <input
-                      className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100]"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none ${errors[`comp_${idx}_itemNumber`] ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#ff5100]"}`}
                       placeholder="Enter item number"
                       value={comp.itemNumber || ""}
                       onChange={(e) => {
@@ -755,12 +790,15 @@ const QualityCheckInspection: React.FC = () => {
                         setComponents(updated);
                       }}
                     />
+                    {errors[`comp_${idx}_itemNumber`] && (
+                      <p className="text-red-500 text-xs mt-1">{errors[`comp_${idx}_itemNumber`]}</p>
+                    )}
                   </div>
                 </div>
                 <div>
-                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Comment</label>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Comment <span className="text-red-500">*</span></label>
                   <textarea
-                    className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100] resize-none"
+                    className={`w-full border rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none resize-none ${errors[`comp_${idx}_comment`] ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#ff5100]"}`}
                     rows={3}
                     placeholder="Enter detailed comments about this component..."
                     value={comp.comment || ""}
@@ -770,6 +808,9 @@ const QualityCheckInspection: React.FC = () => {
                       setComponents(updated);
                     }}
                   />
+                  {errors[`comp_${idx}_comment`] && (
+                    <p className="text-red-500 text-xs mt-1">{errors[`comp_${idx}_comment`]}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -817,7 +858,7 @@ const QualityCheckInspection: React.FC = () => {
               <div>
                 <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Comments</label>
                 <textarea
-                  className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none focus:border-[#ff5100] resize-none"
+                  className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none resize-none focus:border-[#ff5100]"
                   rows={3}
                   placeholder="Enter detailed rework comments..."
                   value={rework.comments || ""}
@@ -828,14 +869,29 @@ const QualityCheckInspection: React.FC = () => {
 
             {/* Technician Signature */}
             <div className="border border-[#E5E7EB] rounded-xl p-5 mb-6">
-              <h4 className="text-[13px] font-bold text-[#333] uppercase mb-3">Technician Signature</h4>
-              <div className="border border-[#E5E7EB] rounded-lg overflow-hidden mb-2" style={{ height: 150 }}>
+              <h4 className="text-[13px] font-bold text-[#333] uppercase mb-3">Technician Signature <span className="text-red-500">*</span></h4>
+              <div
+                className={`border rounded-lg overflow-hidden mb-2 ${errors["signature"] ? "border-red-500" : "border-[#E5E7EB]"}`}
+                style={{ height: 150 }}
+              >
                 <SignatureCanvas
                   ref={sigCanvasRef}
                   canvasProps={{ className: "w-full h-full", style: { width: "100%", height: "100%" } }}
                   backgroundColor="#fff"
+                  onBegin={() => {
+                    if (errors["signature"]) {
+                      setErrors((prev) => {
+                        const next = { ...prev };
+                        delete next["signature"];
+                        return next;
+                      });
+                    }
+                  }}
                 />
               </div>
+              {errors["signature"] && (
+                <p className="text-red-500 text-xs mb-2">{errors["signature"]}</p>
+              )}
               <button
                 onClick={() => { sigCanvasRef.current?.clear(); setSignatureError(""); }}
                 className="flex items-center gap-1.5 text-xs text-[#9CA3AF] hover:text-[#333] transition-colors cursor-pointer"
@@ -894,9 +950,6 @@ const QualityCheckInspection: React.FC = () => {
                 </>
               )}
             </button>
-            {errors["signature"] && (
-              <p className="text-center text-red-500 text-xs mt-2">{errors["signature"]}</p>
-            )}
           </>
         );
       default:
@@ -912,12 +965,20 @@ const QualityCheckInspection: React.FC = () => {
       />
       <div className="bg-white rounded-xl p-4 md:p-5">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-            <img
-              src={truck}
-              alt="Vehicle"
-              className="max-w-17.5 object-contain "
-            />
+          <div className="w-20 h-20 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden flex items-center justify-center">
+            {vehicle?.imageUrl ? (
+              <img
+                src={vehicle.imageUrl}
+                alt={vehicle.registrationNumber || "Vehicle"}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = truck;
+                  (e.currentTarget as HTMLImageElement).className = "max-w-17.5 object-contain";
+                }}
+              />
+            ) : (
+              <img src={truck} alt="Vehicle" className="max-w-17.5 object-contain" />
+            )}
           </div>
           <div>
             <p className="text-[#333] text-[16px] mb-0.5">
@@ -926,6 +987,72 @@ const QualityCheckInspection: React.FC = () => {
             <p className="text-[#999] text-[12px]">
               {vehicle ? `${vehicle.brand} ${vehicle.model}` : "—"}
             </p>
+          </div>
+        </div>
+
+        {/* Summary card — shows vehicle, customer, appointment & complaints
+            in a single overview block before the inspection steps begin. */}
+        <div className="mt-4 rounded-lg border border-[#E5E7EB] bg-white p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[14px] font-semibold text-[#333]">Summary</h3>
+            {appointment?.bookingRef && (
+              <span className="text-[11px] font-semibold text-[#FF4F31] bg-[#FFF1EC] px-2 py-0.5 rounded">
+                {appointment.bookingRef}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Customer</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {vehicle?.customerName || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Vehicle</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {vehicle ? `${vehicle.brand} ${vehicle.model}` : "—"}
+              </p>
+              <p className="text-[11px] text-[#999]">
+                {vehicle?.registrationNumber?.toUpperCase() || ""}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Service Type</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {appointment?.serviceType
+                  ? appointment.serviceType.replace(/_/g, " ")
+                  : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Appointment</p>
+              <p className="text-[13px] text-[#333] font-medium">
+                {appointment
+                  ? `${appointment.appointmentDate} · ${appointment.appointmentTime}`
+                  : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#FFE0D6] bg-[#FFF7F3] p-3">
+            <p className="text-[12px] font-semibold text-[#333] mb-2">
+              Customer Complaints
+            </p>
+            {appointment?.complaints && appointment.complaints.length > 0 ? (
+              <ul className="list-disc pl-5 space-y-1">
+                {appointment.complaints.map((c, i) => (
+                  <li key={i} className="text-[#444] text-[13px] leading-normal">
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[#999] text-[12px] italic">
+                No complaints recorded for this appointment.
+              </p>
+            )}
           </div>
         </div>
 

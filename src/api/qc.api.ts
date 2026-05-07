@@ -114,6 +114,7 @@ export interface InspectionVehicle {
   model: string;
   vin: string;
   customerName: string;
+  imageUrl?: string | null;
 }
 
 export interface InspectionSummary {
@@ -154,6 +155,14 @@ export interface InspectionDetailsData {
     priority: string;
   };
   vehicle: InspectionVehicle;
+  appointment: {
+    id: string;
+    bookingRef: string;
+    serviceType: string;
+    complaints: string[];
+    appointmentDate: string;
+    appointmentTime: string;
+  } | null;
   categories: {
     EXTERIOR: InspectionItem[];
     INTERIOR: InspectionItem[];
