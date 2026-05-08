@@ -32,6 +32,7 @@ export type VehicleStatus =
 
 export interface VehicleItem {
   id: string;
+  vehicleId: string;
   vin: string;
   registrationNumber: string;
   brand: string;
@@ -78,6 +79,11 @@ export interface SearchVehicleItem {
   status: VehicleStatus;
   entryTime: string | null;
   primaryImageUrl: string | null;
+  activeCheckIn: {
+    id: string;
+    status: string;
+    checkInTime: string;
+  } | null;
 }
 
 export const listVehicles = async (

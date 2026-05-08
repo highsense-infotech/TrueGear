@@ -19,6 +19,7 @@ import {
 import { ConfirmDeleteModal } from "../common/ConfirmDeleteModal";
 interface DisplayVehicle {
   id: string;
+  vehicleId: string;
   registration: string;
   model: string;
   odometer: string;
@@ -82,6 +83,7 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
   const { time, date } = formatEntryTime(v.entryTime);
   return {
     id: v.id,
+    vehicleId: v.vehicleId ?? v.id,
     registration: (v.registrationNumber || v.vin || "").toUpperCase(),
     model: `${v.brand} ${v.model}`,
     odometer: v.odometerLast ? `${v.odometerLast.toLocaleString()} KM` : "N/A",
@@ -215,6 +217,25 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
       const localRes = await searchVehicles(vin);
       if (localRes.success && (localRes.data ?? []).length > 0) {
         const found = (localRes.data ?? [])[0];
+
+        // Block re-entry if the vehicle is already inside the workshop with
+        // an active check-in. The guard must complete or cancel that entry
+        // before re-checking the same vehicle in.
+        if (found.activeCheckIn) {
+          // const entryTime = new Date(found.activeCheckIn.checkInTime).toLocaleString("en-GB", {
+          //   hour: "2-digit",
+          //   minute: "2-digit",
+          //   day: "2-digit",
+          //   month: "short",
+          //   hour12: true,
+          // });
+          toast.error(
+            `${found.registrationNumber || found.vin} is already inside the workshop`,
+            { duration: 6000 },
+          );
+          return;
+        }
+
         const reEntryRes = await reEntryVehicle(found.id);
         const newVehicleId = reEntryRes.data?.id ?? found.id;
         toast.success("Vehicle found! New entry created for this visit.");
@@ -233,7 +254,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
   };
 
   const handleEditVehicle = (vehicle: DisplayVehicle) => {
-    navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicle.id}`);
+    navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${vehicle.vehicleId}`);
   };
 
   const [deleteTarget, setDeleteTarget] = useState<DisplayVehicle | null>(null);
@@ -250,7 +271,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      const res = await deleteVehicle(deleteTarget.id);
+      const res = await deleteVehicle(deleteTarget.vehicleId);
       if (res.success) {
         setDeleteTarget(null);
         fetchVehicles();
@@ -448,13 +469,21 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                     </td>
 
                     <td>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <div
                           className={`w-2 h-2 rounded-full ${statusConfig[vehicle.status]?.bg || "bg-gray-400"}`}
                         />
                         <span className={statusConfig[vehicle.status]?.color || "text-gray-500"}>
                           {vehicle.status}
                         </span>
+                        {vehicle.status === "Entry (Draft)" && (
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FFF1EC] text-[#FF4F31] border border-[#FFD3C2]"
+                            title="This entry is incomplete. Click the pencil to resume, or the trash to discard."
+                          >
+                            Draft · Resume / Discard
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -567,7 +596,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
 
                   <div>
                     <p className="text-[#999] text-xs">Status</p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <div
                         className={`w-2 h-2 rounded-full ${statusConfig[vehicle.status]?.bg || "bg-gray-400"}`}
                       />
@@ -576,6 +605,14 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                       >
                         {vehicle.status}
                       </span>
+                      {vehicle.status === "Entry (Draft)" && (
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FFF1EC] text-[#FF4F31] border border-[#FFD3C2]"
+                          title="This entry is incomplete. Tap edit to resume, or delete to discard."
+                        >
+                          Draft
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
