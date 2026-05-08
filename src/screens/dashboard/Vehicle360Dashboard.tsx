@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Loader2, AlertTriangle, Edit2, Trash2, MoreHorizontal, Car } from "lucide-react";
+import { Search, Loader2, AlertTriangle, Eye, Trash2, MoreHorizontal, Car } from "lucide-react";
 import truck from "../../assets/truck.png";
 import { Pagination } from "../../components/common/Pagination";
 import { ConfirmDeleteModal } from "../../components/common/ConfirmDeleteModal";
@@ -224,7 +224,7 @@ const Vehicle360Dashboard: React.FC = () => {
                         onClick={() => goToDetail(v.id)}
                         className="p-2 text-[#c0c0c0] hover:text-[#555] hover:bg-[#f5f5f5] rounded-lg transition-colors border border-[#EBEBEB] cursor-pointer"
                       >
-                        <Edit2 size={15} strokeWidth={1.5} />
+                        <Eye size={15} strokeWidth={1.5} />
                       </button>
                       <button
                         onClick={() => { setDeleteError(null); setDeleteTarget(v); }}
