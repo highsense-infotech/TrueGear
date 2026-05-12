@@ -196,8 +196,8 @@ const JobCardDetail: React.FC = () => {
         onClose={() => setAssignOpen(false)}
         onAssigned={() => {
           // Re-fetch to get fresh per-item assignments + updated status.
-          if (id) {
-            getJobCardDetail(id).then((res) => {
+          if (jobCardId) {
+            getJobCardDetail(jobCardId).then((res) => {
               if (res.success && res.data) setData(res.data);
             });
           }
