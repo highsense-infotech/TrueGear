@@ -107,6 +107,11 @@ const ALL_MODULES = [
   { key: MODULES.USER_MANAGEMENT, label: "User Management" },
   { key: MODULES.ROLE_MANAGEMENT, label: "Role Management" },
   { key: MODULES.DASHBOARD, label: "Dashboard" },
+  { key: MODULES.APPOINTMENT, label: "Appointment" },
+  { key: MODULES.VEHICLE_360, label: "Vehicle 360" },
+  { key: MODULES.CUSTOMER_PROFILE, label: "Customer Profile" },
+  { key: MODULES.VEHICLE_OUT, label: "Vehicle Out" },
+  { key: MODULES.TECHNICIAN, label: "Technician" },
 ];
 
 const ALL_ACTIONS = [

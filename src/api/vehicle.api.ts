@@ -84,6 +84,8 @@ export interface SearchVehicleItem {
     status: string;
     checkInTime: string;
   } | null;
+  inWorkshop: boolean;
+  pendingJobItems: number;
 }
 
 export const listVehicles = async (
@@ -352,6 +354,10 @@ export interface VisitEvent {
     | "JOB_CARD_CREATED"
     | "JOB_CARD_SHARED"
     | "JOB_CARD_APPROVED"
+    | "TECHNICIAN_ASSIGNED"
+    | "WORK_STARTED"
+    | "WORK_PAUSED"
+    | "WORK_COMPLETED"
     | "VISIT_COMPLETED"
     | "VISIT_CANCELLED";
   label: string;

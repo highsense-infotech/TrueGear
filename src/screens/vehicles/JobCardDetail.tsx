@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle, Eye } from "lucide-react";
+import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle, Eye, UserPlus } from "lucide-react";
 import Modal from "../../components/common/Modal";
+import { AssignTechnicianModal } from "../../components/common/AssignTechnicianModal";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
@@ -23,6 +24,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }>
   MODIFICATION_REQUESTED: { label: "Modification Requested", bg: "bg-amber-50", text: "text-amber-600" },
   APPROVED: { label: "Approved", bg: "bg-green-50", text: "text-green-600" },
   PARTIALLY_APPROVED: { label: "Partially Approved", bg: "bg-amber-50", text: "text-amber-600" },
+  IN_PROGRESS: { label: "In Progress", bg: "bg-blue-50", text: "text-blue-600" },
   IN_SERVICE: { label: "In Service", bg: "bg-orange-50", text: "text-orange-600" },
   COMPLETED: { label: "Completed", bg: "bg-emerald-50", text: "text-emerald-600" },
 };
@@ -50,6 +52,7 @@ const JobCardDetail: React.FC = () => {
   const [approvalUrl, setApprovalUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [partsModalOpen, setPartsModalOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   useEffect(() => {
     if (!jobCardId) return;
@@ -165,13 +168,41 @@ const JobCardDetail: React.FC = () => {
       {/* Header */}
       <JobCardHeader detail onBackClick={() => navigate(-1)} label="Back" />
 
-      {/* Status Badge */}
-      <div className="flex items-center justify-between">
+      {/* Status Badge + assign-technicians CTA. Visible while items are still
+          unassigned, whether the card is APPROVED or already IN_PROGRESS. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-lg font-semibold text-gray-800">Job Card Details</h2>
-        <span className={`text-xs font-semibold px-3 py-1 rounded-md ${statusConfig.bg} ${statusConfig.text}`}>
-          {statusConfig.label}
-        </span>
+        <div className="flex items-center gap-3">
+          {(jobCard.status === "APPROVED" || jobCard.status === "IN_PROGRESS") &&
+            items.some((i) => !i.assignedTechnicianId) && (
+              <Button
+                variant="gradient"
+                icon={<UserPlus size={18} />}
+                onClick={() => setAssignOpen(true)}
+              >
+                Assign Technicians
+              </Button>
+          )}
+          <span className={`text-xs font-semibold px-3 py-1 rounded-md ${statusConfig.bg} ${statusConfig.text}`}>
+            {statusConfig.label}
+          </span>
+        </div>
       </div>
+
+      <AssignTechnicianModal
+        isOpen={assignOpen}
+        jobCardId={jobCard.id}
+        items={items}
+        onClose={() => setAssignOpen(false)}
+        onAssigned={() => {
+          // Re-fetch to get fresh per-item assignments + updated status.
+          if (id) {
+            getJobCardDetail(id).then((res) => {
+              if (res.success && res.data) setData(res.data);
+            });
+          }
+        }}
+      />
 
       {/* Partial Approval Summary */}
       {jobCard.status === "PARTIALLY_APPROVED" && (() => {

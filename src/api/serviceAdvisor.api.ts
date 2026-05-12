@@ -294,6 +294,10 @@ export interface SAJobCardItem {
   isApprovedByCustomer: boolean | null;
   partStatus: 'pending' | 'available' | 'unavailable' | 'dispatched' | null;
   partExpectedTime: string | null;
+  assignedTechnicianId: string | null;
+  estimatedHours: string | null;
+  priority: AssignTechnicianPriority | null;
+  assignedAt: string | null;
 }
 
 export interface SAJobCardDetailData {
@@ -368,5 +372,136 @@ export const requestPartsConfirmation = async (
   jobCardId: string
 ): Promise<ApiResponse<{ jobCardId: string; status: string; partsRequestsCreated: number }>> => {
   const { data } = await api.post(`/service-advisor/job-cards/${jobCardId}/request-parts`);
+  return data;
+};
+
+// ─── Technician Assignment ────────────────────────────────────────────────
+
+export interface Technician {
+  id: string;
+  username: string;
+  email: string;
+}
+
+export type AssignTechnicianPriority = "LOW" | "MEDIUM" | "HIGH";
+
+export const listTechnicians = async (): Promise<ApiResponse<Technician[]>> => {
+  const { data } = await api.get(`/service-advisor/technicians`);
+  return data;
+};
+
+export interface AssignTechnicianItem {
+  itemId: string;
+  technicianId: string;
+  estimatedHours: number;
+  priority: AssignTechnicianPriority;
+}
+
+export const assignTechnician = async (
+  jobCardId: string,
+  assignments: AssignTechnicianItem[],
+): Promise<ApiResponse<{
+  jobCardId: string;
+  status: string;
+  vehicleStatus: string;
+  assignedCount: number;
+  assignedAt: string;
+}>> => {
+  const { data } = await api.post(
+    `/service-advisor/job-cards/${jobCardId}/assign-technician`,
+    { assignments },
+  );
+  return data;
+};
+
+// ─── My Technician Jobs ────────────────────────────────────────────────────
+
+// One row per assigned item — flat, item-level shape.
+export interface TechnicianItem {
+  itemId: string;
+  jobCardId: string;
+  vehicleId: string;
+  vehicleNumber: string;
+  vehicleModel: string;
+  jobDescription: string;
+  estimatedHours: string | null;
+  priority: AssignTechnicianPriority | null;
+  assignedAt: string | null;
+  completedAt: string | null;
+  totalSeconds: number;
+  isRunning: boolean;
+  status: 'pending' | 'progress' | 'completed';
+}
+
+export interface MyTechnicianJobsData {
+  items: TechnicianItem[];
+  stats: { pending: number; inProgress: number; completed: number };
+}
+
+export const getMyTechnicianJobs = async (): Promise<ApiResponse<MyTechnicianJobsData>> => {
+  const { data } = await api.get(`/service-advisor/technician/my-jobs`);
+  return data;
+};
+
+export const startTechnicianWork = async (
+  jobCardId: string,
+): Promise<ApiResponse<{ jobCardId: string; status: string; vehicleStatus: string; startedAt?: string }>> => {
+  const { data } = await api.post(`/service-advisor/technician/jobs/${jobCardId}/start`);
+  return data;
+};
+
+// Technician-scoped variant of getJobCardDetail. Same shape, different perm
+// gate (TECHNICIAN:view instead of JOB_CARD:view) so technicians can view the
+// jobs they're assigned to without holding the broader job-card permission.
+// Enriched with per-item time logs and totals.
+export interface ItemTimeLog {
+  id: string;
+  startedAt: string;
+  pausedAt: string | null;
+  durationSeconds: number;
+}
+
+export interface TechnicianJobCardItem extends SAJobCardItem {
+  completedAt: string | null;
+  completionNotes: string | null;
+  timeLogs: ItemTimeLog[];
+  totalSeconds: number;
+  isRunning: boolean;
+}
+
+export interface TechnicianJobCardDetailData extends Omit<SAJobCardDetailData, 'items'> {
+  items: TechnicianJobCardItem[];
+  totalSeconds: number;
+}
+
+export const getTechnicianJobDetail = async (
+  jobCardId: string,
+): Promise<ApiResponse<TechnicianJobCardDetailData>> => {
+  const { data } = await api.get(`/service-advisor/technician/jobs/${jobCardId}`);
+  return data;
+};
+
+export const startItemWork = async (
+  itemId: string,
+): Promise<ApiResponse<{ itemId: string; startedAt: string }>> => {
+  const { data } = await api.post(`/service-advisor/technician/items/${itemId}/start`);
+  return data;
+};
+
+export const pauseItemWork = async (
+  itemId: string,
+): Promise<ApiResponse<{ itemId: string; pausedAt: string }>> => {
+  const { data } = await api.post(`/service-advisor/technician/items/${itemId}/pause`);
+  return data;
+};
+
+export const completeItemWork = async (
+  itemId: string,
+  notes?: string,
+): Promise<ApiResponse<{ itemId: string; completedAt: string }>> => {
+  const { data } = await api.post(
+    `/service-advisor/technician/items/${itemId}/complete`,
+    { notes: notes ?? "" },
+  );
   return data;
 };

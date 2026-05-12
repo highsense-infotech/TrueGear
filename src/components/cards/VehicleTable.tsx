@@ -222,13 +222,6 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
         // an active check-in. The guard must complete or cancel that entry
         // before re-checking the same vehicle in.
         if (found.activeCheckIn) {
-          // const entryTime = new Date(found.activeCheckIn.checkInTime).toLocaleString("en-GB", {
-          //   hour: "2-digit",
-          //   minute: "2-digit",
-          //   day: "2-digit",
-          //   month: "short",
-          //   hour12: true,
-          // });
           toast.error(
             `${found.registrationNumber || found.vin} is already inside the workshop`,
             { duration: 6000 },
@@ -236,7 +229,23 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
           return;
         }
 
+        // Block re-entry while the technician hasn't finished the previous
+        // visit's work. Surfaces the BE workshop guard in the UI before the
+        // user even tries the re-entry call.
+        if (found.inWorkshop) {
+          toast.error(
+            `${found.registrationNumber || found.vin} is in workshop — ${found.pendingJobItems} job${found.pendingJobItems === 1 ? "" : "s"} pending. Wait for the technician to finish.`,
+            { duration: 6000 },
+          );
+          return;
+        }
+
         const reEntryRes = await reEntryVehicle(found.id);
+        if (!reEntryRes.success) {
+          // Backend refused — show the message (e.g. workshop guard).
+          toast.error(reEntryRes.error?.message ?? "Re-entry not allowed", { duration: 6000 });
+          return;
+        }
         const newVehicleId = reEntryRes.data?.id ?? found.id;
         toast.success("Vehicle found! New entry created for this visit.");
         navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${newVehicleId}&reentry=true`);
@@ -245,9 +254,16 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
 
       // Step 3: Not found anywhere — manual Add New Vehicle flow
       navigate(`${ROUTES.ADD_CUSTOMER}?vehicleNumber=${encodeURIComponent(vin)}`);
-    } catch {
-      // API error — fall back to manual flow
-      navigate(`${ROUTES.ADD_CUSTOMER}?vehicleNumber=${encodeURIComponent(vin)}`);
+    } catch (err: unknown) {
+      // Surface workshop-guard 409 with its message; otherwise fall back to manual.
+      const msg = err && typeof err === "object" && "response" in err
+        ? ((err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message ?? "")
+        : "";
+      if (msg.toLowerCase().includes("workshop")) {
+        toast.error(msg, { duration: 6000 });
+      } else {
+        navigate(`${ROUTES.ADD_CUSTOMER}?vehicleNumber=${encodeURIComponent(vin)}`);
+      }
     } finally {
       setIsLookingUp(false);
     }

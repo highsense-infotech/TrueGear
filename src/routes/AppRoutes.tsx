@@ -14,8 +14,8 @@ import ServiceAdvisorVehicleDetail from '../screens/dashboard/ServiceAdvisorVehi
 import CustomerApprovalDashboard from '../screens/dashboard/CustomerApprovalDashboard.tsx';
 import CustomerProfileDashboard from '../screens/dashboard/CustomerProfileDashboard.tsx';
 import SparePartsDashboard from '../screens/dashboard/SparePartsDashboard.tsx';
-// import TechnicianDashboard from '../screens/dashboard/TechnicianDashboard.tsx';
-// import TechnicianJobDetail from '../screens/dashboard/TechnicianJobDetail.tsx';
+import TechnicianDashboard from '../screens/dashboard/TechnicianDashboard.tsx';
+import TechnicianJobDetail from '../screens/dashboard/TechnicianJobDetail.tsx';
 import Profile from '../screens/profile/Profile';
 import AddCustomer from '../screens/customers/AddCustomer.tsx';
 import AddVehicle from '../screens/vehicles/AddVehicle';
@@ -57,6 +57,7 @@ const PERMISSION_ROUTES = [
   { resource: MODULES.APPOINTMENT, action: ACTIONS.VIEW, path: ROUTES.APPOINTMENT_DASHBOARD },
   { resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW, path: ROUTES.VEHICLE_360_DASHBOARD },
   { resource: MODULES.CUSTOMER_PROFILE, action: ACTIONS.VIEW, path: ROUTES.CUSTOMER_PROFILE_DASHBOARD },
+  { resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW, path: ROUTES.TECHNICIAN_DASHBOARD },
 ];
 
 function RootRedirect() {
@@ -187,6 +188,24 @@ const AppRoutes: React.FC = () => (
         >
           <Route path=":vehicleId" element={<Vehicle360VehicleDetail />} />
         </Route>
+
+        {/* Technician — TECHNICIAN:view required */}
+        <Route
+          path={ROUTES.TECHNICIAN_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW }}>
+              <TechnicianDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={ROUTES.TECHNICIAN_JOB_DETAIL.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW }}>
+              <TechnicianJobDetail />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Customer Profile Dashboard — CUSTOMER_PROFILE:view required */}
         <Route
