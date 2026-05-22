@@ -6,7 +6,7 @@ import { type Job, type JobErrors, type PaidPart, JobRow } from "./JobRow";
 interface JobDetailsProps {
   jobs: Job[];
   onAddJob: () => void;
-  onUpdateJob: (id: number, field: keyof Job, value: string | number) => void;
+  onUpdateJob: (id: number, field: keyof Job, value: string | number | boolean) => void;
   onRemoveJob: (id: number) => void;
   calculateLineTotal: (job: Job) => number;
   jobErrors?: Record<number, JobErrors>;

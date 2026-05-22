@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Button from "../../components/common/Button";
+import { Pagination } from "../../components/common/Pagination";
 import { ROUTES } from "../../constants/routes";
 import { listAppointments, updateAppointmentStatus, getSlotAvailability, rescheduleAppointment, type AppointmentRecord, type AppointmentStats } from "../../api/appointment.api";
 import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
@@ -76,7 +77,7 @@ const AppointmentDashboard: React.FC = () => {
   const [statusFilter,   setStatusFilter]   = useState("all");
 
   // Pagination state
-  const PAGE_SIZE = 20;
+  const [pageSize, setPageSize] = useState(10);
   const [page,       setPage]       = useState(1);
   const [total,      setTotal]      = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -117,7 +118,7 @@ const AppointmentDashboard: React.FC = () => {
   useEffect(() => {
     if (!isIndexRoute) return;
     setLoading(true);
-    const params: Record<string, string | number> = { page, limit: PAGE_SIZE };
+    const params: Record<string, string | number> = { page, limit: pageSize };
     if (dateFilter === "today")    params.date = toDateString(0);
     if (dateFilter === "tomorrow") params.date = toDateString(1);
     if (statusFilter !== "all")    params.status = statusFilter;
@@ -136,7 +137,7 @@ const AppointmentDashboard: React.FC = () => {
         setTotalPages(1);
       })
       .finally(() => setLoading(false));
-  }, [dateFilter, statusFilter, debouncedSearch, page, isIndexRoute]);
+  }, [dateFilter, statusFilter, debouncedSearch, page, pageSize, isIndexRoute]);
 
   // Unique advisors derived from loaded data (current page only)
   const advisors = useMemo(() => {
@@ -482,40 +483,18 @@ const AppointmentDashboard: React.FC = () => {
 
         {/* Pagination */}
         {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] bg-[#fafafa] text-sm text-[#666]">
-            <span>
-              Showing{" "}
-              <span className="font-semibold text-[#333]">
-                {(page - 1) * PAGE_SIZE + 1}
-              </span>
-              –
-              <span className="font-semibold text-[#333]">
-                {Math.min(page * PAGE_SIZE, total)}
-              </span>{" "}
-              of <span className="font-semibold text-[#333]">{total}</span>
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-[#e5e7eb] rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft size={13} />
-                Prev
-              </button>
-              <span className="text-xs">
-                Page <span className="font-semibold text-[#333]">{page}</span> of{" "}
-                <span className="font-semibold text-[#333]">{totalPages}</span>
-              </span>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-[#e5e7eb] rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Next
-                <ChevronRight size={13} />
-              </button>
-            </div>
+          <div className="px-5 border-t border-[#f0f0f0] bg-[#fafafa]">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={total}
+              itemsPerPage={pageSize}
+              onPageChange={setPage}
+              onItemsPerPageChange={(limit) => {
+                setPageSize(limit);
+                setPage(1);
+              }}
+            />
           </div>
         )}
       </div>

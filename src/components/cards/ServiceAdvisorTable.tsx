@@ -42,6 +42,7 @@ interface ServiceAdvisorTableProps {
   filter: SAFilterStatus;
   onFilterChange: (filter: SAFilterStatus) => void;
   onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (limit: number) => void;
   selectedDate: string;
   onDateChange: (date: string) => void;
 }
@@ -52,6 +53,7 @@ export function ServiceAdvisorTable({
   filter,
   onFilterChange,
   onPageChange,
+  onItemsPerPageChange,
   selectedDate,
   onDateChange,
 }: ServiceAdvisorTableProps) {
@@ -283,6 +285,7 @@ export function ServiceAdvisorTable({
           totalItems={pagination.total}
           itemsPerPage={pagination.limit}
           onPageChange={onPageChange}
+          onItemsPerPageChange={onItemsPerPageChange}
         />
       )}
     </div>

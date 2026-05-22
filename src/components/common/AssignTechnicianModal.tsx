@@ -166,7 +166,17 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
                     <div>
                       <label className="block text-[11px] font-medium text-[#666] mb-1">Technician</label>
                       <SearchableDropdown
-                        options={technicians.map((t) => ({ id: t.id, name: t.username }))}
+                        options={technicians.map((t) => {
+                          // Phase 3 — surface skills + workload alongside the
+                          // technician name so the SA can make an informed
+                          // pick without strict skill matching.
+                          const skills = t.skills && t.skills.length > 0 ? t.skills.join(", ") : "—";
+                          const load = t.activeItemCount ?? 0;
+                          return {
+                            id: t.id,
+                            name: `${t.username} · ${skills} · ${load} active`,
+                          };
+                        })}
                         value={r.technicianId}
                         onChange={(id) => updateRow(item.id, { technicianId: id })}
                         placeholder="Search technician"

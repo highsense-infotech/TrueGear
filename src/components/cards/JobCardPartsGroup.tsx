@@ -9,7 +9,7 @@ interface JobCardPartsGroupProps {
   partRequests: PartRequest[];
   isExpanded: boolean;
   onToggle: () => void;
-  onMarkAvailable: (partId: string) => void;
+  onMarkAvailable: (partId: string, requestedByTechnician: boolean) => void;
   onSetETA: (partId: string) => void;
   onDispatch: (partId: string) => void;
   actionLoading: Record<string, "markAvailable" | "eta" | "dispatch">;
@@ -113,7 +113,7 @@ export function JobCardPartsGroup({
               requestTime={request.requestTime}
               onMarkAvailable={
                 request.status === "pending"
-                  ? () => onMarkAvailable(request.id)
+                  ? () => onMarkAvailable(request.id, !!request.requestedByTechnician)
                   : undefined
               }
               onSetETA={
@@ -122,7 +122,10 @@ export function JobCardPartsGroup({
                   : undefined
               }
               onDispatch={
-                request.status === "available"
+                // ETA is an estimate, not a guarantee — PM can dispatch
+                // directly from 'unavailable' once the part physically
+                // arrives, without first re-marking it 'available'.
+                request.status === "available" || request.status === "unavailable"
                   ? () => onDispatch(request.id)
                   : undefined
               }

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, User, Calendar, Wrench, ClipboardCheck, Image as ImageIcon, Clock } from "lucide-react";
+import { ArrowLeft, Loader2, User, ClipboardCheck, Wrench, Clock, Image as ImageIcon } from "lucide-react";
 import truck from "../../assets/truck.png";
-import { getVehicleDetails, getVehicleVisitHistory } from "../../api/vehicle.api";
-import type { VehicleDetailData, VehicleVisit } from "../../api/vehicle.api";
+import { getVehicleDetails } from "../../api/vehicle.api";
+import type { VehicleDetailData } from "../../api/vehicle.api";
+import { getVehicleJobCards } from "../../api/serviceAdvisor.api";
+import type { SAJobCard } from "../../api/serviceAdvisor.api";
+import { getV360Timeline, type V360Timeline } from "../../api/vehicle360.api";
 import ROUTES from "../../constants/routes";
 
 
@@ -63,27 +66,37 @@ const Vehicle360VehicleDetail: React.FC = () => {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
   const [tab,         setTab]         = useState<Tab>("overview");
-  const [visits,      setVisits]      = useState<VehicleVisit[]>([]);
-  const [vLoading,    setVLoading]    = useState(false);
-  const [expandedId,  setExpandedId]  = useState<string | null>(null);
+  const [, setJobCards] = useState<SAJobCard[]>([]);
+  const [jcLoading,   setJcLoading]   = useState(false);
+  const [v360,        setV360]        = useState<V360Timeline | null>(null);
+  const [v360Loading, setV360Loading] = useState(false);
+  const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
 
   useEffect(() => {
     if (!vehicleId) return;
     setLoading(true);
     getVehicleDetails(vehicleId)
-      .then((res) => { if (res.success) setData(res.data); })
+      .then((res: any) => { if (res?.success?.status && res.data) setData(res.data); })
       .catch(() => setError("Failed to load vehicle details"))
       .finally(() => setLoading(false));
   }, [vehicleId]);
 
   useEffect(() => {
     if (tab !== "service" || !vehicleId) return;
-    setVLoading(true);
-    getVehicleVisitHistory(vehicleId)
-      .then((res) => { if (res.success) setVisits(res.data ?? []); })
-      .catch(() => setVisits([]))
-      .finally(() => setVLoading(false));
+    setJcLoading(true);
+    getVehicleJobCards(vehicleId)
+      .then((res: any) => { if (res?.success?.status && res.data) setJobCards(res.data.jobCards); })
+      .catch(() => setJobCards([]))
+      .finally(() => setJcLoading(false));
+    setV360Loading(true);
+    getV360Timeline(vehicleId)
+      .then((res) => { if (res?.success?.status && res.data) setV360(res.data); })
+      .catch(() => setV360(null))
+      .finally(() => setV360Loading(false));
   }, [tab, vehicleId]);
+
+  const toggleVisit = (id: string) =>
+    setExpandedVisit((prev) => (prev === id ? null : id));
 
   if (loading) {
     return (
@@ -134,7 +147,7 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
         <div className="flex-1 min-w-0">
           <h1 className="text-[#222] text-[15px] font-semibold leading-tight">
-            {(vehicle.registrationNumber || vehicle.vin || "").toUpperCase()}
+            {vehicle.registrationNumber || vehicle.vin}
           </h1>
           <p className="text-[#999] text-[12px] truncate">
             {vehicle.brand} {vehicle.model}{vehicle.modelVariant ? ` · ${vehicle.modelVariant}` : ""}
@@ -182,8 +195,8 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
           {/* Vehicle Identification */}
           <Section title="Vehicle Identification">
-            <InfoRow label="Registration"  value={vehicle.registrationNumber?.toUpperCase()} />
-            <InfoRow label="VIN"           value={vehicle.vin?.toUpperCase()} />
+            <InfoRow label="Registration"  value={vehicle.registrationNumber} />
+            <InfoRow label="VIN"           value={vehicle.vin} />
             <InfoRow label="Engine No."    value={vehicle.engineNumber} />
             <InfoRow label="Make / Model"  value={`${vehicle.brand} ${vehicle.model}`} />
             <InfoRow label="Variant"       value={vehicle.transmissionType} />
@@ -242,189 +255,182 @@ const Vehicle360VehicleDetail: React.FC = () => {
 
       {tab === "service" && (
         <>
-          {vLoading ? (
+          {v360Loading || jcLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
             </div>
-          ) : visits.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#f0f0f0] px-5 py-12 text-center">
-              <p className="text-[#999] text-sm">No visit history found</p>
-            </div>
           ) : (
             <>
-              {/* Summary strip */}
-              {(() => {
-                const currentVisit = visits.find((v) => v.isCurrentVisit) ?? visits[0];
-                const latestOdometer = Math.max(...visits.map((v) => v.odometerReading ?? 0));
-                return (
-                  <div className="bg-white rounded-2xl border border-[#f0f0f0] px-5 py-1 mb-4">
-                    <h3 className="text-[#333] text-[13px] font-semibold py-4 border-b border-[#f0f0f0]">Summary</h3>
-                    <InfoRow label="Total Visits"  value={visits.length} />
-                    <InfoRow label="Last Visit"    value={new Date(currentVisit.checkInTime).toLocaleDateString("en-CA")} />
-                    <InfoRow label="Last Odometer" value={latestOdometer > 0 ? `${latestOdometer.toLocaleString()} km` : "—"} />
-                  </div>
-                );
-              })()}
+              {/* Summary */}
+              <div className="bg-white rounded-2xl border border-[#f0f0f0] px-5 py-1 mb-4">
+                <h3 className="text-[#333] text-[15px] font-semibold py-4">Summary</h3>
+                <div className="flex items-center justify-between py-3.5 border-t border-[#f5f5f5]">
+                  <span className="text-[#999] text-[13px]">Total Visits</span>
+                  <span className="text-[#222] text-[13px] font-medium">{v360?.summary.visitCount ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between py-3.5 border-t border-[#f5f5f5]">
+                  <span className="text-[#999] text-[13px]">Last Visit</span>
+                  <span className="text-[#222] text-[13px] font-medium">
+                    {v360?.visits[0]?.arrivedAt
+                      ? new Date(v360.visits[0].arrivedAt).toLocaleDateString("en-CA")
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3.5 border-t border-[#f5f5f5]">
+                  <span className="text-[#999] text-[13px]">Last Odometer</span>
+                  <span className="text-[#222] text-[13px] font-medium">
+                    {v360?.visits[0]?.odometerIn != null ? `${v360.visits[0].odometerIn} km` : "—"}
+                  </span>
+                </div>
+              </div>
 
-              {/* Visit cards */}
-              <div className="space-y-3">
-                {visits.map((v, idx) => {
-                  const isOpen    = expandedId === v.id;
-                  const dateStr   = new Date(v.checkInTime).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-                  const timeStr   = new Date(v.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-                  const svcLabel  = v.jobCard?.serviceType?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? null;
-                  const inspColor = v.inspection?.overallStatus === "PASS" ? "text-[#00BF06]" : v.inspection?.overallStatus === "FAIL" ? "text-[#ff4f31]" : "text-[#E07B00]";
-                  const statusColor = v.isCurrentVisit
-                    ? "bg-[#B3FFBD] text-[#00BF06]"
-                    : v.status === "COMPLETED" ? "bg-[#dbeafe] text-[#2563eb]"
-                    : v.status === "CANCELLED" ? "bg-[#FFC0D1] text-[#FF4F31]"
-                    : "bg-[#f0f0f0] text-[#777]";
-                  const statusLabel = v.isCurrentVisit ? "Current Visit"
-                    : v.status.replace("_", " ");
-
-                  return (
-                    <div key={v.id} className="bg-white rounded-2xl border border-[#f0f0f0] overflow-hidden">
-                      {/* Header row — always visible */}
-                      <button
-                        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-[#fafafa] transition-colors"
-                        onClick={() => setExpandedId(isOpen ? null : v.id)}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-[#f5f5f5] flex items-center justify-center shrink-0 text-[#999] text-[12px] font-semibold">
-                          {visits.length - idx}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[#222] text-[13px] font-semibold leading-tight">{dateStr} · {timeStr}</p>
-                          <p className="text-[#999] text-[11px] mt-0.5">{v.odometerReading.toLocaleString()} km{svcLabel ? ` · ${svcLabel}` : ""}</p>
-                        </div>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold shrink-0 ${statusColor}`}>
-                          {statusLabel}
-                        </span>
-                      </button>
-
-                      {/* Expanded detail */}
-                      {isOpen && (
-                        <div className="border-t border-[#f5f5f5] px-5 pb-5 pt-4 space-y-4">
-
-                          {/* Photos */}
-                          {v.photos.length > 0 && (
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <ImageIcon size={13} className="text-[#999]" />
-                                <p className="text-[#999] text-[12px] font-medium">Entry Photos</p>
-                              </div>
-                              <div className="flex gap-2 overflow-x-auto pb-1">
-                                {v.photos.map((p) => (
-                                  <div key={p.id} className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-[#f0f0f0]">
-                                    <img src={p.imageUrl} alt={p.photoType} className="w-full h-full object-cover" />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+              {/* Visit list */}
+              {!v360 || v360.visits.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-[#f0f0f0] py-8">
+                  <p className="text-[#999] text-sm text-center">No service history found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {v360.visits.map((visit, idx) => {
+                    const visitNo = v360.visits.length - idx;
+                    const isCurrent = !visit.releasedAt;
+                    const isOpen = expandedVisit === visit.checkInId;
+                    const date = new Date(visit.arrivedAt);
+                    const dateStr = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                    const timeStr = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                    const serviceLabel = visit.jobCard?.serviceType ?? "—";
+                    return (
+                      <div key={visit.checkInId} className="bg-white rounded-2xl border border-[#f0f0f0] overflow-hidden">
+                        <button
+                          onClick={() => toggleVisit(visit.checkInId)}
+                          className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-[#fafafa]">
+                          <div className="w-9 h-9 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#666] text-[13px] font-semibold shrink-0">
+                            {visitNo}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-semibold text-[#333]">
+                              {dateStr} · <span className="text-[#222]">{timeStr}</span>
+                            </p>
+                            <p className="text-[12px] text-[#999] mt-0.5">
+                              {visit.odometerIn} km · {serviceLabel}
+                            </p>
+                          </div>
+                          {isCurrent && (
+                            <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-[#B3FFBD] text-[#00BF06] shrink-0">
+                              Current Visit
+                            </span>
                           )}
+                        </button>
 
-                          {/* Appointment */}
-                          {v.appointment && (
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Calendar size={13} className="text-[#999]" />
-                                <p className="text-[#999] text-[12px] font-medium">Appointment</p>
-                              </div>
-                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3 space-y-1.5">
-                                <div className="flex justify-between text-[12px]">
-                                  <span className="text-[#999]">Date</span>
-                                  <span className="text-[#222] font-medium">{v.appointment.appointmentDate} · {v.appointment.appointmentTime}</span>
+                        {isOpen && (() => {
+                          // Per-visit check-in photos if present, else fall back
+                          // to the vehicle-level images (gallery on the overview
+                          // tab uses the same set).
+                          const photos = visit.entryPhotos.length > 0
+                            ? visit.entryPhotos
+                            : (data.images ?? []).map((im: any) => im.imagePath).filter(Boolean);
+                          return (
+                          <div className="px-5 pb-5 border-t border-[#f5f5f5]">
+                            {/* Entry Photos */}
+                            {photos.length > 0 && (
+                              <div className="pt-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <ImageIcon size={14} className="text-[#999]" />
+                                  <span className="text-[13px] text-[#333] font-medium">Entry Photos</span>
                                 </div>
-                                {v.appointment.serviceType && (
-                                  <div className="flex justify-between text-[12px]">
-                                    <span className="text-[#999]">Service</span>
-                                    <span className="text-[#222] font-medium">{v.appointment.serviceType}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* QC Inspection */}
-                          {v.inspection && (
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <ClipboardCheck size={13} className="text-[#999]" />
-                                <p className="text-[#999] text-[12px] font-medium">QC Inspection</p>
-                              </div>
-                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3 space-y-1.5">
-                                <div className="flex justify-between text-[12px]">
-                                  <span className="text-[#999]">Result</span>
-                                  <span className={`font-semibold ${inspColor}`}>{v.inspection.overallStatus ?? "—"}</span>
-                                </div>
-                                {v.inspection.finalRemarks && (
-                                  <div className="flex justify-between text-[12px]">
-                                    <span className="text-[#999]">Remarks</span>
-                                    <span className="text-[#222] font-medium text-right max-w-[60%]">{v.inspection.finalRemarks}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Job Card */}
-                          {v.jobCard && (
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Wrench size={13} className="text-[#999]" />
-                                <p className="text-[#999] text-[12px] font-medium">Job Card</p>
-                              </div>
-                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3 space-y-1.5">
-                                {v.jobCard.serviceType && (
-                                  <div className="flex justify-between text-[12px]">
-                                    <span className="text-[#999]">Service</span>
-                                    <span className="text-[#222] font-medium">{v.jobCard.serviceType.replace(/_/g, " ")}</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between text-[12px]">
-                                  <span className="text-[#999]">Estimate</span>
-                                  <span className="text-[#222] font-medium">{v.jobCard.totalEstimate ? `${parseFloat(v.jobCard.totalEstimate).toLocaleString()}` : "—"}</span>
-                                </div>
-                                <div className="flex justify-between text-[12px]">
-                                  <span className="text-[#999]">Status</span>
-                                  <span className="text-[#222] font-medium">{v.jobCard.status.replace(/_/g, " ")}</span>
+                                <div className="flex gap-3 flex-wrap">
+                                  {photos.map((url: string, i: number) => (
+                                    <a key={i} href={url} target="_blank" rel="noreferrer"
+                                       className="w-20 h-20 rounded-lg overflow-hidden border border-[#f0f0f0] block">
+                                      <img src={url} alt="" className="w-full h-full object-cover" />
+                                    </a>
+                                  ))}
                                 </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {/* Timeline */}
-                          {v.events && v.events.length > 0 && (
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <Clock size={13} className="text-[#999]" />
-                                <p className="text-[#999] text-[12px] font-medium">Timeline</p>
+                            {/* QC Inspection */}
+                            {visit.qcInspection && (
+                              <div className="mt-5">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <ClipboardCheck size={14} className="text-[#999]" />
+                                  <span className="text-[13px] text-[#333] font-medium">QC Inspection</span>
+                                </div>
+                                <div className="flex items-center justify-between bg-[#fafafa] rounded-lg px-3 py-2.5">
+                                  <span className="text-[12px] text-[#999]">Result</span>
+                                  <span className={`text-[12px] font-semibold ${
+                                    visit.qcInspection.overallStatus === "PASS" ? "text-[#00BF06]"
+                                    : visit.qcInspection.overallStatus === "FAIL" ? "text-[#FF4F31]"
+                                    : "text-[#E07B00]"
+                                  }`}>
+                                    {visit.qcInspection.overallStatus ?? "—"}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="bg-[#f9f9f9] rounded-xl px-4 py-3">
-                                <ol className="relative border-l border-[#e5e5e5] ml-1.5 space-y-3">
-                                  {v.events.map((ev, i) => {
-                                    const d = new Date(ev.at);
-                                    const when = `${d.toLocaleDateString("en-CA")} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-                                    return (
-                                      <li key={`${ev.type}-${i}`} className="ml-3">
-                                        <span className="absolute -left-[5px] mt-1 w-2.5 h-2.5 rounded-full bg-[#f47920] border-2 border-white" />
-                                        <p className="text-[12px] text-[#222] font-medium leading-snug">{ev.label}</p>
-                                        <p className="text-[11px] text-[#999] mt-0.5">
-                                          {when}
-                                          {ev.by && <> · by <span className="text-[#555]">{ev.by}</span></>}
+                            )}
+
+                            {/* Job Card */}
+                            {visit.jobCard && (
+                              <div className="mt-5">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Wrench size={14} className="text-[#999]" />
+                                  <span className="text-[13px] text-[#333] font-medium">Job Card</span>
+                                </div>
+                                <div className="bg-[#fafafa] rounded-lg px-3 py-1">
+                                  <div className="flex items-center justify-between py-2 border-b border-[#f0f0f0]">
+                                    <span className="text-[12px] text-[#999]">Service</span>
+                                    <span className="text-[12px] text-[#222] font-medium">{visit.jobCard.serviceType ?? "—"}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between py-2 border-b border-[#f0f0f0]">
+                                    <span className="text-[12px] text-[#999]">Estimate</span>
+                                    <span className="text-[12px] text-[#222] font-medium">
+                                      {Number(visit.jobCard.totalEstimate ?? 0).toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between py-2">
+                                    <span className="text-[12px] text-[#999]">Status</span>
+                                    <span className="text-[12px] text-[#222] font-medium">
+                                      {visit.jobCard.status.replace(/_/g, " ")}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Timeline */}
+                            {visit.events.length > 0 && (
+                              <div className="mt-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <Clock size={14} className="text-[#999]" />
+                                  <span className="text-[13px] text-[#333] font-medium">Timeline</span>
+                                </div>
+                                <ol className="space-y-2.5">
+                                  {visit.events.map((e, i) => (
+                                    <li key={i} className="flex gap-2.5">
+                                      <span className="w-2 h-2 rounded-full bg-[#ff4f31] mt-1.5 shrink-0" />
+                                      <div className="min-w-0">
+                                        <p className="text-[13px] text-[#333] leading-tight">{e.summary}</p>
+                                        <p className="text-[11px] text-[#bbb] mt-0.5">
+                                          {new Date(e.at).toLocaleString("en-CA", {
+                                            year: "numeric", month: "2-digit", day: "2-digit",
+                                            hour: "2-digit", minute: "2-digit", hour12: false,
+                                          })}
+                                          {e.actor ? ` · by ${e.actor}` : ""}
                                         </p>
-                                      </li>
-                                    );
-                                  })}
+                                      </div>
+                                    </li>
+                                  ))}
                                 </ol>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                            )}
+                          </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </>

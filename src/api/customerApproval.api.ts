@@ -36,10 +36,15 @@ export interface EstimateItem {
   labourCost: string;
   quantity: number;
   lineTotal: string;
+  // null = pending approval (supplementary), true = already approved,
+  // false = previously rejected (excluded from billing).
+  isApprovedByCustomer: boolean | null;
   partStatus: PartStatus | null;
   partExpectedTime: string | null;
   parts: EstimatePart[];
 }
+
+export type ApprovalMode = 'INITIAL' | 'SUPPLEMENTARY';
 
 export interface EstimateData {
   jobCard: {
@@ -53,8 +58,20 @@ export interface EstimateData {
     sharedAt: string | null;
     approvedAt: string | null;
     currencyCode: string;
+    modificationNote: string | null;
   };
   items: EstimateItem[];
+  // Supplementary-mode derived fields. In INITIAL mode, pendingItems
+  // === items and approvedItems is empty.
+  approvalMode: ApprovalMode;
+  pendingItems: EstimateItem[];
+  approvedItems: EstimateItem[];
+  priorApprovedSubtotal: string;
+  priorApprovedTax: string;
+  priorApprovedTotal: string;
+  additionalSubtotal: string;
+  additionalTaxAmount: string;
+  newTotal: string;
   vehicle: {
     brand: string;
     model: string;

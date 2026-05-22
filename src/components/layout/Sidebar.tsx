@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users, CalendarDays, Globe, Wrench, CarFront } from "lucide-react";
+import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users, CalendarDays, Globe, Wrench, CarFront, ShieldCheck, Droplets, BadgeAlert, Receipt, KeyRound } from "lucide-react";
 // import { BadgeCheck, User, Receipt } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../context/AuthContext";
@@ -30,6 +30,12 @@ const NAV_ITEMS: NavItem[] = [
   { route: ROUTES.VEHICLE_360_DASHBOARD, icon: Globe, label: "Vehicle 360", resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW },
   { route: ROUTES.MODEL_SERVICE_TYPE, icon: Wrench, label: "Model Service Types", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
   { route: ROUTES.TECHNICIAN_DASHBOARD, icon: Wrench, label: "Technician", resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW },
+  { route: ROUTES.FOREMAN_DASHBOARD, icon: Wrench, label: "Workshop", resource: MODULES.WORKSHOP, action: ACTIONS.VIEW },
+  { route: ROUTES.QC_OUT_INSPECTION_DASHBOARD, icon: ShieldCheck, label: "QC Out", resource: MODULES.QC_OUT, action: ACTIONS.VIEW },
+  { route: ROUTES.WASHBAY_DASHBOARD, icon: Droplets, label: "Washbay", resource: MODULES.WASHBAY, action: ACTIONS.VIEW },
+  { route: ROUTES.WARRANTY_STORE, icon: BadgeAlert, label: "Warranty Store", resource: MODULES.WARRANTY, action: ACTIONS.VIEW },
+  { route: ROUTES.FINANCE_BILLING_DASHBOARD, icon: Receipt, label: "Billing", resource: MODULES.INVOICING, action: ACTIONS.VIEW },
+  { route: ROUTES.GATE_RELEASE, icon: KeyRound, label: "Gate Release", resource: MODULES.GATE_RELEASE, action: ACTIONS.VIEW },
 ];
 
 export function Sidebar({ open, setOpen }: Props) {
@@ -86,7 +92,7 @@ export function Sidebar({ open, setOpen }: Props) {
         )}
 
         {/* Permission-based nav items — scrollable */}
-        <div className="flex-1 overflow-y-auto w-full flex flex-col items-center scrollbar-hide">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden w-full flex flex-col items-center scrollbar-hide">
           {visibleItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.route);

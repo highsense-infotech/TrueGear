@@ -78,9 +78,15 @@ function CustomerApprovalDashboard() {
         if (res.success?.status) {
           setEstimateData(res.data);
 
-          // Map API items to Job format
+          // Supplementary mode = some items already approved + some new
+          // items pending decision. Show ONLY the new items so the
+          // customer reviews just the addition, not the full estimate.
+          // Initial mode = show all items as today.
           const fmtForMapping = makeFmt(res.data.jobCard.currencyCode);
-          const mappedJobs: Job[] = res.data.items.map((item: EstimateItem, idx: number) => ({
+          const sourceItems = res.data.approvalMode === 'SUPPLEMENTARY'
+            ? res.data.pendingItems
+            : res.data.items;
+          const mappedJobs: Job[] = sourceItems.map((item: EstimateItem, idx: number) => ({
             id: idx + 1,
             itemId: item.id,
             title: item.jobDescription,
@@ -276,10 +282,33 @@ function CustomerApprovalDashboard() {
           </div>
         )}
 
+        {/* Supplementary-mode banner — explains that this is an addition
+            to a previously-approved estimate, not a fresh ask. */}
+        {estimateData?.approvalMode === 'SUPPLEMENTARY' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-[10px] p-4 sm:p-5 mb-3 sm:mb-4">
+            <p className="text-[14px] sm:text-[15px] font-semibold text-amber-800 mb-1">
+              ⚠ Additional work needed
+            </p>
+            <p className="text-[12px] sm:text-[13px] text-amber-900">
+              We found additional work on your vehicle during the service.
+              Your original estimate is unchanged — please review only the
+              new items below.
+            </p>
+            {estimateData.jobCard.modificationNote && (
+              <p className="text-[12px] sm:text-[13px] text-amber-900 italic mt-2">
+                "{estimateData.jobCard.modificationNote}"
+              </p>
+            )}
+            <div className="mt-3 text-[12px] sm:text-[13px] text-amber-900 space-y-0.5">
+              <p>Previously approved: <span className="font-semibold">{fmt(Number(estimateData.priorApprovedTotal))}</span></p>
+            </div>
+          </div>
+        )}
+
         {/* Job Cards */}
         <div className="bg-white rounded-[10px] border border-[#e5e7eb] p-4 sm:p-5">
           <h3 className="text-[14px] sm:text-[16px] font-semibold text-[#333] mb-6 sm:mb-8">
-            Select jobs to approve:
+            {estimateData?.approvalMode === 'SUPPLEMENTARY' ? 'Additional items:' : 'Select jobs to approve:'}
           </h3>
           <div className="space-y-4 sm:space-y-8">
             {jobs.map(function (job) {

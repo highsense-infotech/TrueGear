@@ -29,6 +29,11 @@ interface DisplayVehicle {
   status: string;
   customerName?: string;
   frontImage?: string | null;
+  receivingNo?: string | null;
+  roStatus?: string | null;
+  bayNo?: string | null;
+  allocationPriority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT" | null;
+  repairCategory?: string | null;
 }
 
 // Statuses where gate keeper may still edit/delete the vehicle entry.
@@ -93,8 +98,32 @@ function mapVehicleItem(v: VehicleItem): DisplayVehicle {
     status: v.status,
     customerName: v.customerName,
     frontImage: v.frontImage || null,
+    receivingNo: v.receivingNo ?? null,
+    roStatus: v.roStatus ?? null,
+    bayNo: v.bayNo ?? null,
+    allocationPriority: v.allocationPriority ?? null,
+    repairCategory: v.repairCategory ?? null,
   };
 }
+
+// Maps canonical RO status (15-state flow) to a friendly label.
+const RO_STATUS_LABEL: Record<string, string> = {
+  ARRIVED: "Arrived",
+  QC_CHECK_IN: "QC Check-In",
+  IN_WORKSHOP: "In Workshop",
+  DIAGNOSING: "Diagnosing",
+  AWAITING_APPROVAL: "Awaiting Approval",
+  APPROVED: "Approved",
+  WAITING_FOR_PARTS: "Waiting for Parts",
+  REPAIRS_STARTED: "Repairs Started",
+  QC_OUT: "QC Out",
+  QC_FAILED: "QC Failed",
+  QC_PASSED: "QC Passed",
+  WASHBAY: "Washbay",
+  READY_FOR_RELEASE: "Ready for Release",
+  RELEASED: "Released",
+  CLOSED: "Closed",
+};
 
 
 export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal }: VehicleTableProps) {
@@ -105,8 +134,12 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const itemsPerPage = 10;
+  // Use local date (en-CA gives YYYY-MM-DD), not UTC, so the picker matches what
+  // the user calls "today" regardless of timezone.
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toLocaleDateString("en-CA"),
+  );
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const navigate = useNavigate();
   const [showVehicleInput, setShowVehicleInput] = useState(false);
@@ -158,8 +191,8 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
       const res = await listVehicles(params);
       if (res.success) {
         setVehicles((res.data?.data ?? []).map(mapVehicleItem));
-        setTotalPages(Math.ceil((res.data?.total ?? 0) / (res.data?.limit ?? 10)));
-        setTotalItems(res.data?.total ?? 0);
+        setTotalPages(res.data?.pagination?.totalPages ?? 1);
+        setTotalItems(res.data?.pagination?.total ?? 0);
       } else {
         setVehicles([]);
         setTotalPages(1);
@@ -472,6 +505,29 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                         <div>
                           <p className="text-[#333]">{vehicle.registration.toUpperCase()}</p>
                           <p className="text-[#999] text-xs">{vehicle.model}</p>
+                          {vehicle.receivingNo && (
+                            <p className="text-[#ff4f31] text-[10px] font-semibold tracking-wide mt-0.5">
+                              {vehicle.receivingNo}
+                              {vehicle.roStatus && (
+                                <span className="ml-1.5 text-[#555] font-normal">
+                                  · {RO_STATUS_LABEL[vehicle.roStatus] ?? vehicle.roStatus}
+                                </span>
+                              )}
+                            </p>
+                          )}
+                          {vehicle.bayNo && (
+                            <p className="text-[10px] mt-0.5 flex items-center gap-1 flex-wrap">
+                              <span className="bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                                {vehicle.bayNo}
+                              </span>
+                              {vehicle.allocationPriority && (
+                                <span className="text-[#666]">· {vehicle.allocationPriority}</span>
+                              )}
+                              {vehicle.repairCategory && (
+                                <span className="text-[#666]">· {vehicle.repairCategory}</span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -646,6 +702,10 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
           totalItems={totalItems}
           itemsPerPage={itemsPerPage}
           onPageChange={handlePageChange}
+          onItemsPerPageChange={(limit) => {
+            setItemsPerPage(limit);
+            setCurrentPage(1);
+          }}
         />
       )}
       {/* Delete Confirmation Modal */}

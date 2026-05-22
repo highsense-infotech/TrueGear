@@ -90,6 +90,7 @@ interface QCTableProps {
   filter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED";
   onFilterChange: (filter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED") => void;
   onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (limit: number) => void;
   onStartInspection: (vehicle: QCQueueItem) => void;
   onResumeInspection: (vehicle: QCQueueItem) => void;
   actionLoadingId?: string | null;
@@ -97,7 +98,7 @@ interface QCTableProps {
   onDateChange: (date: string) => void;
 }
 
-export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onStartInspection, onResumeInspection, actionLoadingId = null, selectedDate, onDateChange }: QCTableProps) {
+export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onItemsPerPageChange, onStartInspection, onResumeInspection, actionLoadingId = null, selectedDate, onDateChange }: QCTableProps) {
   const statusFilter: StatusFilter = filter === "ALL" ? "All" : filter === "URGENT" ? "Urgent" : filter === "COMPLETED" ? "Completed" : "Delayed";
 
   const handleStatusFilterChange = (f: StatusFilter) => {
@@ -360,6 +361,7 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
           totalItems={pagination.total}
           itemsPerPage={pagination.limit}
           onPageChange={onPageChange}
+          onItemsPerPageChange={onItemsPerPageChange}
         />
       )}
     </div>

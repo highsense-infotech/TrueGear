@@ -19,9 +19,19 @@ export interface ManagedUser {
   role: { name: string; slug: string };
 }
 
+export interface RolesPaginatedData {
+  data: ManagedRole[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
 // ─── Roles ───────────────────────────────────────────────────────────────────
 export const listRoles = (): Promise<ApiResponse<ManagedRole[]>> =>
   api.get('/user-management/roles').then((res) => res.data);
+
+export const listRolesPaginated = (
+  params: { page: number; limit: number },
+): Promise<ApiResponse<RolesPaginatedData>> =>
+  api.get('/user-management/roles', { params }).then((res) => res.data);
 
 export const createRole = (data: {
   name: string;
@@ -43,6 +53,17 @@ export const listUsers = (roleSlug?: string): Promise<ApiResponse<ManagedUser[]>
   api
     .get('/user-management/users', { params: roleSlug ? { roleSlug } : undefined })
     .then((res) => res.data);
+
+export interface UsersPaginatedData {
+  data: ManagedUser[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+  stats: { totalUsers: number; totalActive: number };
+}
+
+export const listUsersPaginated = (
+  params: { page: number; limit: number; roleSlug?: string; search?: string },
+): Promise<ApiResponse<UsersPaginatedData>> =>
+  api.get('/user-management/users', { params }).then((res) => res.data);
 
 export const createUser = (data: {
   username: string;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Bell, Settings, LogOut, Menu, ChevronDown, Loader2 } from "lucide-react";
+import NotificationBell from "../common/NotificationBell";
 import userAvatar from "../../assets/user.jpg";
 import Button from "../common/Button";
 import { ROUTES } from "../../constants/routes";
@@ -97,11 +98,7 @@ export function Header({ toggleSidebar }: Props) {
         </div>
 
         {/* Icons */}
-        <Button
-          variant="outline"
-          className="p-2! h-10!"
-          icon={<Bell className="w-5 h-5 text-[#8C8C8C]" />}
-        />
+        <NotificationBell />
         <Button
           variant="outline"
           className="p-2! h-10!"
@@ -119,11 +116,7 @@ export function Header({ toggleSidebar }: Props) {
 
       {/* Mobile Right Icons */}
       <div className="flex md:hidden items-center gap-2">
-        <Button
-          variant="outline"
-          className="p-2!"
-          icon={<Bell className="w-5 h-5 text-[#8C8C8C]" />}
-        />
+        <NotificationBell />
         <Button
           className="p-2!"
           variant="outline"

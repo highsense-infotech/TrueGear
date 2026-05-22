@@ -4,6 +4,8 @@ import { StatCard } from "../../components/cards/StatCard.tsx";
 import { Wrench, Clock, Loader2 } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { getMyTechnicianJobs, type TechnicianItem } from "../../api/serviceAdvisor.api";
+import ProgressChip from "../../components/common/ProgressChip";
+import { Pagination } from "../../components/common/Pagination";
 
 const statusConfig = {
   pending: { label: "Pending", bg: "bg-[#FFE1B7]", text: "text-[#E89D00]" },
@@ -32,17 +34,27 @@ const TechnicianDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "progress" | "completed">("pending");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getMyTechnicianJobs()
+    getMyTechnicianJobs({ page, limit: pageSize, status: activeTab })
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) {
           setItems(res.data.items);
           setStats(res.data.stats);
+          setTotal(res.data.pagination?.total ?? res.data.items.length);
+          setTotalPages(res.data.pagination?.totalPages ?? 1);
         } else {
           setError(res.error?.message ?? "Failed to load jobs");
         }
@@ -50,10 +62,10 @@ const TechnicianDashboard = () => {
       .catch(() => { if (!cancelled) setError("Failed to load jobs"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [page, pageSize, activeTab]);
 
   const pad2 = (n: number) => n.toString().padStart(2, "0");
-  const visible = items.filter((i) => i.status === activeTab);
+  const visible = items;
 
   return (
     <>
@@ -84,7 +96,7 @@ const TechnicianDashboard = () => {
           Today's job
         </h2>
         <p className="text-[13px] sm:text-[14px] text-[#999]">
-          {items.length} task{items.length === 1 ? "" : "s"} assigned
+          {total} task{total === 1 ? "" : "s"} assigned
         </p>
       </div>
 
@@ -162,6 +174,8 @@ const TechnicianDashboard = () => {
                           {item.isRunning && <span className="text-[#ff4f31] ml-1">• live</span>}
                         </span>
                       )}
+                      {/* Phase 3 — actual-vs-estimated chip */}
+                      <ProgressChip totalSeconds={item.totalSeconds} estimatedHours={item.estimatedHours} />
                     </div>
                   </div>
                   <div className={`${s.bg} px-4 py-1.5 rounded-md shrink-0`}>
@@ -173,6 +187,22 @@ const TechnicianDashboard = () => {
               </div>
             );
           })}
+
+          {total > 0 && (
+            <div className="mt-4 pt-2 border-t border-[#f0f0f0]">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={total}
+                itemsPerPage={pageSize}
+                onPageChange={setPage}
+                onItemsPerPageChange={(l) => {
+                  setPageSize(l);
+                  setPage(1);
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
     </>

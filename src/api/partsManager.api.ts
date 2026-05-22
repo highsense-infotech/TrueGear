@@ -14,6 +14,7 @@ export interface PartRequest {
   requestTime: string;
   showDispatchInfo?: boolean;
   expectedTime?: string | null;
+  requestedByTechnician?: boolean;
 }
 
 export interface PartsDashboardStats {
@@ -38,8 +39,24 @@ export const getPartsDashboard = (): Promise<ApiResponse<{ stats: PartsDashboard
 export const getPartRequests = (status?: PartStatus): Promise<ApiResponse<PartRequest[]>> =>
   api.get('/parts-manager/parts', { params: status ? { status } : undefined }).then((res) => res.data);
 
-export const markPartAvailable = (partId: string): Promise<ApiResponse<{ id: string; status: string }>> =>
-  api.put(`/parts-manager/parts/${partId}/mark-available`).then((res) => res.data);
+export interface MarkAvailablePayload {
+  unitPrice?: number;
+  extraLabourCost?: number;
+}
+
+export interface MarkAvailableResult {
+  id: string;
+  status: string;
+  customerApprovalStatus?: string;
+  approvalUrl?: string;
+  newTotalEstimate?: string;
+}
+
+export const markPartAvailable = (
+  partId: string,
+  payload: MarkAvailablePayload = {},
+): Promise<ApiResponse<MarkAvailableResult>> =>
+  api.put(`/parts-manager/parts/${partId}/mark-available`, payload).then((res) => res.data);
 
 export const markPartUnavailable = (
   partId: string,

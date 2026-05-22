@@ -48,6 +48,7 @@ const Vehicle360Dashboard: React.FC = () => {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedDate]  = useState("");
   const [currentPage,   setCurrentPage]   = useState(1);
+  const [pageSize,      setPageSize]      = useState(10);
   const [deleteTarget,  setDeleteTarget]  = useState<VehicleItem | null>(null);
   const [isDeleting,    setIsDeleting]    = useState(false);
   const [deleteError,   setDeleteError]   = useState<string | null>(null);
@@ -58,18 +59,18 @@ const Vehicle360Dashboard: React.FC = () => {
     setLoading(true);
     try {
       const params: Record<string, string | number | boolean> = {
-        page: currentPage, limit: 10, sortOrder: "desc", includeAll: true,
+        page: currentPage, limit: pageSize, sortOrder: "desc", includeAll: true,
       };
       if (appliedSearch.trim()) params.vin = appliedSearch.trim();
       if (selectedDate) { params.dateFrom = selectedDate; params.dateTo = selectedDate; }
       const res = await listVehicles(params);
-      if (res.success) { setVehicles(res.data?.data ?? []); setPagination({ page: res.data?.page ?? 1, limit: res.data?.limit ?? 10, total: res.data?.total ?? 0, totalPages: Math.ceil((res.data?.total ?? 0) / (res.data?.limit ?? 10)) }); }
+      if (res.success) { setVehicles(res.data?.data ?? []); setPagination({ page: res.data?.pagination?.page ?? 1, limit: res.data?.pagination?.limit ?? 10, total: res.data?.pagination?.total ?? 0, totalPages: res.data?.pagination?.totalPages ?? 1 }); }
     } catch {
       toast.error("Failed to load vehicles");
     } finally {
       setLoading(false);
     }
-  }, [currentPage, appliedSearch, selectedDate]);
+  }, [currentPage, pageSize, appliedSearch, selectedDate]);
 
   useEffect(() => { fetchVehicles(); }, [fetchVehicles]);
   useEffect(() => { setCurrentPage(1); }, [appliedSearch, selectedDate]);
@@ -264,14 +265,18 @@ const Vehicle360Dashboard: React.FC = () => {
           )}
 
           {/* pagination */}
-          {!loading && pagination.totalPages > 1 && (
+          {!loading && pagination.total > 0 && (
             <div className="mt-5 pt-4 border-t border-[#f0f0f0]">
               <Pagination
                 currentPage={currentPage}
                 totalPages={pagination.totalPages}
                 totalItems={pagination.total}
-                itemsPerPage={10}
+                itemsPerPage={pageSize}
                 onPageChange={setCurrentPage}
+                onItemsPerPageChange={(l) => {
+                  setPageSize(l);
+                  setCurrentPage(1);
+                }}
               />
             </div>
           )}

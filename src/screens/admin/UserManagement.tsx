@@ -14,12 +14,14 @@ import {
 import Modal from "../../components/common/Modal.tsx";
 import Button from "../../components/common/Button.tsx";
 import { StatCard } from "../../components/cards/StatCard.tsx";
+import { Pagination } from "../../components/common/Pagination.tsx";
 import {
   listRoles,
+  listRolesPaginated,
   createRole,
   updateRole,
   deleteRole,
-  listUsers,
+  listUsersPaginated,
   createUser,
   updateUser,
   deleteUser,
@@ -256,10 +258,22 @@ function RolesTab() {
   const [deleteTarget, setDeleteTarget] = useState<ManagedRole | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalRoles, setTotalRoles] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [activeRoles, setActiveRoles] = useState(0);
+
   const fetchRoles = async () => {
+    setLoading(true);
     try {
-      const res = await listRoles();
-      setRoles(res.data ?? []);
+      const res = await listRolesPaginated({ page, limit: pageSize });
+      setRoles(res.data?.data ?? []);
+      setTotalRoles(res.data?.pagination?.total ?? 0);
+      setTotalPages(res.data?.pagination?.totalPages ?? 1);
+      // Active count needs the full list — fetch unpaginated once for stats accuracy.
+      const allRes = await listRoles();
+      setActiveRoles((allRes.data ?? []).filter((r) => r.isActive).length);
     } catch {
       toast.error("Failed to load roles");
     } finally {
@@ -269,7 +283,8 @@ function RolesTab() {
 
   useEffect(() => {
     fetchRoles();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize]);
 
   const openCreate = () => {
     setEditRole(null);
@@ -384,8 +399,7 @@ function RolesTab() {
     }
   };
 
-  const totalRoles = roles.length;
-  const activeRoles = roles.filter((r) => r.isActive).length;
+  const safePage = Math.min(page, totalPages);
 
   if (loading) {
     return (
@@ -428,7 +442,7 @@ function RolesTab() {
       </div>
 
       {/* Roles table */}
-      {roles.length === 0 ? (
+      {totalRoles === 0 ? (
         <div className="bg-white rounded-[10px] border border-[#e5e7eb] p-8 text-center">
           <p className="text-[#999] text-[14px]">No roles found</p>
         </div>
@@ -596,6 +610,21 @@ function RolesTab() {
               </div>
             ))}
           </div>
+
+          {/* Pagination */}
+          <div className="px-3 sm:px-5 border-t border-[#f0f0f0] bg-[#fafafa]">
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              totalItems={totalRoles}
+              itemsPerPage={pageSize}
+              onPageChange={setPage}
+              onItemsPerPageChange={(l) => {
+                setPageSize(l);
+                setPage(1);
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -734,11 +763,40 @@ function UsersTab() {
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchData = async () => {
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [activeUsers, setActiveUsers] = useState(0);
+  const [totalAllUsers, setTotalAllUsers] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search to avoid hitting the API on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filterRole]);
+
+  const fetchUsers = async () => {
+    setLoading(true);
     try {
-      const [usersRes, rolesRes] = await Promise.all([listUsers(), listRoles()]);
-      setUsers(usersRes.data ?? []);
-      setRoles(rolesRes.data ?? []);
+      const res = await listUsersPaginated({
+        page,
+        limit: pageSize,
+        ...(filterRole !== "all" ? { roleSlug: filterRole } : {}),
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      });
+      setUsers(res.data?.data ?? []);
+      setTotalPages(res.data?.pagination?.totalPages ?? 1);
+      setTotalUsers(res.data?.pagination?.total ?? 0);
+      setTotalAllUsers(res.data?.stats?.totalUsers ?? 0);
+      setActiveUsers(res.data?.stats?.totalActive ?? 0);
     } catch {
       toast.error("Failed to load users");
     } finally {
@@ -746,23 +804,26 @@ function UsersTab() {
     }
   };
 
+  const fetchRolesOnce = async () => {
+    try {
+      const res = await listRoles();
+      setRoles(res.data ?? []);
+    } catch {
+      // non-fatal — table can still render
+    }
+  };
+
   useEffect(() => {
-    fetchData();
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, filterRole, debouncedSearch]);
+
+  useEffect(() => {
+    fetchRolesOnce();
   }, []);
 
-  const filteredUsers = users.filter((u) => {
-    const matchesRole = filterRole === "all" || u.role.slug === filterRole;
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      !q ||
-      u.username.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.role.name.toLowerCase().includes(q);
-    return matchesRole && matchesSearch;
-  });
-
-  const totalUsers = users.length;
-  const activeUsers = users.filter((u) => u.isActive).length;
+  const safePage = Math.min(page, totalPages);
+  const totalFiltered = totalUsers;
 
   // ── Create ────────────────────────────────────────────────────────────────
   const assignableRoles = roles.filter((r) => r.slug !== "super-admin");
@@ -794,7 +855,7 @@ function UsersTab() {
       await createUser(createForm);
       toast.success("User created");
       setCreateModalOpen(false);
-      await fetchData();
+      await fetchUsers();
     } catch (err: any) {
       toast.error(err?.response?.data?.error?.message || "Failed to create user");
     } finally {
@@ -826,7 +887,7 @@ function UsersTab() {
       await updateUser(editTarget.id, editForm);
       toast.success("User updated");
       setEditModalOpen(false);
-      await fetchData();
+      await fetchUsers();
     } catch (err: any) {
       toast.error(err?.response?.data?.error?.message || "Failed to update user");
     } finally {
@@ -839,7 +900,7 @@ function UsersTab() {
     try {
       await updateUser(user.id, { isActive: !user.isActive });
       toast.success(`User ${user.isActive ? "deactivated" : "activated"}`);
-      await fetchData();
+      await fetchUsers();
     } catch (err: any) {
       toast.error(err?.response?.data?.error?.message || "Failed to update user");
     }
@@ -858,7 +919,7 @@ function UsersTab() {
       await deleteUser(deleteTarget.id);
       toast.success("User deleted");
       setDeleteModalOpen(false);
-      await fetchData();
+      await fetchUsers();
     } catch (err: any) {
       toast.error(err?.response?.data?.error?.message || "Failed to delete user");
     } finally {
@@ -880,7 +941,7 @@ function UsersTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-6 mb-6">
         <StatCard
           title="Total Users"
-          value={String(totalUsers).padStart(2, "0")}
+          value={String(totalAllUsers).padStart(2, "0")}
           change=""
           icon={<Users className="w-7 h-7 sm:w-8 sm:h-8 text-[#0061FF]" strokeWidth={1.5} />}
         />
@@ -928,11 +989,11 @@ function UsersTab() {
 
       {/* Count */}
       <p className="text-[12px] text-[#999] mb-3 px-0.5">
-        Showing {filteredUsers.length} of {totalUsers} user{totalUsers !== 1 ? "s" : ""}
+        Showing {users.length} of {totalFiltered} user{totalFiltered !== 1 ? "s" : ""}
       </p>
 
       {/* Users table */}
-      {filteredUsers.length === 0 ? (
+      {totalFiltered === 0 && !loading ? (
         <div className="bg-white rounded-[10px] border border-[#e5e7eb] p-12 text-center">
           <Users className="w-10 h-10 text-[#ddd] mx-auto mb-3" />
           <p className="text-[#999] text-[14px] font-medium">No users found</p>
@@ -954,7 +1015,7 @@ function UsersTab() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user, idx) => (
+                {users.map((user, idx) => (
                   <tr
                     key={user.id}
                     className={`border-b border-[#f0f0f0] last:border-0 hover:bg-[#fafafa] transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-[#fcfcfc]"}`}
@@ -1051,7 +1112,7 @@ function UsersTab() {
 
           {/* Mobile / tablet cards */}
           <div className="lg:hidden divide-y divide-[#f0f0f0]">
-            {filteredUsers.map((user) => (
+            {users.map((user) => (
               <div key={user.id} className="p-4 space-y-3">
                 {/* Top row: avatar + name + status */}
                 <div className="flex items-start justify-between gap-3">
@@ -1115,6 +1176,21 @@ function UsersTab() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="px-3 sm:px-5 border-t border-[#f0f0f0] bg-[#fafafa]">
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              totalItems={totalFiltered}
+              itemsPerPage={pageSize}
+              onPageChange={setPage}
+              onItemsPerPageChange={(l) => {
+                setPageSize(l);
+                setPage(1);
+              }}
+            />
           </div>
         </div>
       )}

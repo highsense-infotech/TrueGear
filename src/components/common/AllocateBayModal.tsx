@@ -1,0 +1,259 @@
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import Modal from "./Modal";
+import Button from "./Button";
+import SearchableDropdown from "./SearchableDropdown";
+import {
+  allocateToBay,
+  reallocateBay,
+  listBays,
+  PRIORITIES,
+  REPAIR_CATEGORIES,
+  type WorkshopBay,
+  type WorkshopPriority,
+  type RepairCategory,
+  type ReworkAssignment,
+} from "../../api/workshop.api";
+import { listTechnicians, type Technician } from "../../api/serviceAdvisor.api";
+import type { QcOutFailedWork } from "../../api/qcOutInspection.api";
+
+type Props = {
+  isOpen: boolean;
+  checkInId: string | null;
+  // Pre-filled values when re-allocating; null/undefined for a fresh allocation.
+  existing?: {
+    bayId: string;
+    priority: WorkshopPriority;
+    repairCategory: RepairCategory;
+    notes: string | null;
+  } | null;
+  // Rework mode — pass the failed works (from /qc-out/check-ins/:id/failed-works)
+  // to surface the tech-assignment step. When undefined or empty, modal behaves
+  // exactly as before.
+  failedWorks?: QcOutFailedWork[];
+  onClose: () => void;
+  onAllocated: () => void;
+};
+
+export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onClose, onAllocated }: Props) {
+  const [bays, setBays] = useState<WorkshopBay[]>([]);
+  const [bayId, setBayId] = useState("");
+  const [priority, setPriority] = useState<WorkshopPriority>("MEDIUM");
+  const [repairCategory, setRepairCategory] = useState<RepairCategory>("OTHER");
+  const [notes, setNotes] = useState("");
+  const [loadingBays, setLoadingBays] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // ── Rework state ──
+  const isRework = (failedWorks?.length ?? 0) > 0;
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [reworkRows, setReworkRows] = useState<Record<string, { technicianId: string; reworkNotes: string }>>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoadingBays(true);
+    setError(null);
+    listBays()
+      .then((res) => {
+        if (res.success && res.data) setBays(res.data);
+        else setError(res.error?.message ?? "Failed to load bays");
+      })
+      .catch(() => setError("Failed to load bays"))
+      .finally(() => setLoadingBays(false));
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setBayId(existing?.bayId ?? "");
+    setPriority(existing?.priority ?? "MEDIUM");
+    setRepairCategory(existing?.repairCategory ?? "OTHER");
+    setNotes(existing?.notes ?? "");
+    setError(null);
+  }, [isOpen, existing]);
+
+  // Rework: load techs + seed one row per failed work with the inspector's
+  // note pre-filled as the brief.
+  useEffect(() => {
+    if (!isOpen || !isRework) return;
+    listTechnicians().then((res) => {
+      if (res.success && res.data) setTechnicians(res.data);
+    });
+    const seed: Record<string, { technicianId: string; reworkNotes: string }> = {};
+    for (const fw of failedWorks!) {
+      seed[fw.jobCardItemId] = { technicianId: "", reworkNotes: fw.notes ?? "" };
+    }
+    setReworkRows(seed);
+  }, [isOpen, isRework, failedWorks]);
+
+  // Available bays = active and either unoccupied OR currently holding this
+  // check-in (so the re-allocate case still shows the current bay).
+  const availableBays = bays.filter(
+    (b) => b.isActive && (!b.currentAllocationId || b.id === existing?.bayId),
+  );
+
+  const handleSubmit = async () => {
+    if (!checkInId) return;
+    if (!bayId) { setError("Select a bay"); return; }
+    let reworkAssignments: ReworkAssignment[] | undefined;
+    if (isRework) {
+      reworkAssignments = [];
+      for (const fw of failedWorks!) {
+        const row = reworkRows[fw.jobCardItemId];
+        if (!row?.technicianId) {
+          setError(`Pick a technician for "${fw.jobDescription}"`);
+          return;
+        }
+        reworkAssignments.push({
+          jobCardItemId: fw.jobCardItemId,
+          technicianId: row.technicianId,
+          reworkNotes: row.reworkNotes.trim() || undefined,
+        });
+      }
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const fn = existing ? reallocateBay : allocateToBay;
+      const res = await fn(checkInId, { bayId, priority, repairCategory, notes: notes.trim() || undefined, reworkAssignments });
+      if (res.success) {
+        toast.success(isRework ? "Rework allocated" : existing ? "Bay re-allocated" : "Bay allocated");
+        onAllocated();
+        onClose();
+      } else {
+        setError(res.error?.message ?? "Allocation failed");
+      }
+    } catch (e: unknown) {
+      const msg = e && typeof e === "object" && "response" in e
+        ? ((e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message ?? "Allocation failed")
+        : "Allocation failed";
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={isRework ? "Send for Rework" : existing ? "Re-allocate Bay" : "Allocate to Bay"} size={isRework ? "lg" : "md"}>
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="block text-[13px] font-medium text-[#333] mb-1.5">Bay</label>
+          <SearchableDropdown
+            options={availableBays.map((b) => ({
+              id: b.id,
+              name: `${b.bayNo}${b.location ? ` · ${b.location}` : ""}${b.capabilities?.length ? ` · ${b.capabilities.join(", ")}` : ""}`,
+            }))}
+            value={bayId}
+            onChange={(id) => setBayId(id)}
+            placeholder={loadingBays ? "Loading bays..." : "Pick an available bay"}
+            loading={loadingBays}
+            disabled={submitting}
+          />
+        </div>
+
+        <div>
+          <label className="block text-[13px] font-medium text-[#333] mb-1.5">Priority</label>
+          <div className="flex gap-2">
+            {PRIORITIES.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => setPriority(p.value)}
+                disabled={submitting}
+                className={`flex-1 h-11 rounded-[10px] border text-[14px] font-medium transition-colors ${
+                  priority === p.value
+                    ? "border-[#ff4f31] bg-[#fff5f2] text-[#ff4f31]"
+                    : "border-[#e5e7eb] bg-white text-[#555] hover:bg-[#fafafa]"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[13px] font-medium text-[#333] mb-1.5">Repair Category</label>
+          <select
+            value={repairCategory}
+            onChange={(e) => setRepairCategory(e.target.value as RepairCategory)}
+            disabled={submitting}
+            className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31]"
+          >
+            {REPAIR_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-[13px] font-medium text-[#333] mb-1.5">Notes (optional)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={submitting}
+            placeholder="Any special instructions for the technician"
+            rows={3}
+            className="w-full px-3 py-2 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31] resize-y"
+          />
+        </div>
+
+        {/* ── Rework: per-failed-item technician assignment ── */}
+        {isRework && failedWorks && (
+          <div className="rounded-lg border border-red-200 bg-red-50/40 p-3">
+            <p className="text-[13px] font-semibold text-red-700 mb-2">
+              Rework — assign a technician to each failed item
+            </p>
+            <div className="space-y-3">
+              {failedWorks.map((fw) => {
+                const row = reworkRows[fw.jobCardItemId] ?? { technicianId: "", reworkNotes: "" };
+                return (
+                  <div key={fw.jobCardItemId} className="rounded-md border border-red-200 bg-white p-2.5">
+                    <p className="text-[13px] font-medium text-[#333]">{fw.jobDescription}</p>
+                    {fw.technicianName && (
+                      <p className="text-[11px] text-[#999]">Previous tech: {fw.technicianName} (failed QC)</p>
+                    )}
+                    <div className="mt-2">
+                      <label className="block text-[11px] font-medium text-[#666] mb-1">Reassign to</label>
+                      <SearchableDropdown
+                        options={technicians.map((t) => ({ id: t.id, name: t.username }))}
+                        value={row.technicianId}
+                        onChange={(id) => setReworkRows((p) => ({ ...p, [fw.jobCardItemId]: { ...p[fw.jobCardItemId], technicianId: id } }))}
+                        placeholder="Pick technician"
+                        disabled={submitting}
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <label className="block text-[11px] font-medium text-[#666] mb-1">Brief for the technician</label>
+                      <textarea
+                        value={row.reworkNotes}
+                        onChange={(e) => setReworkRows((p) => ({ ...p, [fw.jobCardItemId]: { ...p[fw.jobCardItemId], reworkNotes: e.target.value } }))}
+                        rows={2}
+                        disabled={submitting}
+                        className="w-full px-2.5 py-1.5 rounded-md border border-[#e5e7eb] bg-white text-[13px] focus:outline-none focus:border-[#ff4f31] resize-y"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-[#fef2f2] border border-[#fecaca] text-[#b91c1c] text-[13px] px-3 py-2 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-1">
+          <Button onClick={onClose} variant="secondary" className="flex-1" disabled={submitting}>Cancel</Button>
+          <Button onClick={handleSubmit} className="flex-1" disabled={submitting || loadingBays}>
+            {submitting
+              ? (isRework ? "Sending..." : existing ? "Re-allocating..." : "Allocating...")
+              : (isRework ? "Send for Rework" : existing ? "Re-allocate" : "Allocate")}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}

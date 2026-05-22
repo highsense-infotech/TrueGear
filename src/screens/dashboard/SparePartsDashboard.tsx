@@ -47,6 +47,14 @@ const SparePartsDashboard = () => {
   const [etaValue, setEtaValue] = useState("");
   const [submittingETA, setSubmittingETA] = useState(false);
 
+  // Price-prompt modal — captures unit price for the supplementary customer
+  // approval flow when the request was raised by a technician mid-repair.
+  const [priceModalOpen, setPriceModalOpen] = useState(false);
+  const [pricePartId, setPricePartId] = useState<string | null>(null);
+  const [unitPriceInput, setUnitPriceInput] = useState("");
+  const [extraLabourInput, setExtraLabourInput] = useState("");
+  const [submittingPrice, setSubmittingPrice] = useState(false);
+
   const fetchDashboard = async () => {
     try {
       const res = await getPartsDashboard();
@@ -79,18 +87,69 @@ const SparePartsDashboard = () => {
     fetchDashboard();
   }, []);
 
-  const handleMarkAvailable = async (id: string) => {
-    setActionLoading((prev) => ({ ...prev, [id]: "markAvailable" }));
+  const handleMarkAvailable = async (id: string, requestedByTechnician: boolean) => {
+    // SA-raised requests (pre-share scope): no price prompt — the customer
+    // already approved the original estimate, so just flip status. The BE
+    // skips the supplementary-approval path because requestedByTechnician=false.
+    if (!requestedByTechnician) {
+      setActionLoading((prev) => ({ ...prev, [id]: "markAvailable" }));
+      try {
+        const res = await markPartAvailable(id);
+        if (res.success) {
+          toast.success("Part marked as available");
+          await fetchDashboard();
+        } else {
+          toast.error(res.error?.message ?? "Failed to update part status");
+        }
+      } catch {
+        toast.error("Failed to update part status");
+      } finally {
+        setActionLoading((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      }
+      return;
+    }
+    // Tech-raised: open the unit-price modal so PM can price the extra
+    // scope, which triggers the supplementary customer-approval flow.
+    setPricePartId(id);
+    setUnitPriceInput("");
+    setExtraLabourInput("");
+    setPriceModalOpen(true);
+  };
+
+  const handleSubmitPrice = async () => {
+    if (!pricePartId) return;
+    const unitPrice = Number(unitPriceInput) || 0;
+    const extraLabourCost = Number(extraLabourInput) || 0;
+    setSubmittingPrice(true);
+    setActionLoading((prev) => ({ ...prev, [pricePartId]: "markAvailable" }));
     try {
-      await markPartAvailable(id);
-      toast.success("Part marked as available");
-      await fetchDashboard();
-    } catch {
-      toast.error("Failed to update part status");
+      const res = await markPartAvailable(pricePartId, { unitPrice, extraLabourCost });
+      if (res.success && res.data) {
+        if (res.data.customerApprovalStatus === "PENDING") {
+          toast.success(`Marked available — customer approval requested (new total: ${res.data.newTotalEstimate ?? ""})`);
+        } else {
+          toast.success("Part marked as available");
+        }
+        setPriceModalOpen(false);
+        setPricePartId(null);
+        await fetchDashboard();
+      } else {
+        toast.error(res.error?.message ?? "Failed to update part status");
+      }
+    } catch (e: unknown) {
+      const msg = e && typeof e === "object" && "response" in e
+        ? ((e as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message ?? "Failed")
+        : "Failed";
+      toast.error(msg);
     } finally {
+      setSubmittingPrice(false);
       setActionLoading((prev) => {
         const next = { ...prev };
-        delete next[id];
+        if (pricePartId) delete next[pricePartId];
         return next;
       });
     }
@@ -393,6 +452,69 @@ const SparePartsDashboard = () => {
               className="flex-1"
             >
               {submittingETA ? "Saving..." : "Confirm ETA"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Price prompt — mark available with optional supplementary approval flow */}
+      <Modal
+        isOpen={priceModalOpen}
+        onClose={() => { if (!submittingPrice) { setPriceModalOpen(false); setPricePartId(null); } }}
+        title="Mark Part Available"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-[13px] text-[#666]">
+            Enter the unit price. If this part was raised by a technician
+            mid-repair, the customer will be asked to approve the extra
+            cost before work continues. Leave 0 for pre-approved parts.
+          </p>
+          <div>
+            <label className="block text-[13px] font-medium text-[#333] mb-1.5">
+              Unit price
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={unitPriceInput}
+              onChange={(e) => setUnitPriceInput(e.target.value)}
+              autoFocus
+              placeholder="0.00"
+              className="w-full px-3 py-2.5 border border-[#e5e7eb] rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-[#ff4f31] focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium text-[#333] mb-1.5">
+              Extra labour (optional)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={extraLabourInput}
+              onChange={(e) => setExtraLabourInput(e.target.value)}
+              placeholder="0.00"
+              className="w-full px-3 py-2.5 border border-[#e5e7eb] rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-[#ff4f31] focus:border-transparent"
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button
+              variant="outline"
+              onClick={() => { setPriceModalOpen(false); setPricePartId(null); }}
+              disabled={submittingPrice}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="gradient"
+              onClick={handleSubmitPrice}
+              disabled={submittingPrice}
+              className="flex-1"
+            >
+              {submittingPrice ? "Saving..." : "Mark Available"}
             </Button>
           </div>
         </div>

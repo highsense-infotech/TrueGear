@@ -38,6 +38,9 @@ export interface Job {
   serviceCategory: string;
   autoParts?: AutoPart[];
   paidParts?: PaidPart[];
+  isWarrantyClaim?: boolean;
+  warrantyClaimNo?: string;
+  warrantyOem?: string;
 }
 
 export interface JobErrors {
@@ -72,7 +75,7 @@ const SERVICE_CATEGORIES: DropdownOption[] = [
 interface JobRowProps {
   job: Job;
   index: number;
-  onUpdate: (id: number, field: keyof Job, value: string | number) => void;
+  onUpdate: (id: number, field: keyof Job, value: string | number | boolean) => void;
   onRemove: (id: number) => void;
   calculateLineTotal: (job: Job) => number;
   errors?: JobErrors;
@@ -630,6 +633,43 @@ export function JobRow({
           )}
         </div>
       )}
+
+      {/* ── Warranty claim toggle ── */}
+      <div className="border-t border-gray-100 pt-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!job.isWarrantyClaim}
+            onChange={(e) => onUpdate(job.id, "isWarrantyClaim", e.target.checked)}
+            className="w-4 h-4 accent-[#ff4f31]"
+          />
+          <span className="text-sm text-gray-600 font-medium">This is a warranty claim</span>
+        </label>
+        {job.isWarrantyClaim && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Warranty Claim #</label>
+              <input
+                type="text"
+                value={job.warrantyClaimNo ?? ""}
+                onChange={(e) => onUpdate(job.id, "warrantyClaimNo", e.target.value)}
+                placeholder="e.g. WCN-2026-0042"
+                className="mt-2 w-full h-11 border border-gray-200 rounded-[10px] px-3 text-[14px] text-gray-700 outline-none focus:border-[#04c397] bg-white"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>OEM</label>
+              <input
+                type="text"
+                value={job.warrantyOem ?? ""}
+                onChange={(e) => onUpdate(job.id, "warrantyOem", e.target.value)}
+                placeholder="e.g. Toyota / Bosch"
+                className="mt-2 w-full h-11 border border-gray-200 rounded-[10px] px-3 text-[14px] text-gray-700 outline-none focus:border-[#04c397] bg-white"
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

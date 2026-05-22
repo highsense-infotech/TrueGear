@@ -1,15 +1,22 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Play, Pause, CheckCircle2, Circle, History, ClipboardCheck } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Pause, CheckCircle2, Circle, History, ClipboardCheck, Camera, Package, Stethoscope, X } from "lucide-react";
 import { VehicleCard } from "../../components/cards/VehicleCard";
 import Modal from "../../components/common/Modal";
 import Button from "../../components/common/Button";
+import SignaturePad from "../../components/common/SignaturePad";
+import RequestPartsModal from "../../components/common/RequestPartsModal";
+import ProgressChip from "../../components/common/ProgressChip";
 import {
   getTechnicianJobDetail,
   startItemWork,
   pauseItemWork,
   completeItemWork,
+  saveItemDiagnosis,
+  uploadItemPhoto,
+  deleteItemPhoto,
+  uploadItemSignature,
   type TechnicianJobCardDetailData,
 } from "../../api/serviceAdvisor.api";
 
@@ -64,6 +71,15 @@ const TechnicianJobDetail: React.FC = () => {
   const [completeNotes, setCompleteNotes] = useState("");
   const [completeSubmitting, setCompleteSubmitting] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+
+  // Phase 3 — diagnosis editing + parts request + photo upload state
+  const [diagEditingFor, setDiagEditingFor] = useState<string | null>(null);
+  const [diagNotes, setDiagNotes] = useState("");
+  const [diagSubmitting, setDiagSubmitting] = useState(false);
+  const [partsForId, setPartsForId] = useState<string | null>(null);
+  const [partsForDesc, setPartsForDesc] = useState<string>("");
+  const [photoBusyId, setPhotoBusyId] = useState<string | null>(null);
   // Local "now" tick — used to advance running-item displays without re-fetching.
   const [nowMs, setNowMs] = useState(() => Date.now());
   const tickRef = useRef<number | null>(null);
@@ -105,6 +121,71 @@ const TechnicianJobDetail: React.FC = () => {
     setCompleteForId(itemId);
     setCompleteNotes("");
     setCompleteError(null);
+    setSignatureDataUrl(null);
+  };
+
+  // Phase 3 — diagnosis editing helpers
+  const openDiagnosisEditor = (itemId: string, currentNotes: string | null) => {
+    setDiagEditingFor(itemId);
+    setDiagNotes(currentNotes ?? "");
+  };
+  const cancelDiagnosisEditor = () => {
+    setDiagEditingFor(null);
+    setDiagNotes("");
+  };
+  const submitDiagnosis = async () => {
+    if (!diagEditingFor) return;
+    setDiagSubmitting(true);
+    try {
+      const res = await saveItemDiagnosis(diagEditingFor, diagNotes.trim());
+      if (res.success) {
+        toast.success("Diagnosis saved");
+        cancelDiagnosisEditor();
+        await fetchDetail();
+      } else {
+        toast.error(res.error?.message ?? "Save failed");
+      }
+    } catch {
+      toast.error("Save failed");
+    } finally {
+      setDiagSubmitting(false);
+    }
+  };
+
+  // Phase 3 — per-item photo upload + delete
+  const handlePhotoUpload = async (
+    itemId: string,
+    photoType: "DIAGNOSIS" | "REPAIR" | "OLD_PART" | "NEW_PART" | "NEW_PART_FITTED",
+    file: File,
+  ) => {
+    setPhotoBusyId(itemId);
+    try {
+      const res = await uploadItemPhoto(itemId, file, photoType);
+      if (res.success) {
+        await fetchDetail();
+      } else {
+        toast.error(res.error?.message ?? "Photo upload failed");
+      }
+    } catch {
+      toast.error("Photo upload failed");
+    } finally {
+      setPhotoBusyId(null);
+    }
+  };
+  const handlePhotoDelete = async (photoId: string) => {
+    try {
+      const res = await deleteItemPhoto(photoId);
+      if (res.success) await fetchDetail();
+      else toast.error(res.error?.message ?? "Delete failed");
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
+  // Phase 3 — parts modal helpers
+  const openPartsModal = (itemId: string, desc: string) => {
+    setPartsForId(itemId);
+    setPartsForDesc(desc);
   };
 
   const closeCompleteModal = () => {
@@ -116,15 +197,28 @@ const TechnicianJobDetail: React.FC = () => {
 
   const submitComplete = async () => {
     if (!completeForId) return;
+    // Phase 3 guards: signature is required client-side too so we don't
+    // round-trip a guaranteed 400.
+    if (!signatureDataUrl) {
+      setCompleteError("Please sign before completing.");
+      return;
+    }
     setCompleteSubmitting(true);
     setCompleteError(null);
     try {
+      // Upload signature first; only then attempt completion.
+      const sigRes = await uploadItemSignature(completeForId, signatureDataUrl);
+      if (!sigRes.success) {
+        setCompleteError(sigRes.error?.message ?? "Failed to save signature");
+        return;
+      }
       const res = await completeItemWork(completeForId, completeNotes.trim());
       if (res.success) {
         toast.success("Job completed");
         await fetchDetail();
         setCompleteForId(null);
         setCompleteNotes("");
+        setSignatureDataUrl(null);
       } else {
         setCompleteError(res.error?.message ?? "Failed to complete job");
       }
@@ -140,7 +234,7 @@ const TechnicianJobDetail: React.FC = () => {
 
   const callItemAction = async (
     itemId: string,
-    fn: (id: string) => Promise<{ success: { status: true } | null; error: { message: string } | null }>,
+    fn: (id: string) => Promise<{ success: { status: true } | null; error: { message: string } | null; data?: any }>,
     successMsg: string,
   ) => {
     setBusyId(itemId);
@@ -148,6 +242,11 @@ const TechnicianJobDetail: React.FC = () => {
       const res = await fn(itemId);
       if (res.success) {
         toast.success(successMsg);
+        // BE may attach a soft warning (e.g. parts not yet dispatched on start).
+        const warning = (res.data as any)?.warning as string | null | undefined;
+        if (warning) {
+          toast(warning, { icon: "⚠️", duration: 6000 });
+        }
         await fetchDetail();
       } else {
         toast.error(res.error?.message ?? "Action failed");
@@ -274,6 +373,93 @@ const TechnicianJobDetail: React.FC = () => {
                 isComplete ? "bg-emerald-50 border-emerald-200" : "bg-white border-[#e5e7eb]"
               }`}
             >
+              {/* Waiting-for-parts banner — shows when any linked
+                  part_request is still pending / unavailable / available
+                  (priced but not dispatched). Tech can clock in for
+                  diagnosis but Complete Job is server-blocked until parts
+                  are dispatched. */}
+              {!isComplete && (() => {
+                const blocking = (item.partRequests ?? []).filter(
+                  (p) => p.status === "pending" || p.status === "unavailable" || p.status === "available",
+                );
+                if (blocking.length === 0) return null;
+                // Detect if any of the blocking parts has an ETA that
+                // has already passed — reframe the banner from yellow
+                // "waiting" to red "exceeded" so the tech knows the PM
+                // is behind on this part.
+                const anyExceeded = blocking.some((p) => {
+                  if (p.status !== "unavailable" || !p.expectedTime) return false;
+                  const eta = new Date(p.expectedTime);
+                  return !isNaN(eta.getTime()) && eta.getTime() < Date.now();
+                });
+                const wrapperCls = anyExceeded
+                  ? "mb-3 rounded-lg border border-red-300 bg-red-50 p-3"
+                  : "mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3";
+                const titleCls = anyExceeded ? "text-red-800" : "text-amber-800";
+                const itemCls  = anyExceeded ? "text-red-900" : "text-amber-900";
+                const subCls   = anyExceeded ? "text-red-700" : "text-amber-700";
+                return (
+                  <div className={wrapperCls}>
+                    <p className={`text-[12px] font-semibold ${titleCls} mb-1`}>
+                      {anyExceeded ? "⚠ Parts ETA exceeded" : "⏳ Waiting for parts"} ({blocking.length})
+                    </p>
+                    <ul className={`text-[11px] ${itemCls} space-y-0.5`}>
+                      {blocking.map((p) => {
+                        let etaTag = "";
+                        if (p.expectedTime) {
+                          const eta = new Date(p.expectedTime);
+                          if (!isNaN(eta.getTime())) {
+                            etaTag = eta.getTime() < Date.now()
+                              ? ` · ETA exceeded`
+                              : ` · ETA ${eta.toLocaleString("en-CA", { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
+                          } else {
+                            etaTag = ` · ETA ${p.expectedTime}`;
+                          }
+                        }
+                        return (
+                          <li key={p.id}>
+                            • {p.partName}{p.partNumber ? ` (${p.partNumber})` : ""} × {p.quantity}
+                            <span className={`ml-1 ${subCls}`}>
+                              — {p.status}{etaTag}
+                              {p.customerApprovalStatus === "PENDING" ? " · awaiting customer approval" : ""}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className={`text-[11px] ${subCls} mt-1.5 italic`}>
+                      You can start diagnosis or disassembly. Completion is blocked until parts are dispatched.
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Reassignment inheritance banner — shows on the receiving
+                  technician's view so they see prior context before starting. */}
+              {item.reassignment && !isComplete && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-[12px] font-semibold text-amber-800 mb-1">
+                    ↻ Reassigned from {item.reassignment.fromTechUsername ?? "unknown"}
+                  </p>
+                  <p className="text-[11px] text-amber-700">
+                    {item.reassignment.priorSeconds > 0 && (
+                      <>Prior work: {Math.floor(item.reassignment.priorSeconds / 3600) > 0
+                        ? `${Math.floor(item.reassignment.priorSeconds / 3600)}h ${Math.floor((item.reassignment.priorSeconds % 3600) / 60)}m`
+                        : `${Math.floor(item.reassignment.priorSeconds / 60)}m`} preserved · </>
+                    )}
+                    Reassigned by {item.reassignment.reassignedByUsername ?? "—"} on{" "}
+                    {new Date(item.reassignment.reassignedAt).toLocaleString("en-CA", {
+                      month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit",
+                    })}
+                  </p>
+                  {item.reassignment.reason && (
+                    <p className="text-[12px] text-amber-900 italic mt-1.5">
+                      "{item.reassignment.reason}"
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   {/* Status indicator only — clicking does NOT complete the
@@ -311,6 +497,8 @@ const TechnicianJobDetail: React.FC = () => {
                           Parts: {item.partsRequired}
                         </span>
                       )}
+                      {/* Phase 3 — actual vs estimated chip */}
+                      <ProgressChip totalSeconds={seconds} estimatedHours={item.estimatedHours} />
                     </div>
                   </div>
                 </div>
@@ -355,18 +543,186 @@ const TechnicianJobDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Complete Job CTA — opens the comments modal. Hidden once
-                  the item is complete. */}
+              {/* Phase 3 — Diagnosis section. Visible until the item is
+                  completed. Once `diagnosedAt` is set, the Start button is
+                  no longer gated by it (the gating itself is enforced by
+                  the disabled state below). */}
               {!isComplete && (
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 pt-3 border-t border-[#e5e7eb]">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] uppercase tracking-wide text-[#666] flex items-center gap-1">
+                      <Stethoscope size={12} /> Diagnosis
+                      {item.diagnosedAt && (
+                        <span className="ml-1 text-[10px] text-[#04c397] font-medium normal-case tracking-normal">
+                          ✓ saved
+                        </span>
+                      )}
+                    </p>
+                    {diagEditingFor !== item.id && (
+                      <button
+                        onClick={() => openDiagnosisEditor(item.id, item.diagnosisNotes)}
+                        className="text-[12px] text-[#ff4f31] hover:underline"
+                      >
+                        {item.diagnosedAt ? "Edit" : "Add diagnosis"}
+                      </button>
+                    )}
+                  </div>
+
+                  {diagEditingFor === item.id ? (
+                    <div className="mt-2">
+                      <textarea
+                        value={diagNotes}
+                        onChange={(e) => setDiagNotes(e.target.value)}
+                        rows={2}
+                        disabled={diagSubmitting}
+                        placeholder="What did you find? (e.g. brake pads worn beyond limit)"
+                        className="w-full px-3 py-2 rounded-md border border-[#e5e7eb] bg-white text-[13px] focus:outline-none focus:border-[#ff4f31] resize-y"
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <Button variant="secondary" onClick={cancelDiagnosisEditor} disabled={diagSubmitting}>Cancel</Button>
+                        <Button variant="gradient" onClick={submitDiagnosis} disabled={diagSubmitting}>
+                          {diagSubmitting ? "Saving..." : "Save Diagnosis"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : item.diagnosisNotes ? (
+                    <p className="mt-1 text-[13px] text-[#333] whitespace-pre-wrap">{item.diagnosisNotes}</p>
+                  ) : (
+                    <p className="mt-1 text-[12px] text-[#999]">No diagnosis yet.</p>
+                  )}
+
+                  {/* Diagnosis photos */}
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    {item.diagnosisPhotos.map((p) => (
+                      <div key={p.id} className="relative">
+                        {p.imageUrl && (
+                          <img src={p.imageUrl} alt="diagnosis" className="w-14 h-14 object-cover rounded border border-[#e5e7eb]" />
+                        )}
+                        <button
+                          onClick={() => handlePhotoDelete(p.id)}
+                          className="absolute -top-1 -right-1 bg-white border border-[#e5e7eb] rounded-full w-4 h-4 flex items-center justify-center text-[#ef4444]"
+                          title="Remove"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1">
+                      <Camera size={12} />
+                      Add photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={photoBusyId === item.id}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handlePhotoUpload(item.id, "DIAGNOSIS", f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Part-swap evidence — three mandatory photo categories.
+                  Backend refuses Complete Job if any are missing when the
+                  item involves a physical part (partsRequired set OR
+                  warranty claim). Pure-labour items don't show these. */}
+              {!isComplete && (item.partsRequired || item.isWarrantyClaim) && (
+                <div className="mt-3 pt-3 border-t border-[#e5e7eb] grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {([
+                    { type: "OLD_PART",        label: "Old part photo",        list: item.oldPartPhotos        ?? [] },
+                    { type: "NEW_PART",        label: "New part photo",        list: item.newPartPhotos        ?? [] },
+                    { type: "NEW_PART_FITTED", label: "New part fitted photo", list: item.newPartFittedPhotos  ?? [] },
+                  ] as const).map((g) => (
+                    <div key={g.type}>
+                      <p className="text-[11px] uppercase tracking-wide text-[#666] mb-1 flex items-center gap-1">
+                        <Camera size={12} /> {g.label} (required) {g.list.length > 0 && <span className="text-green-600">✓</span>}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {g.list.map((p) => (
+                          <div key={p.id} className="relative">
+                            {p.imageUrl && (
+                              <img src={p.imageUrl} alt={g.label} className="w-14 h-14 object-cover rounded border border-[#e5e7eb]" />
+                            )}
+                            <button
+                              onClick={() => handlePhotoDelete(p.id)}
+                              className="absolute -top-1 -right-1 bg-white border border-[#e5e7eb] rounded-full w-4 h-4 flex items-center justify-center text-[#ef4444]"
+                              title="Remove"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1">
+                          <Camera size={12} />
+                          Add photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={photoBusyId === item.id}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handlePhotoUpload(item.id, g.type, f);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* CTA row: Request Parts + Complete Job. Hidden once done. */}
+              {!isComplete && (
+                <div className="mt-3 flex justify-end gap-2">
                   <Button
-                    variant="gradient"
-                    icon={<ClipboardCheck size={16} />}
-                    onClick={() => openCompleteModal(item.id)}
+                    variant="outline"
+                    icon={<Package size={16} />}
+                    onClick={() => openPartsModal(item.id, item.jobDescription)}
                     disabled={busyId === item.id}
                   >
-                    Complete Job
+                    Request Parts
                   </Button>
+                  {(() => {
+                    // Mirror the BE guard: when the item replaces a part
+                    // (partsRequired set OR warranty), require ≥1 of each:
+                    // OLD_PART, NEW_PART, NEW_PART_FITTED. Pure-labour items
+                    // skip the photo gate (just need signature, handled
+                    // server-side).
+                    const needsPartPhotos = !!(item.partsRequired || item.isWarrantyClaim);
+                    const missing: string[] = [];
+                    if (needsPartPhotos) {
+                      if ((item.oldPartPhotos ?? []).length === 0)        missing.push("old part");
+                      if ((item.newPartPhotos ?? []).length === 0)        missing.push("new part");
+                      if ((item.newPartFittedPhotos ?? []).length === 0)  missing.push("new part fitted");
+                    }
+                    // Block when parts are still en-route. Server enforces too.
+                    const partsBlocking = (item.partRequests ?? []).filter(
+                      (p) => p.status === "pending" || p.status === "unavailable" || p.status === "available",
+                    );
+                    const blocked = busyId === item.id || missing.length > 0 || partsBlocking.length > 0;
+                    const title = partsBlocking.length > 0
+                      ? `Waiting for parts: ${partsBlocking.map((p) => p.partName).join(", ")}`
+                      : missing.length > 0
+                        ? `Add ${missing.join(", ")} photo${missing.length === 1 ? "" : "s"} first`
+                        : undefined;
+                    return (
+                      <Button
+                        variant="gradient"
+                        icon={<ClipboardCheck size={16} />}
+                        onClick={() => openCompleteModal(item.id)}
+                        disabled={blocked}
+                        title={title}
+                      >
+                        Complete Job
+                      </Button>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -436,9 +792,16 @@ const TechnicianJobDetail: React.FC = () => {
             onChange={(e) => setCompleteNotes(e.target.value)}
             disabled={completeSubmitting}
             placeholder="e.g. Replaced filter, system tested OK."
-            rows={5}
+            rows={4}
             className="w-full px-3 py-2 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31] resize-y"
           />
+
+          {/* Phase 3 — Technician signature (required). */}
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-[#666] mb-1">Technician Signature *</p>
+            <SignaturePad onChange={setSignatureDataUrl} disabled={completeSubmitting} />
+          </div>
+
           {completeError && (
             <div className="bg-[#fef2f2] border border-[#fecaca] text-[#b91c1c] text-[13px] px-3 py-2 rounded-lg">
               {completeError}
@@ -463,6 +826,15 @@ const TechnicianJobDetail: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Phase 3 — Mid-repair parts request */}
+      <RequestPartsModal
+        isOpen={partsForId !== null}
+        itemId={partsForId}
+        itemDescription={partsForDesc}
+        onClose={() => setPartsForId(null)}
+        onRequested={() => { /* nothing else to refresh — parts manager handles it next */ }}
+      />
     </>
   );
 };

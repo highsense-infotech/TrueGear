@@ -234,7 +234,7 @@ const CreateJobCard: React.FC = () => {
     setJobs((prev) => prev.filter((job) => job.id !== id));
   };
 
-  const updateJob = (id: number, field: keyof Job, value: string | number) => {
+  const updateJob = (id: number, field: keyof Job, value: string | number | boolean) => {
     setJobs((prev) =>
       prev.map((job) =>
         job.id === id ? { ...job, [field]: value } : job
@@ -305,11 +305,22 @@ const CreateJobCard: React.FC = () => {
 
   const addPaidPart = (jobId: number, part: PaidPart) => {
     setJobs((prev) =>
-      prev.map((job) =>
-        job.id === jobId
-          ? { ...job, paidParts: [...(job.paidParts ?? []), part] }
-          : job
-      )
+      prev.map((job) => {
+        if (job.id !== jobId) return job;
+        const existing = job.paidParts ?? [];
+        // Same part already on the line? Bump qty instead of pushing a
+        // duplicate row. Match by partCode (falls back to partName).
+        const idx = existing.findIndex(
+          (p) => (part.partCode && p.partCode === part.partCode) ||
+                 (!part.partCode && p.partName === part.partName),
+        );
+        if (idx >= 0) {
+          const merged = [...existing];
+          merged[idx] = { ...merged[idx], quantity: merged[idx].quantity + part.quantity };
+          return { ...job, paidParts: merged };
+        }
+        return { ...job, paidParts: [...existing, part] };
+      })
     );
   };
 
@@ -460,6 +471,9 @@ const CreateJobCard: React.FC = () => {
             partsCost: job.partsCost,
             labourCost: job.labourCost,
             quantity: job.quantity,
+            isWarrantyClaim: !!job.isWarrantyClaim,
+            warrantyClaimNo: job.warrantyClaimNo || null,
+            warrantyOem: job.warrantyOem || null,
           }];
         }
 

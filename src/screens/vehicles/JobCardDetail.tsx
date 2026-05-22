@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle, Eye, UserPlus } from "lucide-react";
 import Modal from "../../components/common/Modal";
 import { AssignTechnicianModal } from "../../components/common/AssignTechnicianModal";
+import ReassignItemModal from "../../components/common/ReassignItemModal";
+import { listTechnicians, type Technician } from "../../api/serviceAdvisor.api";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
@@ -53,6 +55,16 @@ const JobCardDetail: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [partsModalOpen, setPartsModalOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [reassignTarget, setReassignTarget] = useState<{ id: string; description: string; currentTechId: string | null } | null>(null);
+  const [techMap, setTechMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    listTechnicians().then((res) => {
+      if (res.success && res.data) {
+        setTechMap(Object.fromEntries(res.data.map((t: Technician) => [t.id, t.username])));
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!jobCardId) return;
@@ -204,6 +216,22 @@ const JobCardDetail: React.FC = () => {
         }}
       />
 
+      <ReassignItemModal
+        isOpen={!!reassignTarget}
+        itemId={reassignTarget?.id ?? null}
+        itemDescription={reassignTarget?.description ?? ""}
+        currentTechId={reassignTarget?.currentTechId ?? null}
+        currentTechUsername={reassignTarget?.currentTechId ? techMap[reassignTarget.currentTechId] ?? null : null}
+        onClose={() => setReassignTarget(null)}
+        onReassigned={() => {
+          if (jobCardId) {
+            getJobCardDetail(jobCardId).then((res) => {
+              if (res.success && res.data) setData(res.data);
+            });
+          }
+        }}
+      />
+
       {/* Partial Approval Summary */}
       {jobCard.status === "PARTIALLY_APPROVED" && (() => {
         const approvedCount = items.filter((i) => i.isApprovedByCustomer === true).length;
@@ -301,6 +329,25 @@ const JobCardDetail: React.FC = () => {
                   <p className="text-[11px] text-gray-400 mt-1">
                     Qty: {item.quantity} · {formatCurrency(Number(item.lineTotal))}
                   </p>
+                  {item.assignedTechnicianId && (
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-[#666]">
+                        Assigned to <span className="font-medium text-[#333]">{techMap[item.assignedTechnicianId] ?? "—"}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Close the parts modal first so the reassign modal
+                          // doesn't stack on top of it.
+                          setPartsModalOpen(false);
+                          setReassignTarget({ id: item.id, description: item.jobDescription, currentTechId: item.assignedTechnicianId });
+                        }}
+                        className="text-[11px] text-[#ff4f31] hover:underline shrink-0"
+                      >
+                        ↻ Reassign
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -355,13 +402,13 @@ const JobCardDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Modification Request Note + Edit action */}
+      {/* Modification Request Note + Edit + Re-share actions */}
       {jobCard.status === "MODIFICATION_REQUESTED" && (
         <div className="flex flex-col gap-3">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
             <MessageSquareWarning size={20} className="text-amber-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-amber-700 mb-1">Customer Requested Modification</p>
+              <p className="text-sm font-semibold text-amber-700 mb-1">Modification Requested</p>
               {jobCard.modificationNote ? (
                 <p className="text-sm text-amber-600">{jobCard.modificationNote}</p>
               ) : (
@@ -369,14 +416,39 @@ const JobCardDetail: React.FC = () => {
               )}
             </div>
           </div>
-          <Button
-            variant="outline"
-            className="w-full md:w-auto"
-            icon={<Pencil size={18} />}
-            onClick={() => navigate(`/service-advisor-dashboard/job-card/${jobCard.vehicleId}?editJobCardId=${jobCard.id}`)}
-          >
-            Edit Job Card
-          </Button>
+          {/* If MODIFICATION_REQUESTED came AFTER a prior approval
+              (jobCard.approvedAt is set) the modification is supplementary
+              — a tech-raised part the PM priced into a new line. SA
+              shouldn't edit the whole card here; the customer is reviewing
+              just the addition. Hide Edit, keep Share.
+              A fresh customer-requested modification (no prior approval)
+              keeps Edit so the SA can rework the original scope. */}
+          {(() => {
+            const isSupplementary = !!jobCard.approvedAt;
+            return (
+              <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+                {!isSupplementary && (
+                  <Button
+                    variant="outline"
+                    className="w-full md:w-auto"
+                    icon={<Pencil size={18} />}
+                    onClick={() => navigate(`/service-advisor-dashboard/job-card/${jobCard.vehicleId}?editJobCardId=${jobCard.id}`)}
+                  >
+                    Edit Job Card
+                  </Button>
+                )}
+                <Button
+                  variant="gradient"
+                  className="w-full md:flex-1"
+                  icon={<Send size={18} />}
+                  onClick={handleShareEstimate}
+                  disabled={sharing}
+                >
+                  {sharing ? "Sharing..." : "Share Estimate with Customer"}
+                </Button>
+              </div>
+            );
+          })()}
         </div>
       )}
 

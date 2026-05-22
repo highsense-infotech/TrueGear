@@ -7,8 +7,9 @@ import QualityCheckDashboard from '../screens/dashboard/QualityCheckDashboard.ts
 import QualityCheckInspection from '../screens/dashboard/QualityCheckInspection.tsx';
 // import PostServiceQCDashboard from '../screens/dashboard/PostServiceQCDashboard.tsx';
 // import PostServiceQCInspection from '../screens/dashboard/PostServiceQCInspection.tsx';
-// import FinanceBillingDashboard from '../screens/dashboard/FinanceBillingDashboard.tsx';
-// import InvoiceDetail from '../screens/dashboard/InvoiceDetail.tsx';
+import FinanceBillingDashboard from '../screens/dashboard/FinanceBillingDashboard.tsx';
+import InvoiceDetail from '../screens/dashboard/InvoiceDetail.tsx';
+import GatePassScan from '../screens/dashboard/GatePassScan.tsx';
 import ServiceAdvisorDashboard from '../screens/dashboard/ServiceAdvisorDashboard.tsx';
 import ServiceAdvisorVehicleDetail from '../screens/dashboard/ServiceAdvisorVehicleDetail.tsx';
 import CustomerApprovalDashboard from '../screens/dashboard/CustomerApprovalDashboard.tsx';
@@ -31,6 +32,11 @@ import { MODULES, ACTIONS } from '../constants/permissions';
 import { SendEstimate } from '../screens/vehicles/SendEstimate.tsx';
 import UserManagement from '../screens/admin/UserManagement.tsx';
 import ModelServiceTypeAssignment from '../screens/admin/ModelServiceTypeAssignment.tsx';
+import ForemanDashboard from '../screens/dashboard/ForemanDashboard.tsx';
+import WorkshopBays from '../screens/admin/WorkshopBays.tsx';
+import QcOutInspectionDashboard from '../screens/dashboard/QcOutInspectionDashboard.tsx';
+import WashbayDashboard from '../screens/dashboard/WashbayDashboard.tsx';
+import WarrantyStore from '../screens/dashboard/WarrantyStore.tsx';
 // import QCOutDashboard from '../screens/dashboard/QCOutDashboard.tsx';
 // import QCOutInspection from '../screens/dashboard/QCOutInspection.tsx';
 import VehicleOutDashboard from '../screens/dashboard/VehicleOutDashboard.tsx';
@@ -48,16 +54,25 @@ import AppointmentSuccess from '../screens/appointments/AppointmentSuccess.tsx';
 
 // Ordered list of routes — first one the user has view permission for becomes their home
 const PERMISSION_ROUTES = [
+  // Appointment goes first so receptionists (who also have GATE_ENTRY for walk-ins)
+  // land on their primary screen. Security Gate Keeper has no APPOINTMENT perm so
+  // they still fall through to SECURITY_DASHBOARD.
+  { resource: MODULES.APPOINTMENT, action: ACTIONS.VIEW, path: ROUTES.APPOINTMENT_DASHBOARD },
   { resource: MODULES.GATE_ENTRY, action: ACTIONS.VIEW, path: ROUTES.SECURITY_DASHBOARD },
   { resource: MODULES.QC_INSPECTION, action: ACTIONS.VIEW, path: ROUTES.QUALITY_CHECK_DASHBOARD },
   { resource: MODULES.JOB_CARD, action: ACTIONS.VIEW, path: ROUTES.SERVICE_ADVISOR_DASHBOARD },
   { resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW, path: ROUTES.SPARE_PARTS_DASHBOARD },
   { resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW, path: ROUTES.USER_MANAGEMENT },
   { resource: MODULES.VEHICLE_OUT, action: ACTIONS.VIEW, path: ROUTES.VEHICLE_OUT_DASHBOARD },
-  { resource: MODULES.APPOINTMENT, action: ACTIONS.VIEW, path: ROUTES.APPOINTMENT_DASHBOARD },
   { resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW, path: ROUTES.VEHICLE_360_DASHBOARD },
   { resource: MODULES.CUSTOMER_PROFILE, action: ACTIONS.VIEW, path: ROUTES.CUSTOMER_PROFILE_DASHBOARD },
   { resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW, path: ROUTES.TECHNICIAN_DASHBOARD },
+  { resource: MODULES.WORKSHOP, action: ACTIONS.VIEW, path: ROUTES.FOREMAN_DASHBOARD },
+  { resource: MODULES.QC_OUT, action: ACTIONS.VIEW, path: ROUTES.QC_OUT_INSPECTION_DASHBOARD },
+  { resource: MODULES.WASHBAY, action: ACTIONS.VIEW, path: ROUTES.WASHBAY_DASHBOARD },
+  { resource: MODULES.WARRANTY, action: ACTIONS.VIEW, path: ROUTES.WARRANTY_STORE },
+  { resource: MODULES.INVOICING, action: ACTIONS.VIEW, path: ROUTES.FINANCE_BILLING_DASHBOARD },
+  { resource: MODULES.GATE_RELEASE, action: ACTIONS.VIEW, path: ROUTES.GATE_RELEASE },
 ];
 
 function RootRedirect() {
@@ -195,6 +210,84 @@ const AppRoutes: React.FC = () => (
           element={
             <ProtectedRoute requiredPermission={{ resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW }}>
               <TechnicianDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Foreman — WORKSHOP:view required */}
+        <Route
+          path={ROUTES.FOREMAN_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.WORKSHOP, action: ACTIONS.VIEW }}>
+              <ForemanDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Workshop Bays master — WORKSHOP:edit required (admin/foreman) */}
+        <Route
+          path={ROUTES.WORKSHOP_BAYS.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.WORKSHOP, action: ACTIONS.EDIT }}>
+              <WorkshopBays />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Phase 5 — QC Out inspection (QC inspector + foreman) */}
+        <Route
+          path={ROUTES.QC_OUT_INSPECTION_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.QC_OUT, action: ACTIONS.VIEW }}>
+              <QcOutInspectionDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Phase 5 — Washbay queue (foreman + receptionist) */}
+        <Route
+          path={ROUTES.WASHBAY_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.WASHBAY, action: ACTIONS.VIEW }}>
+              <WashbayDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Phase 6 — Warranty Store (parts manager) */}
+        <Route
+          path={ROUTES.WARRANTY_STORE.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.WARRANTY, action: ACTIONS.VIEW }}>
+              <WarrantyStore />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Phase 7 — Finance billing + invoice detail */}
+        <Route
+          path={ROUTES.FINANCE_BILLING_DASHBOARD.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.INVOICING, action: ACTIONS.VIEW }}>
+              <FinanceBillingDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={ROUTES.FINANCE_INVOICE_DETAIL.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.INVOICING, action: ACTIONS.VIEW }}>
+              <InvoiceDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Phase 7 — Gate release (security) */}
+        <Route
+          path={ROUTES.GATE_RELEASE.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.GATE_RELEASE, action: ACTIONS.VIEW }}>
+              <GatePassScan />
             </ProtectedRoute>
           }
         />

@@ -45,13 +45,27 @@ export interface VehicleItem {
   customerName: string;
   imageCount: number;
   frontImage: string | null;
+  roStatus: string | null;
+  receivingNo: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
+  driverLicenceNo: string | null;
+  fuelLevel: FuelLevel | null;
+  damagesNotes: string | null;
+  complaintText: string | null;
+  bayNo: string | null;
+  allocationPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT" | null;
+  repairCategory: string | null;
 }
 
 export interface VehicleListData {
   data: VehicleItem[];
-  total: number;
-  page: number;
-  limit: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface VehicleStats {
@@ -192,6 +206,20 @@ export interface VehicleDetailData {
   customer: VehicleDetailCustomer;
   images: { id: string; vehicleId: string; imageCategory: string | null; imagePath: string; createdAt: string }[];
   imageCount: number;
+  // Phase 1 — per-visit fields captured at gate entry. Null if there's no
+  // active visit yet (vehicle exists in master but no current check-in).
+  activeCheckIn: {
+    id: string;
+    receivingNo: string | null;
+    driverName: string | null;
+    driverPhone: string | null;
+    driverLicenceNo: string | null;
+    fuelLevel: FuelLevel | null;
+    damagesNotes: string | null;
+    complaintText: string | null;
+    roStatus: string | null;
+    odometerReading: number | null;
+  } | null;
 }
 
 export const getVehicleDetails = async (vehicleId: string): Promise<ApiResponse<VehicleDetailData>> => {
@@ -282,11 +310,35 @@ export const hardDeleteVehicle = async (vehicleId: string): Promise<ApiResponse<
 
 // ---- Confirm Entry ----
 
+export type FuelLevel = "EMPTY" | "QUARTER" | "HALF" | "THREE_QUARTER" | "FULL";
+
+export interface ConfirmEntryPayload {
+  odometerReading?: number;
+  driverName?: string;
+  driverPhone?: string;
+  driverLicenceNo?: string;
+  fuelLevel?: FuelLevel;
+  damagesNotes?: string;
+  complaintText?: string;
+}
+
 export const confirmVehicleEntry = async (
   vehicleId: string,
-  odometerReading?: number
-): Promise<ApiResponse<{ registration: string; owner: string; photosCaptured: string; entryTime: string }>> => {
-  const { data } = await api.post(`/vehicles/${vehicleId}/confirm`, { odometerReading });
+  payload?: number | ConfirmEntryPayload,
+): Promise<ApiResponse<{
+  registration: string;
+  owner: string;
+  photosCaptured: string;
+  entryTime: string;
+  checkInId: string;
+  receivingNo: string;
+  roStatus: string;
+}>> => {
+  // Backwards-compatible signature: legacy call sites passed just the
+  // odometer number. New call sites pass the full payload object.
+  const body: ConfirmEntryPayload =
+    typeof payload === "number" ? { odometerReading: payload } : payload ?? {};
+  const { data } = await api.post(`/vehicles/${vehicleId}/confirm`, body);
   return data;
 };
 

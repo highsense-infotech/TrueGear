@@ -253,6 +253,9 @@ export interface CreateJobCardItem {
   partsCost: number;
   labourCost: number;
   quantity: number;
+  isWarrantyClaim?: boolean;
+  warrantyClaimNo?: string | null;
+  warrantyOem?: string | null;
 }
 
 export interface CreateJobCardJob {
@@ -298,6 +301,7 @@ export interface SAJobCardItem {
   estimatedHours: string | null;
   priority: AssignTechnicianPriority | null;
   assignedAt: string | null;
+  isWarrantyClaim?: boolean;
 }
 
 export interface SAJobCardDetailData {
@@ -381,6 +385,11 @@ export interface Technician {
   id: string;
   username: string;
   email: string;
+  // Phase 3 — skills + workload, used by the Assign modal for "Match" chip
+  // and "N active · N done" workload display. Optional for backward compat.
+  skills?: string[];
+  activeItemCount?: number;
+  completedItemCount?: number;
 }
 
 export type AssignTechnicianPriority = "LOW" | "MEDIUM" | "HIGH";
@@ -414,6 +423,32 @@ export const assignTechnician = async (
   return data;
 };
 
+export interface ReassignItemPayload {
+  technicianId: string;
+  reason?: string;
+  overrideSkillWarning?: boolean;
+}
+
+export interface ReassignItemResult {
+  ok: true;
+  itemId: string;
+  fromTech: { id: string; username: string } | null;
+  toTech: { id: string; username: string };
+  priorSeconds: number;
+  wasTimerPaused: boolean;
+}
+
+export const reassignItemTechnician = async (
+  itemId: string,
+  payload: ReassignItemPayload,
+): Promise<ApiResponse<ReassignItemResult>> => {
+  const { data } = await api.patch(
+    `/service-advisor/items/${itemId}/reassign`,
+    payload,
+  );
+  return data;
+};
+
 // ─── My Technician Jobs ────────────────────────────────────────────────────
 
 // One row per assigned item — flat, item-level shape.
@@ -436,10 +471,13 @@ export interface TechnicianItem {
 export interface MyTechnicianJobsData {
   items: TechnicianItem[];
   stats: { pending: number; inProgress: number; completed: number };
+  pagination?: { page: number; limit: number; total: number; totalPages: number };
 }
 
-export const getMyTechnicianJobs = async (): Promise<ApiResponse<MyTechnicianJobsData>> => {
-  const { data } = await api.get(`/service-advisor/technician/my-jobs`);
+export const getMyTechnicianJobs = async (
+  params?: { page?: number; limit?: number; status?: 'pending' | 'progress' | 'completed' },
+): Promise<ApiResponse<MyTechnicianJobsData>> => {
+  const { data } = await api.get(`/service-advisor/technician/my-jobs`, { params });
   return data;
 };
 
@@ -461,12 +499,43 @@ export interface ItemTimeLog {
   durationSeconds: number;
 }
 
+export interface ItemPhoto {
+  id: string;
+  imageUrl: string | null;
+  takenAt: string;
+}
+
 export interface TechnicianJobCardItem extends SAJobCardItem {
   completedAt: string | null;
   completionNotes: string | null;
   timeLogs: ItemTimeLog[];
   totalSeconds: number;
   isRunning: boolean;
+  // Phase 3 — diagnosis, photos, signature
+  diagnosisNotes: string | null;
+  diagnosedAt: string | null;
+  signatureImageUrl: string | null;
+  diagnosisPhotos: ItemPhoto[];
+  repairPhotos: ItemPhoto[];
+  oldPartPhotos: ItemPhoto[];
+  newPartPhotos: ItemPhoto[];
+  newPartFittedPhotos: ItemPhoto[];
+  reassignment: {
+    fromTechUsername: string | null;
+    reassignedByUsername: string | null;
+    reassignedAt: string;
+    reason: string | null;
+    priorSeconds: number;
+  } | null;
+  partRequests: Array<{
+    id: string;
+    partName: string;
+    partNumber: string | null;
+    quantity: number;
+    status: "pending" | "available" | "unavailable" | "dispatched";
+    expectedTime: string | null;
+    customerApprovalStatus: "NOT_REQUIRED" | "PENDING" | "APPROVED" | "REJECTED";
+  }>;
 }
 
 export interface TechnicianJobCardDetailData extends Omit<SAJobCardDetailData, 'items'> {
@@ -483,7 +552,7 @@ export const getTechnicianJobDetail = async (
 
 export const startItemWork = async (
   itemId: string,
-): Promise<ApiResponse<{ itemId: string; startedAt: string }>> => {
+): Promise<ApiResponse<{ itemId: string; startedAt: string; warning?: string | null }>> => {
   const { data } = await api.post(`/service-advisor/technician/items/${itemId}/start`);
   return data;
 };
@@ -498,10 +567,69 @@ export const pauseItemWork = async (
 export const completeItemWork = async (
   itemId: string,
   notes?: string,
+  opts?: { enforce?: boolean },
 ): Promise<ApiResponse<{ itemId: string; completedAt: string }>> => {
   const { data } = await api.post(
     `/service-advisor/technician/items/${itemId}/complete`,
-    { notes: notes ?? "" },
+    { notes: notes ?? "", ...(opts ?? {}) },
+  );
+  return data;
+};
+
+// ─── Phase 3 — Diagnosis, item photos, signature, mid-repair parts ────────
+
+export const saveItemDiagnosis = async (
+  itemId: string,
+  notes: string,
+): Promise<ApiResponse<{ itemId: string; diagnosedAt: string }>> => {
+  const { data } = await api.post(
+    `/service-advisor/technician/items/${itemId}/diagnosis`,
+    { notes },
+  );
+  return data;
+};
+
+export const uploadItemPhoto = async (
+  itemId: string,
+  file: File,
+  photoType: "DIAGNOSIS" | "REPAIR" | "OLD_PART" | "NEW_PART" | "NEW_PART_FITTED",
+): Promise<ApiResponse<{ id: string; imageUrl: string }>> => {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("photoType", photoType);
+  const { data } = await api.post(
+    `/service-advisor/technician/items/${itemId}/photos`,
+    fd,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data;
+};
+
+export const deleteItemPhoto = async (
+  photoId: string,
+): Promise<ApiResponse<null>> => {
+  const { data } = await api.delete(`/service-advisor/technician/photos/${photoId}`);
+  return data;
+};
+
+export const uploadItemSignature = async (
+  itemId: string,
+  dataUrl: string,
+): Promise<ApiResponse<{ itemId: string; signatureImageUrl: string }>> => {
+  const { data } = await api.post(
+    `/service-advisor/technician/items/${itemId}/signature`,
+    { dataUrl },
+  );
+  return data;
+};
+
+export const requestExtraParts = async (
+  itemId: string,
+  payload: { partName: string; partNumber?: string; quantity?: number },
+): Promise<ApiResponse<{ id: string }>> => {
+  const { data } = await api.post(
+    `/service-advisor/technician/items/${itemId}/parts-request`,
+    payload,
   );
   return data;
 };

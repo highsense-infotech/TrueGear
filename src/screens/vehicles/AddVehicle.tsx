@@ -65,6 +65,15 @@ const AddVehicle: React.FC = () => {
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [odometerInput, setOdometerInput] = useState<string>("");
 
+  // Phase 1 — richer arrival capture
+  const [driverName, setDriverName] = useState("");
+  const [driverPhone, setDriverPhone] = useState("");
+  const [driverLicenceNo, setDriverLicenceNo] = useState("");
+  const [fuelLevel, setFuelLevel] = useState<"EMPTY" | "QUARTER" | "HALF" | "THREE_QUARTER" | "FULL" | "">("");
+  const [damagesNotes, setDamagesNotes] = useState("");
+  const [complaintText, setComplaintText] = useState("");
+  const [, setReceivingNo] = useState<string | null>(null);
+
   const initialSlots: PhotoSlot[] = [
     { title: "Vehicle Registration No", required: true },
     { title: "Odometer Reading (KM)", required: true },
@@ -92,7 +101,20 @@ const AddVehicle: React.FC = () => {
       getVehicleDetails(vehicleIdFromUrl)
         .then((res) => {
           if (res.success && res.data) {
-            const { vehicle, customer, images } = res.data;
+            const { vehicle, customer, images, activeCheckIn } = res.data;
+
+            // Pre-fill Phase 1 capture fields from the active check-in.
+            // On a fresh re-entry visit there's no active check-in yet, so the
+            // fields stay blank — the gate keeper enters them anew.
+            if (activeCheckIn && !isReEntry) {
+              setDriverName(activeCheckIn.driverName ?? "");
+              setDriverPhone(activeCheckIn.driverPhone ?? "");
+              setDriverLicenceNo(activeCheckIn.driverLicenceNo ?? "");
+              setFuelLevel(activeCheckIn.fuelLevel ?? "");
+              setDamagesNotes(activeCheckIn.damagesNotes ?? "");
+              setComplaintText(activeCheckIn.complaintText ?? "");
+              setReceivingNo(activeCheckIn.receivingNo ?? null);
+            }
             setCustomerData({
               firstName: customer.firstName,
               lastName: customer.lastName,
@@ -337,9 +359,18 @@ const AddVehicle: React.FC = () => {
     setConfirmError(null);
 
     try {
-      const res = await confirmVehicleEntry(vehicleId, odometerInput ? Number(odometerInput) : undefined);
+      const res = await confirmVehicleEntry(vehicleId, {
+        odometerReading: odometerInput ? Number(odometerInput) : undefined,
+        driverName: driverName.trim() || undefined,
+        driverPhone: driverPhone.trim() || undefined,
+        driverLicenceNo: driverLicenceNo.trim() || undefined,
+        fuelLevel: fuelLevel || undefined,
+        damagesNotes: damagesNotes.trim() || undefined,
+        complaintText: complaintText.trim() || undefined,
+      });
       if (res.success) {
-        toast.success("Vehicle entry confirmed");
+        toast.success(`Vehicle entry confirmed — ${res.data?.receivingNo ?? ""}`.trim());
+        setReceivingNo(res.data?.receivingNo ?? null);
         setIsModalOpen(false);
         sessionStorage.removeItem("customerData");
         sessionStorage.removeItem("isEditing");
@@ -347,7 +378,10 @@ const AddVehicle: React.FC = () => {
         if (isEditing) {
           navigate(ROUTES.SECURITY_DASHBOARD);
         } else {
-          navigate(ROUTES.VEHICLE_ENTRY_SUCCESS);
+          // Pass the receiving number to the success page via state.
+          navigate(ROUTES.VEHICLE_ENTRY_SUCCESS, {
+            state: { receivingNo: res.data?.receivingNo ?? null },
+          });
         }
       } else {
         const msg = res.error?.message || "Failed to confirm entry.";
@@ -521,6 +555,81 @@ const AddVehicle: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Phase 1 — Driver / Fuel / Damages / Complaint capture.
+          These extend the gate entry beyond reg/VIN/odometer so the client
+          process flow has the receiving info it expects. */}
+      <div className="bg-white rounded-[10px] p-4 sm:p-5 md:p-6 mb-5">
+        <p className="text-[14px] font-semibold text-[#333] mb-3">Driver & Vehicle Condition</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] text-[#999] mb-1 block">Driver Name</label>
+            <input
+              type="text"
+              value={driverName}
+              onChange={(e) => setDriverName(e.target.value)}
+              placeholder="Driver's full name"
+              className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31]"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-[#999] mb-1 block">Driver Phone</label>
+            <input
+              type="tel"
+              value={driverPhone}
+              onChange={(e) => setDriverPhone(e.target.value)}
+              placeholder="+91 …"
+              className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31]"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-[#999] mb-1 block">Driver Licence #</label>
+            <input
+              type="text"
+              value={driverLicenceNo}
+              onChange={(e) => setDriverLicenceNo(e.target.value)}
+              placeholder="(optional)"
+              className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31]"
+            />
+          </div>
+        </div>
+
+        <label className="text-[11px] text-[#999] mb-1 block">Fuel Level</label>
+        <div className="flex gap-1.5 mb-3">
+          {(["EMPTY", "QUARTER", "HALF", "THREE_QUARTER", "FULL"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFuelLevel(fuelLevel === f ? "" : f)}
+              className={`flex-1 h-8 rounded-md border text-[12px] font-medium transition-colors ${
+                fuelLevel === f
+                  ? "border-[#ff4f31] bg-[#fff5f2] text-[#ff4f31]"
+                  : "border-[#e5e7eb] bg-white text-[#555] hover:bg-[#fafafa]"
+              }`}
+            >
+              {f === "THREE_QUARTER" ? "¾" : f === "QUARTER" ? "¼" : f === "HALF" ? "½" : f === "FULL" ? "Full" : "Empty"}
+            </button>
+          ))}
+        </div>
+
+        <label className="text-[11px] text-[#999] mb-1 block">Visible Damages</label>
+        <textarea
+          value={damagesNotes}
+          onChange={(e) => setDamagesNotes(e.target.value)}
+          placeholder="e.g. scratch on rear bumper, dent on left door"
+          rows={2}
+          className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31] resize-y mb-3"
+        />
+
+        <label className="text-[11px] text-[#999] mb-1 block">Customer Complaint</label>
+        <textarea
+          value={complaintText}
+          onChange={(e) => setComplaintText(e.target.value)}
+          placeholder="Auto-filled from appointment if any. Add or override here."
+          rows={2}
+          className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31] resize-y"
+        />
+      </div>
 
       {/* Photo Section */}
       <div className="bg-white rounded-[10px] p-4 sm:p-5 md:p-6 mb-5">

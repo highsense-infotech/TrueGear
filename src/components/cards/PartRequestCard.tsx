@@ -56,8 +56,26 @@ export function PartRequestCard({
 }: PartRequestCardProps) {
   const statusStyle = statusConfig[status];
 
+  // ETA-exceeded safety-net signal — the cron flips unavailable→pending
+  // every 5 min, but this client-side check renders the red marker the
+  // instant the deadline passes (covers the cron gap + cron crashes).
+  let etaExceeded = false;
+  let etaExceededLabel = "";
+  if (status === "unavailable" && expectedTime) {
+    const eta = new Date(expectedTime);
+    if (!isNaN(eta.getTime()) && eta.getTime() < Date.now()) {
+      etaExceeded = true;
+      const diffMin = Math.floor((Date.now() - eta.getTime()) / 60000);
+      etaExceededLabel = diffMin < 60
+        ? `${diffMin}m`
+        : diffMin < 1440
+          ? `${Math.floor(diffMin / 60)}h ${diffMin % 60}m`
+          : `${Math.floor(diffMin / 1440)}d`;
+    }
+  }
+
   return (
-    <div className="bg-white rounded-[10px] border border-[#e5e7eb] p-3.5 sm:p-5">
+    <div className={`bg-white rounded-[10px] border p-3.5 sm:p-5 ${etaExceeded ? "border-red-400 border-l-4 border-l-red-500" : "border-[#e5e7eb]"}`}>
       <div className="flex items-start gap-3 sm:gap-4">
         {/* Part Icon */}
         <div className="bg-[#ff4f31] rounded-full size-10 sm:size-12.5 flex items-center justify-center shrink-0">
@@ -72,6 +90,11 @@ export function PartRequestCard({
             <div className="min-w-0">
               <h3 className="text-[14px] sm:text-[16px] font-semibold text-[#333] mb-1 truncate">{partName}</h3>
               <p className="text-[11px] sm:text-[12px] text-[#999] mb-2">{partNumber}</p>
+              {etaExceeded && (
+                <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full mb-2">
+                  ⚠ ETA exceeded · {etaExceededLabel} ago
+                </span>
+              )}
               {!hideVehicleInfo && (
                 <div className="flex items-center gap-2 text-[11px] sm:text-[12px] text-[#666]">
                   <svg className="size-3.5 sm:size-4 shrink-0" fill="none" viewBox="0 0 16 16">
@@ -122,7 +145,7 @@ export function PartRequestCard({
               </>
             )}
 
-            {status === "available" && onDispatch && (
+            {(status === "available" || status === "unavailable") && onDispatch && (
               <button
                 onClick={onDispatch}
                 disabled={!!loadingAction}

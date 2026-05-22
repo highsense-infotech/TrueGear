@@ -37,6 +37,13 @@ export const ROUTES = {
   VEHICLE_OUT_DASHBOARD: '/vehicle-out-dashboard',
   VEHICLE_OUT_INSPECTION: '/vehicle-out-dashboard/inspection/:vehicleId',
   MODEL_SERVICE_TYPE: '/model-service-type',
+  FOREMAN_DASHBOARD: '/foreman-dashboard',
+  WORKSHOP_BAYS: '/settings/workshop-bays',
+  QC_OUT_INSPECTION_DASHBOARD: '/qc-out-inspection',
+  WASHBAY_DASHBOARD: '/washbay',
+  WARRANTY_STORE: '/warranty',
+  FINANCE_INVOICE_DETAIL: '/finance-billing-dashboard/invoice/:id',
+  GATE_RELEASE: '/gate-release',
   NO_ACCESS: '/no-access',
 };
 
