@@ -279,7 +279,11 @@ const Vehicle360VehicleDetail: React.FC = () => {
                 <div className="flex items-center justify-between py-3.5 border-t border-[#f5f5f5]">
                   <span className="text-[#999] text-[13px]">Last Odometer</span>
                   <span className="text-[#222] text-[13px] font-medium">
-                    {v360?.visits[0]?.odometerIn != null ? `${v360.visits[0].odometerIn} km` : "—"}
+                    {vehicle.odometerLast != null
+                      ? `${vehicle.odometerLast.toLocaleString()} km`
+                      : v360?.visits[0]?.odometerIn != null
+                        ? `${v360.visits[0].odometerIn} km`
+                        : "—"}
                   </span>
                 </div>
               </div>
