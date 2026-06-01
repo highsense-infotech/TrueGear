@@ -26,8 +26,9 @@ export interface CustomerContactPayload {
 }
 
 export interface CreateCustomerPayload {
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  companyName?: string;
   primaryEmail?: string;
   crmReferenceNo?: string;
   custSequenceId?: string;

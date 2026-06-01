@@ -46,6 +46,7 @@ export interface CreateAppointmentPayload {
   newCustomer?: {
     firstName:       string;
     lastName:        string;
+    companyName?:    string;
     contactNumber:   string;
     primaryEmail?:   string;
     address?:        string;

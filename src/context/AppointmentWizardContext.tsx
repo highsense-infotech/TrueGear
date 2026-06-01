@@ -42,6 +42,7 @@ export const TIME_LABELS: Record<string, string> = {
 export interface NewCustomerData {
   firstName:      string;
   lastName:       string;
+  companyName?:   string;
   contactNumber:  string;
   primaryEmail:   string;
   address:        string;

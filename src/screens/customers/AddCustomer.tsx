@@ -1,18 +1,44 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowRight, User, Car, Phone, Mail, Search, Plus, X, Check, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  User,
+  Car,
+  Phone,
+  Mail,
+  Search,
+  Plus,
+  X,
+  Check,
+  Loader2,
+} from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
-import { createCustomer, searchCustomers, type CustomerSearchItem } from "../../api/customer.api";
-import { addVehicle, listMakes, listModelsByMake, type VehicleMake, type VehicleModel, type VinLookupFields } from "../../api/vehicle.api";
-import { listServiceTypes, type ServiceTypeItem } from "../../api/serviceType.api";
+import {
+  createCustomer,
+  searchCustomers,
+  type CustomerSearchItem,
+} from "../../api/customer.api";
+import {
+  addVehicle,
+  listMakes,
+  listModelsByMake,
+  type VehicleMake,
+  type VehicleModel,
+  type VinLookupFields,
+} from "../../api/vehicle.api";
+import {
+  listServiceTypes,
+  type ServiceTypeItem,
+} from "../../api/serviceType.api";
 import SearchableDropdown from "../../components/common/SearchableDropdown";
 
 interface CustomerData {
   firstName: string;
   lastName: string;
+  companyName: string;
   phoneNumber: string;
   email: string;
   vehicleNumber: string;
@@ -35,7 +61,8 @@ const AddCustomer: React.FC = () => {
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchItem | null>(null);
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<CustomerSearchItem | null>(null);
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
   const [searchResults, setSearchResults] = useState<CustomerSearchItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -53,7 +80,7 @@ const AddCustomer: React.FC = () => {
 
   // Fetch service types from DB (same source as appointment booking)
   useEffect(() => {
-    listServiceTypes('service_assignment')
+    listServiceTypes("service_assignment")
       .then((res) => {
         const list = res.data ?? [];
         setServiceTypes(list);
@@ -66,12 +93,15 @@ const AddCustomer: React.FC = () => {
           );
         }
       })
-      .catch(() => { /* optional */ });
+      .catch(() => {
+        /* optional */
+      });
   }, []);
 
   const [formData, setFormData] = useState<CustomerData>({
     firstName: "",
     lastName: "",
+    companyName: "",
     phoneNumber: "",
     email: "",
     vehicleNumber: "",
@@ -164,27 +194,36 @@ const AddCustomer: React.FC = () => {
       const updates: Partial<CustomerData> = {};
 
       // Customer fields (from CustomerDetail)
-      if (CustomerDetail.FirstName) updates.firstName = CustomerDetail.FirstName;
+      if (CustomerDetail.FirstName)
+        updates.firstName = CustomerDetail.FirstName;
       if (CustomerDetail.LastName) updates.lastName = CustomerDetail.LastName;
-      if (CustomerDetail.PrimaryEmail) updates.email = CustomerDetail.PrimaryEmail;
+      if (CustomerDetail.CompanyName)
+        updates.companyName = CustomerDetail.CompanyName;
+      if (CustomerDetail.PrimaryEmail)
+        updates.email = CustomerDetail.PrimaryEmail;
       // Phone: Evolve sends CellphoneCode + CellphoneNumber separately
       if (CustomerDetail.CellphoneNumber) {
-        const code = CustomerDetail.CellphoneCode || '';
-        updates.phoneNumber = code ? `${code}${CustomerDetail.CellphoneNumber}` : CustomerDetail.CellphoneNumber;
+        const code = CustomerDetail.CellphoneCode || "";
+        updates.phoneNumber = code
+          ? `${code}${CustomerDetail.CellphoneNumber}`
+          : CustomerDetail.CellphoneNumber;
       }
 
       // Vehicle fields (from Vehicles)
       if (Vehicles.VehVinNumber) updates.vin = Vehicles.VehVinNumber;
-      if (Vehicles.RegistrationNo) updates.vehicleNumber = Vehicles.RegistrationNo;
+      if (Vehicles.RegistrationNo)
+        updates.vehicleNumber = Vehicles.RegistrationNo;
       if (Vehicles.Make) updates.vehicleMake = Vehicles.Make;
-      if (Vehicles.ModelDescription) updates.vehicleModel = Vehicles.ModelDescription;
-      if (Vehicles.RegistrationYear) updates.manufacturingYear = Vehicles.RegistrationYear;
+      if (Vehicles.ModelDescription)
+        updates.vehicleModel = Vehicles.ModelDescription;
+      if (Vehicles.RegistrationYear)
+        updates.manufacturingYear = Vehicles.RegistrationYear;
 
       // Auto-select matching make dropdown
       const makeName = Vehicles.Make;
       if (makeName) {
         const matchingMake = makes.find(
-          (m) => m.name.toLowerCase() === makeName.toLowerCase()
+          (m) => m.name.toLowerCase() === makeName.toLowerCase(),
         );
         if (matchingMake) {
           setSelectedMakeId(matchingMake.id);
@@ -235,7 +274,7 @@ const AddCustomer: React.FC = () => {
   useEffect(() => {
     if (!pendingModelName || models.length === 0) return;
     const matchingModel = models.find(
-      (m) => m.name.toLowerCase() === pendingModelName.toLowerCase()
+      (m) => m.name.toLowerCase() === pendingModelName.toLowerCase(),
     );
     if (matchingModel) {
       setFormData((prev) => ({ ...prev, vehicleModel: matchingModel.name }));
@@ -252,18 +291,23 @@ const AddCustomer: React.FC = () => {
     }));
     setModels([]);
     if (errors.vehicleMake) setErrors((prev) => ({ ...prev, vehicleMake: "" }));
-    if (errors.vehicleModel) setErrors((prev) => ({ ...prev, vehicleModel: "" }));
+    if (errors.vehicleModel)
+      setErrors((prev) => ({ ...prev, vehicleModel: "" }));
   };
 
   const handleModelChange = (_modelId: string, modelName: string) => {
     setFormData((prev) => ({ ...prev, vehicleModel: modelName }));
-    if (errors.vehicleModel) setErrors((prev) => ({ ...prev, vehicleModel: "" }));
+    if (errors.vehicleModel)
+      setErrors((prev) => ({ ...prev, vehicleModel: "" }));
   };
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsDropdownOpen(false);
       }
     };
@@ -282,7 +326,7 @@ const AddCustomer: React.FC = () => {
   const handleSelectCustomer = (customer: CustomerSearchItem) => {
     setSelectedCustomer(customer);
     setSearchQuery(`${customer.firstName} ${customer.lastName}`);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       firstName: customer.firstName,
       lastName: customer.lastName,
@@ -302,6 +346,7 @@ const AddCustomer: React.FC = () => {
     setFormData({
       firstName: "",
       lastName: "",
+      companyName: "",
       phoneNumber: "",
       email: "",
       vehicleNumber: "",
@@ -326,11 +371,8 @@ const AddCustomer: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: Partial<CustomerData> = {};
 
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
-    }
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = "Company name is required";
     }
     if (!formData.phoneNumber.trim()) {
       newErrors.phoneNumber = "Phone number is required";
@@ -386,17 +428,24 @@ const AddCustomer: React.FC = () => {
       if (!customerId && showNewCustomerForm) {
         const phone = formData.phoneNumber.trim();
         const customerRes = await createCustomer({
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
+          firstName: formData.firstName.trim() || undefined,
+          lastName: formData.lastName.trim() || undefined,
+          companyName: formData.companyName.trim(),
           primaryEmail: formData.email.trim() || undefined,
           crmReferenceNo: `CRM-${Date.now()}`,
           custSequenceId: `CUST-${Date.now()}`,
-          customerType: "I",
+          customerType: "C",
           activeCustomer: true,
           leadType: "WALK_IN",
           leadSource: "DIRECT",
           contacts: phone
-            ? [{ contactType: "MOBILE", countryCode: "+91", contactNumber: phone }]
+            ? [
+                {
+                  contactType: "MOBILE",
+                  countryCode: "+91",
+                  contactNumber: phone,
+                },
+              ]
             : undefined,
         });
 
@@ -424,7 +473,8 @@ const AddCustomer: React.FC = () => {
         model: formData.vehicleModel.trim(),
         manufacturingYear: parseInt(formData.manufacturingYear, 10),
         odometerLast: parseInt(formData.odometerLast, 10),
-        registrationNumber: formData.vehicleNumber.trim() || formData.vin.trim(),
+        registrationNumber:
+          formData.vehicleNumber.trim() || formData.vin.trim(),
         priority: formData.priority,
         serviceType: formData.serviceType,
       });
@@ -440,7 +490,9 @@ const AddCustomer: React.FC = () => {
     } catch (err: unknown) {
       let msg = "Failed to add vehicle. Please try again.";
       if (err && typeof err === "object" && "response" in err) {
-        const axiosErr = err as { response?: { data?: { error?: { message?: string } } } };
+        const axiosErr = err as {
+          response?: { data?: { error?: { message?: string } } };
+        };
         msg = axiosErr.response?.data?.error?.message || msg;
       }
       setSubmitError(msg);
@@ -464,6 +516,7 @@ const AddCustomer: React.FC = () => {
     setFormData({
       firstName: "",
       lastName: "",
+      companyName: "",
       phoneNumber: "",
       email: "",
       vehicleNumber: "",
@@ -481,10 +534,7 @@ const AddCustomer: React.FC = () => {
     <>
       {/* Breadcrumb */}
       <Breadcrumb
-        items={[
-          { label: "Security Guard" },
-          { label: "Add Customer" }
-        ]}
+        items={[{ label: "Security Guard" }, { label: "Add Customer" }]}
       />
 
       {/* Customer Search Section */}
@@ -539,7 +589,8 @@ const AddCustomer: React.FC = () => {
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-[#ff4f31] text-white flex items-center justify-center font-medium">
-                          {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
+                          {customer.firstName.charAt(0)}
+                          {customer.lastName.charAt(0)}
                         </div>
                         <div>
                           <p className="text-[#333] text-[14px] font-medium">
@@ -554,7 +605,9 @@ const AddCustomer: React.FC = () => {
                   ))
                 ) : searchQuery.trim() ? (
                   <div className="px-4 py-3 text-center">
-                    <p className="text-[#999] text-[13px] mb-2">No customer found</p>
+                    <p className="text-[#999] text-[13px] mb-2">
+                      No customer found
+                    </p>
                     <button
                       type="button"
                       onClick={handleAddNewCustomer}
@@ -621,14 +674,44 @@ const AddCustomer: React.FC = () => {
             <h3 className="text-[#333] text-[14px] sm:text-[15px] font-medium mb-4 flex items-center gap-2">
               <User className="w-4 h-4 text-[#ff4f31]" />
               Customer Details
-              {selectedCustomer && <span className="text-[#04c397] text-[12px]">(Existing Customer)</span>}
+              {selectedCustomer && (
+                <span className="text-[#04c397] text-[12px]">
+                  (Existing Customer)
+                </span>
+              )}
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* First Name */}
+              {/* Company Name */}
+              <div className="md:col-span-2">
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Company Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleChange}
+                  readOnly={!!selectedCustomer}
+                  placeholder="Enter company name"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    errors.companyName
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {errors.companyName && (
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.companyName}
+                  </p>
+                )}
+              </div>
+              {/* First Name (Authorised Person) */}
               <div>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
-                  First Name <span className="text-red-500">*</span>
+                  Authorised Person — First Name
                 </label>
                 <input
                   type="text"
@@ -646,14 +729,16 @@ const AddCustomer: React.FC = () => {
                   }`}
                 />
                 {errors.firstName && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.firstName}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.firstName}
+                  </p>
                 )}
               </div>
 
-              {/* Last Name */}
+              {/* Last Name (Authorised Person) */}
               <div>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
-                  Last Name <span className="text-red-500">*</span>
+                  Authorised Person — Last Name
                 </label>
                 <input
                   type="text"
@@ -671,7 +756,9 @@ const AddCustomer: React.FC = () => {
                   }`}
                 />
                 {errors.lastName && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.lastName}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.lastName}
+                  </p>
                 )}
               </div>
 
@@ -690,7 +777,9 @@ const AddCustomer: React.FC = () => {
                     readOnly={!!selectedCustomer?.contactNumber}
                     placeholder="Enter phone number"
                     className={`w-full h-11 sm:h-12 border rounded-[10px] pl-10 pr-3 sm:pr-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
-                      selectedCustomer?.contactNumber ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                      selectedCustomer?.contactNumber
+                        ? "bg-[#f9f9f9] cursor-not-allowed"
+                        : ""
                     } ${
                       errors.phoneNumber
                         ? "border-red-500 focus:border-red-500"
@@ -699,7 +788,9 @@ const AddCustomer: React.FC = () => {
                   />
                 </div>
                 {errors.phoneNumber && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.phoneNumber}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.phoneNumber}
+                  </p>
                 )}
               </div>
 
@@ -725,7 +816,9 @@ const AddCustomer: React.FC = () => {
                   />
                 </div>
                 {errors.email && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.email}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.email}
+                  </p>
                 )}
               </div>
             </div>
@@ -779,7 +872,9 @@ const AddCustomer: React.FC = () => {
                   }`}
                 />
                 {errors.vehicleNumber && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.vehicleNumber}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.vehicleNumber}
+                  </p>
                 )}
               </div>
 
@@ -792,12 +887,16 @@ const AddCustomer: React.FC = () => {
                   options={makes}
                   value={selectedMakeId}
                   onChange={handleMakeChange}
-                  placeholder={loadingMakes ? "Loading makes..." : "Select Vehicle Make"}
+                  placeholder={
+                    loadingMakes ? "Loading makes..." : "Select Vehicle Make"
+                  }
                   loading={loadingMakes}
                   hasError={!!errors.vehicleMake}
                 />
                 {errors.vehicleMake && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.vehicleMake}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.vehicleMake}
+                  </p>
                 )}
               </div>
 
@@ -808,7 +907,10 @@ const AddCustomer: React.FC = () => {
                 </label>
                 <SearchableDropdown
                   options={models}
-                  value={models.find((m) => m.name === formData.vehicleModel)?.id || ""}
+                  value={
+                    models.find((m) => m.name === formData.vehicleModel)?.id ||
+                    ""
+                  }
                   onChange={handleModelChange}
                   placeholder={
                     !selectedMakeId
@@ -822,7 +924,9 @@ const AddCustomer: React.FC = () => {
                   hasError={!!errors.vehicleModel}
                 />
                 {errors.vehicleModel && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.vehicleModel}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.vehicleModel}
+                  </p>
                 )}
               </div>
 
@@ -850,7 +954,9 @@ const AddCustomer: React.FC = () => {
                   hasError={!!errors.manufacturingYear}
                 />
                 {errors.manufacturingYear && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.manufacturingYear}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.manufacturingYear}
+                  </p>
                 )}
               </div>
 
@@ -872,7 +978,9 @@ const AddCustomer: React.FC = () => {
                   }`}
                 />
                 {errors.odometerLast && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.odometerLast}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.odometerLast}
+                  </p>
                 )}
               </div>
 
@@ -901,7 +1009,9 @@ const AddCustomer: React.FC = () => {
                   hasError={!!errors.serviceType}
                 />
                 {errors.serviceType && (
-                  <p className="text-red-500 text-[11px] mt-1">{errors.serviceType}</p>
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.serviceType}
+                  </p>
                 )}
               </div>
 
@@ -947,7 +1057,13 @@ const AddCustomer: React.FC = () => {
             <Button
               type="submit"
               variant="gradient"
-              icon={isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+              icon={
+                isSubmitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ArrowRight className="w-5 h-5" />
+                )
+              }
               className="w-full sm:w-auto"
               disabled={isSubmitting}
             >
