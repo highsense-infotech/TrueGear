@@ -466,19 +466,41 @@ const QualityCheckInspection: React.FC = () => {
   // Photo upload handler
   const handlePhotoUpload = async (itemId: string, file: File) => {
     if (!inspectionId) return;
-    const res = await uploadItemPhoto(inspectionId, itemId, file);
-    if (res.success && res.data) {
-      const newPhoto = res.data.photo;
-      // Update photo count in the relevant category
-      const updatePhotos = (items: InspectionItem[]) =>
-        items.map((item) =>
-          item.id === itemId
-            ? { ...item, photos: [...item.photos, newPhoto] }
-            : item
-        );
-      setExteriorItems((prev) => updatePhotos(prev));
-      setInteriorItems((prev) => updatePhotos(prev));
-      setBrakeItemsList((prev) => updatePhotos(prev));
+    try {
+      const res = await uploadItemPhoto(inspectionId, itemId, file);
+      if (res.success && res.data) {
+        const newPhoto = res.data.photo;
+        // Update photo count in the relevant category
+        const updatePhotos = (items: InspectionItem[]) =>
+          items.map((item) =>
+            item.id === itemId
+              ? { ...item, photos: [...item.photos, newPhoto] }
+              : item
+          );
+        setExteriorItems((prev) => updatePhotos(prev));
+        setInteriorItems((prev) => updatePhotos(prev));
+        setBrakeItemsList((prev) => updatePhotos(prev));
+      } else {
+        toast.error(res.error?.message ?? "Photo upload failed — please try again.");
+      }
+    } catch (err: unknown) {
+      // 413 from the proxy/server means the image exceeded the size limit.
+      const status =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { status?: number } }).response?.status
+          : undefined;
+      const serverMsg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : undefined;
+      if (status === 413) {
+        toast.error("Photo too large to upload. Please use a smaller image and try again.", {
+          duration: 6000,
+        });
+      } else {
+        toast.error(serverMsg ?? "Photo upload failed — please try again.", { duration: 6000 });
+      }
+      console.error("QC item photo upload failed:", err);
     }
   };
 

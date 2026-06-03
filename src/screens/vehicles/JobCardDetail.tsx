@@ -334,18 +334,26 @@ const JobCardDetail: React.FC = () => {
                       <p className="text-[11px] text-[#666]">
                         Assigned to <span className="font-medium text-[#333]">{techMap[item.assignedTechnicianId] ?? "—"}</span>
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Close the parts modal first so the reassign modal
-                          // doesn't stack on top of it.
-                          setPartsModalOpen(false);
-                          setReassignTarget({ id: item.id, description: item.jobDescription, currentTechId: item.assignedTechnicianId });
-                        }}
-                        className="text-[11px] text-[#ff4f31] hover:underline shrink-0"
-                      >
-                        ↻ Reassign
-                      </button>
+                      {item.completedAt ? (
+                        // Once the technician has completed this part it can no
+                        // longer be reassigned.
+                        <span className="text-[11px] font-medium text-green-600 shrink-0">
+                          ✓ Completed
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Close the parts modal first so the reassign modal
+                            // doesn't stack on top of it.
+                            setPartsModalOpen(false);
+                            setReassignTarget({ id: item.id, description: item.jobDescription, currentTechId: item.assignedTechnicianId });
+                          }}
+                          className="text-[11px] text-[#ff4f31] hover:underline shrink-0"
+                        >
+                          ↻ Reassign
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

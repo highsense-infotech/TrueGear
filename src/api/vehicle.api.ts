@@ -100,6 +100,13 @@ export interface SearchVehicleItem {
   } | null;
   inWorkshop: boolean;
   pendingJobItems: number;
+  hasActiveAppointment: boolean;
+  activeAppointment: {
+    id: string;
+    serviceType: string;
+    appointmentDate: string;
+    appointmentTime: string;
+  } | null;
 }
 
 export const listVehicles = async (

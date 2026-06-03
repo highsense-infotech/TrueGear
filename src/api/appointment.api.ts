@@ -90,6 +90,7 @@ export interface AppointmentRecord {
   hasActiveJobCard?:        boolean;
   customerFirstName?:       string | null;
   customerLastName?:        string | null;
+  customerCompanyName?:     string | null;
   vehicleBrand?:            string | null;
   vehicleModel?:            string | null;
   vehicleYear?:             number | null;

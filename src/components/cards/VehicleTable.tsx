@@ -234,6 +234,32 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
 
     setIsLookingUp(true);
     try {
+      // Step 0: Appointment-first — if this vehicle already has a BOOKED/
+      // CONFIRMED appointment in our DB, pull details from the local record
+      // and skip the external Evolve lookup entirely.
+      const apptRes = await searchVehicles(vin);
+      const apptVehicle = (apptRes.data ?? []).find((v) => v.hasActiveAppointment);
+      if (apptVehicle) {
+        // Respect the same re-entry / workshop guards as the local path below.
+        if (apptVehicle.activeCheckIn) {
+          toast.error(
+            `${apptVehicle.registrationNumber || apptVehicle.vin} is already inside the workshop`,
+            { duration: 6000 },
+          );
+          return;
+        }
+        if (apptVehicle.inWorkshop) {
+          toast.error(
+            `${apptVehicle.registrationNumber || apptVehicle.vin} is in workshop — ${apptVehicle.pendingJobItems} job${apptVehicle.pendingJobItems === 1 ? "" : "s"} pending. Wait for the technician to finish.`,
+            { duration: 6000 },
+          );
+          return;
+        }
+        toast.success("Appointment found! Loading vehicle from records...");
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${apptVehicle.id}`);
+        return;
+      }
+
       const res = await vinLookup(vin);
       const hasData = res.data?.found && res.data && (
         Object.keys(res.data.CustomerDetail).length > 0 || Object.keys(res.data.Vehicles).length > 0

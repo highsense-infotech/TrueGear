@@ -415,7 +415,7 @@ const AppointmentDashboard: React.FC = () => {
               filtered.map((appt) => {
                 const statusKey    = (appt.status?.toUpperCase() ?? "BOOKED") as KnownStatus;
                 const badge        = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.BOOKED;
-                const customer     = [appt.customerFirstName, appt.customerLastName].filter(Boolean).join(" ") || "—";
+                const customer     = appt.customerCompanyName?.trim() || [appt.customerFirstName, appt.customerLastName].filter(Boolean).join(" ") || "—";
                 const vehicle      = [appt.vehicleBrand, appt.vehicleModel, appt.vehicleYear].filter(Boolean).join(" ") || "—";
                 const canCancel    = CANCELLABLE_STATUSES.includes(statusKey);
                 return (
@@ -526,7 +526,7 @@ const AppointmentDashboard: React.FC = () => {
             {/* Appointment summary */}
             <div className="bg-[#fafafa] border border-[#f0f0f0] rounded-lg p-3 mb-4 text-sm text-[#333]">
               <p className="font-medium">
-                {[cancelTarget.customerFirstName, cancelTarget.customerLastName].filter(Boolean).join(" ") || "—"}
+                {cancelTarget.customerCompanyName?.trim() || [cancelTarget.customerFirstName, cancelTarget.customerLastName].filter(Boolean).join(" ") || "—"}
               </p>
               <p className="text-xs text-[#999] mt-0.5">
                 {[cancelTarget.vehicleBrand, cancelTarget.vehicleModel, cancelTarget.vehicleYear].filter(Boolean).join(" ") || "—"}
@@ -606,7 +606,7 @@ const AppointmentDashboard: React.FC = () => {
             {/* Appointment summary */}
             <div className="bg-[#fafafa] border border-[#f0f0f0] rounded-lg p-3 mb-4 text-sm text-[#333]">
               <p className="font-medium">
-                {[rescheduleTarget.customerFirstName, rescheduleTarget.customerLastName].filter(Boolean).join(" ") || "—"}
+                {rescheduleTarget.customerCompanyName?.trim() || [rescheduleTarget.customerFirstName, rescheduleTarget.customerLastName].filter(Boolean).join(" ") || "—"}
               </p>
               <p className="text-xs text-[#999] mt-0.5">
                 {[rescheduleTarget.vehicleBrand, rescheduleTarget.vehicleModel, rescheduleTarget.vehicleYear].filter(Boolean).join(" ") || "—"}

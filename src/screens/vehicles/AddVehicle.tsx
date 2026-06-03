@@ -22,6 +22,7 @@ interface PhotoSlot {
   capturedImage?: string;
   imageId?: string; // backend image ID
   isUploading?: boolean;
+  uploadError?: boolean; // upload to server failed — preview is local only
 }
 
 interface CustomerData {
@@ -199,11 +200,13 @@ const AddVehicle: React.FC = () => {
   }, [vehicleIdFromUrl]);
 
   // Check if all required fields are captured
+  // A failed upload keeps a local preview but isn't actually saved, so it must
+  // NOT count as a captured photo for validation purposes.
   const requiredSlots = photoSlots.filter((slot) => slot.required);
-  const capturedRequiredCount = requiredSlots.filter((slot) => slot.capturedImage).length;
+  const capturedRequiredCount = requiredSlots.filter((slot) => slot.capturedImage && !slot.uploadError).length;
   const isValid = capturedRequiredCount === requiredSlots.length;
   const missingCount = requiredSlots.length - capturedRequiredCount;
-  const capturedCount = photoSlots.filter((slot) => slot.capturedImage).length;
+  const capturedCount = photoSlots.filter((slot) => slot.capturedImage && !slot.uploadError).length;
   const isAnyUploading = photoSlots.some((slot) => slot.isUploading);
 
   const handleConfirmEntry = () => {
@@ -260,6 +263,7 @@ const AddVehicle: React.FC = () => {
           ...updated[slotIndex],
           capturedImage: reader.result as string,
           isUploading: true,
+          uploadError: false,
         };
         return updated;
       });
@@ -281,6 +285,7 @@ const AddVehicle: React.FC = () => {
                 imageId: imgData.id,
                 capturedImage: imgData.imagePath,
                 isUploading: false,
+                uploadError: false,
               };
               return updated;
             });
@@ -297,6 +302,7 @@ const AddVehicle: React.FC = () => {
                 imageId: uploaded.id,
                 capturedImage: uploaded.imagePath,
                 isUploading: false,
+                uploadError: false,
               };
               return updated;
             });
@@ -304,11 +310,12 @@ const AddVehicle: React.FC = () => {
         }
       } catch (err) {
         console.error("Image upload failed:", err);
-        toast.error("Image upload failed");
-        // Keep the local preview, clear uploading state
+        toast.error(`${slot.title}: upload failed — photo not saved. Tap to retry.`);
+        // Keep the local preview but flag it as not saved so the gatekeeper
+        // knows it must be re-captured (and it won't count toward required).
         setPhotoSlots((prev) => {
           const updated = [...prev];
-          updated[slotIndex] = { ...updated[slotIndex], isUploading: false };
+          updated[slotIndex] = { ...updated[slotIndex], isUploading: false, uploadError: true };
           return updated;
         });
       }
@@ -650,6 +657,7 @@ const AddVehicle: React.FC = () => {
               required={slot.required}
               capturedImage={slot.capturedImage}
               isUploading={slot.isUploading}
+              uploadError={slot.uploadError}
               disabled={isAnyUploading}
               onCapture={() => handleCapture(index)}
               onDelete={() => handleDelete(index)}

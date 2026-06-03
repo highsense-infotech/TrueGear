@@ -301,6 +301,7 @@ export interface SAJobCardItem {
   estimatedHours: string | null;
   priority: AssignTechnicianPriority | null;
   assignedAt: string | null;
+  completedAt: string | null;
   isWarrantyClaim?: boolean;
 }
 
@@ -541,6 +542,10 @@ export interface TechnicianJobCardItem extends SAJobCardItem {
 export interface TechnicianJobCardDetailData extends Omit<SAJobCardDetailData, 'items'> {
   items: TechnicianJobCardItem[];
   totalSeconds: number;
+  // Whether a workshop bay is allocated for the active visit. Work can't start
+  // until this is true.
+  bayAllocated: boolean;
+  bayNo: string | null;
 }
 
 export const getTechnicianJobDetail = async (

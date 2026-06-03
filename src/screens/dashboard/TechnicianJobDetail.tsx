@@ -286,13 +286,17 @@ const TechnicianJobDetail: React.FC = () => {
     );
   }
 
-  const { jobCard, items: allItems, vehicle } = data;
+  const { jobCard, items: allItems, vehicle, bayAllocated } = data;
   // Filter to the focused item when one was passed in the URL — otherwise
   // show every item on this job card.
   const items = focusedItemId
     ? allItems.filter((i) => i.id === focusedItemId)
     : allItems;
   const totalSeconds = items.reduce((s, i) => s + i.totalSeconds, 0);
+
+  // Work can't start until a bay is allocated. This only gates the very first
+  // start (card still APPROVED); once work is running the bay already exists.
+  const bayBlocked = !bayAllocated && jobCard.status === "APPROVED";
 
   const tab = toTabStatus(jobCard.status);
   const status = statusConfig[tab];
@@ -357,6 +361,20 @@ const TechnicianJobDetail: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Bay-allocation gate — work can't start until the foreman allocates a
+          workshop bay for this visit. */}
+      {bayBlocked && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="text-[12px] font-semibold text-amber-800 mb-0.5">
+            ⏳ Waiting for bay allocation
+          </p>
+          <p className="text-[11px] text-amber-700">
+            A workshop bay must be allocated before you can start work on this job.
+            Please wait for the foreman to assign a bay.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         {items.map((item) => {
@@ -523,13 +541,21 @@ const TechnicianJobDetail: React.FC = () => {
                           isRunning ? "Paused" : "Started",
                         )
                       }
-                      disabled={busyId === item.id}
-                      className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-md transition-opacity disabled:opacity-40 ${
+                      // Block starting until a bay is allocated; pausing a
+                      // running item is always allowed.
+                      disabled={busyId === item.id || (!isRunning && bayBlocked)}
+                      className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-md transition-opacity disabled:opacity-40 disabled:cursor-not-allowed ${
                         isRunning
                           ? "bg-[#0061FF] text-white"
                           : "bg-linear-to-b from-[#ff4f31] to-[#fe2b73] text-white"
                       }`}
-                      title={isRunning ? "Pause" : "Start"}
+                      title={
+                        isRunning
+                          ? "Pause"
+                          : bayBlocked
+                            ? "Waiting for bay allocation"
+                            : "Start"
+                      }
                     >
                       {busyId === item.id ? (
                         <Loader2 size={18} className="animate-spin" />

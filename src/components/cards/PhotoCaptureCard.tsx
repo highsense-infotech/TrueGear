@@ -1,4 +1,4 @@
-import { Camera, Image, Loader2, Trash2 } from "lucide-react";
+import { Camera, Image, Loader2, RotateCcw, Trash2, AlertTriangle } from "lucide-react";
 import Button from '../common/Button';
 
 interface PhotoCaptureCardProps {
@@ -6,6 +6,7 @@ interface PhotoCaptureCardProps {
   required?: boolean;
   capturedImage?: string;
   isUploading?: boolean;
+  uploadError?: boolean;
   disabled?: boolean;
   onCapture?: () => void;
   onDelete?: () => void;
@@ -16,6 +17,7 @@ export function PhotoCaptureCard({
   required = false,
   capturedImage,
   isUploading = false,
+  uploadError = false,
   disabled = false,
   onCapture,
   onDelete,
@@ -30,7 +32,7 @@ export function PhotoCaptureCard({
 
       {/* Capture Container */}
       <div
-        className="relative bg-white border-2 border-dashed border-[#8c8c8c] rounded-[10px] w-full h-45 sm:h-41.25 md:h-42.5 flex flex-col items-center justify-center gap-3 px-4 sm:px-6 py-4 overflow-hidden">
+        className={`relative bg-white border-2 border-dashed rounded-[10px] w-full h-45 sm:h-41.25 md:h-42.5 flex flex-col items-center justify-center gap-3 px-4 sm:px-6 py-4 overflow-hidden ${uploadError ? 'border-[#DE2020]' : 'border-[#8c8c8c]'}`}>
         {capturedImage ? (
           <>
             {/* Captured Image */}
@@ -45,6 +47,23 @@ export function PhotoCaptureCard({
               <div className="absolute inset-0 bg-black/40 rounded-[10px] flex flex-col items-center justify-center z-10">
                 <Loader2 className="w-8 h-8 text-white animate-spin" />
                 <p className="text-white text-[12px] mt-2">Uploading...</p>
+              </div>
+            )}
+
+            {/* Upload-failed Overlay — preview is local only, not saved */}
+            {!isUploading && uploadError && (
+              <div className="absolute inset-0 bg-[#DE2020]/55 rounded-[10px] flex flex-col items-center justify-center gap-2 z-10 px-3">
+                <AlertTriangle className="w-7 h-7 text-white" />
+                <p className="text-white text-[12px] text-center font-medium leading-tight">
+                  Not saved — file too large or upload failed
+                </p>
+                <button
+                  onClick={onCapture}
+                  className="mt-1 inline-flex items-center gap-1 bg-white text-[#DE2020] text-[12px] font-semibold rounded-md px-3 py-1.5 shadow hover:bg-gray-100 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Retry
+                </button>
               </div>
             )}
 
