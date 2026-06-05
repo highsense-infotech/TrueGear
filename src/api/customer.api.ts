@@ -25,18 +25,87 @@ export interface CustomerContactPayload {
   contactNumber?: string;
 }
 
+export interface CustomerAddressPayload {
+  addressType: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressLine3?: string;
+  city?: string;
+  provinceId?: number;
+  areaCode?: string;
+  country?: string;
+}
+
+export interface CustomerProfilePayload {
+  occupation?: string;
+  receiveEmail?: boolean;
+  receiveSms?: boolean;
+  receivePost?: boolean;
+  receiveTelemarketing?: boolean;
+  primaryContact?: string;
+  secondaryContact?: string;
+  receiveMarketingAll?: boolean;
+  receiveMarketingVehicle?: boolean;
+  receiveMarketingService?: boolean;
+  receiveMarketingParts?: boolean;
+  csiConsentService?: boolean;
+  csiConsentVehicles?: boolean;
+  csiConsentSurveys?: boolean;
+  csiConsentBulkSms?: boolean;
+}
+
+export interface CustomerArPayload {
+  dbArSeqId?: string;
+  arAccountNumber?: string;
+  arAccountType?: string;
+  arTypeDescrip?: string;
+  inactiveAccount?: boolean;
+  stopCredit?: boolean;
+  creditLimitAmount?: number;
+  creditAvailableAmount?: number;
+}
+
 export interface CreateCustomerPayload {
   firstName?: string;
   lastName?: string;
   companyName?: string;
   primaryEmail?: string;
+  secondaryEmail?: string;
+  webAddress?: string;
   crmReferenceNo?: string;
   custSequenceId?: string;
   customerType?: string;
+  title?: string;
+  initial?: string;
+  idNumber?: string;
+  birthDate?: string;
+  gender?: string;
+  maritalStatus?: number;
+  language?: string;
+  citizen?: boolean;
+  internalCustomer?: boolean;
+  locked?: boolean;
   activeCustomer?: boolean;
+  customerPersonal?: string;
+  status?: number;
+  financeInstitution?: string;
+  customerSalesType?: string;
+  tradingAs?: string;
+  regNo?: string;
+  taxNo?: string;
+  ficNo?: string;
+  currencyCode?: string;
   leadType?: string;
   leadSource?: string;
+  defaultTaxCode?: number;
+  fleetNo?: string;
+  notes?: string;
+  sellingDealer?: string;
+  sellingDate?: string;
+  addresses?: CustomerAddressPayload[];
   contacts?: CustomerContactPayload[];
+  profile?: CustomerProfilePayload;
+  ar?: CustomerArPayload;
 }
 
 export const createCustomer = async (

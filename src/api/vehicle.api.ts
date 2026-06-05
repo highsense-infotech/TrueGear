@@ -141,6 +141,10 @@ export interface AddVehiclePayload {
   condition?: string;
   priority?: string;
   serviceType?: string;
+  seriesDescription?: string;
+  modelDescription?: string;
+  registrationDate?: string;
+  registrationYear?: number;
 }
 
 export interface AddVehicleData {

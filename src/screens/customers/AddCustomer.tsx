@@ -57,6 +57,15 @@ const AddCustomer: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [vinLookupApplied, setVinLookupApplied] = useState(false);
   const [pendingModelName, setPendingModelName] = useState<string | null>(null);
+  // Full Evolve payload kept until submit so we can persist every field —
+  // CustomerDetail/Profile/AccountsReceivable/Vehicles — not just the small
+  // subset the FE form exposes.
+  const evolvePayloadRef = useRef<{
+    CustomerDetail: VinLookupFields;
+    CustomerProfile: VinLookupFields;
+    AccountsReceivable: VinLookupFields;
+    Vehicles: VinLookupFields;
+  } | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -185,11 +194,14 @@ const AddCustomer: React.FC = () => {
     if (!raw) return;
 
     try {
-      const { CustomerDetail, Vehicles } = JSON.parse(raw) as {
+      const parsed = JSON.parse(raw) as {
         CustomerDetail: VinLookupFields;
         CustomerProfile: VinLookupFields;
+        AccountsReceivable: VinLookupFields;
         Vehicles: VinLookupFields;
       };
+      const { CustomerDetail, Vehicles } = parsed;
+      evolvePayloadRef.current = parsed;
 
       const updates: Partial<CustomerData> = {};
 
@@ -216,8 +228,11 @@ const AddCustomer: React.FC = () => {
       if (Vehicles.Make) updates.vehicleMake = Vehicles.Make;
       if (Vehicles.ModelDescription)
         updates.vehicleModel = Vehicles.ModelDescription;
-      if (Vehicles.RegistrationYear)
-        updates.manufacturingYear = Vehicles.RegistrationYear;
+      // NOTE: Evolve's RegistrationYear is the road-registration year, NOT the
+      // manufacturing year. They can differ (built 2022, registered 2024 after
+      // sitting on a dealer lot). RegistrationYear is persisted on the vehicle
+      // via `registrationDate` (Jan 1 of that year) below; manufacturing_year
+      // stays user-entered.
 
       // Auto-select matching make dropdown
       const makeName = Vehicles.Make;
@@ -427,26 +442,165 @@ const AddCustomer: React.FC = () => {
       // If adding a new customer, create them first
       if (!customerId && showNewCustomerForm) {
         const phone = formData.phoneNumber.trim();
+        const evolve = evolvePayloadRef.current;
+        const cd = evolve?.CustomerDetail ?? ({} as VinLookupFields);
+        const cp = evolve?.CustomerProfile ?? ({} as VinLookupFields);
+        const ar = evolve?.AccountsReceivable ?? ({} as VinLookupFields);
+
+        const yesNo = (v: unknown) =>
+          typeof v === "string" ? v.toLowerCase() === "yes" : undefined;
+        const numOrUndef = (v: unknown) => {
+          if (v === undefined || v === null || v === "") return undefined;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
+        const strOrUndef = (v: unknown) =>
+          typeof v === "string" && v.trim() ? v.trim() : undefined;
+
+        // Build addresses: physical / postal / delivery — skip if empty.
+        const buildAddress = (
+          type: "physical" | "postal" | "delivery",
+          prefix: "Physical" | "Postal" | "Delivery",
+        ) => {
+          const a1 = strOrUndef(cd[`${prefix}Address1`]);
+          const a2 = strOrUndef(cd[`${prefix}Address2`]);
+          const a3 = strOrUndef(cd[`${prefix}Address3`]);
+          const city = strOrUndef(cd[`${prefix}City`]);
+          const province = numOrUndef(cd[`${prefix}ProvinceID`]);
+          const area = strOrUndef(cd[`${prefix}AreaCode`]);
+          const country = strOrUndef(cd[`${prefix}Country`]);
+          if (!a1 && !a2 && !a3 && !city && !area && !country) return null;
+          return {
+            addressType: type,
+            addressLine1: a1,
+            addressLine2: a2,
+            addressLine3: a3,
+            city,
+            provinceId: province,
+            areaCode: area,
+            country,
+          };
+        };
+        const addresses = [
+          buildAddress("physical", "Physical"),
+          buildAddress("postal", "Postal"),
+          buildAddress("delivery", "Delivery"),
+        ].filter((a): a is NonNullable<typeof a> => a !== null);
+
+        // Contacts: cellphone (from form-phone override or Evolve), work tel,
+        // home tel. The MOBILE row from the form takes precedence.
+        const contacts: Array<{
+          contactType: string;
+          countryCode?: string;
+          contactNumber: string;
+        }> = [];
+        if (phone) {
+          contacts.push({
+            contactType: "MOBILE",
+            countryCode: "+91",
+            contactNumber: phone,
+          });
+        } else if (cd.CellphoneNumber) {
+          contacts.push({
+            contactType: "MOBILE",
+            countryCode: strOrUndef(cd.CellphoneCode),
+            contactNumber: String(cd.CellphoneNumber),
+          });
+        }
+        if (cd.WorkTelNumber) {
+          contacts.push({
+            contactType: "WORK",
+            countryCode: strOrUndef(cd.WorkTelCode),
+            contactNumber: String(cd.WorkTelNumber),
+          });
+        }
+        if (cd.HomeTelNumber) {
+          contacts.push({
+            contactType: "HOME",
+            countryCode: strOrUndef(cd.HomeTelCode),
+            contactNumber: String(cd.HomeTelNumber),
+          });
+        }
+
+        const profile = evolve
+          ? {
+              occupation: strOrUndef(cp.Occupation),
+              receiveEmail: yesNo(cp.ReceiveEmail),
+              receiveSms: yesNo(cp.ReceiveSMS),
+              receivePost: yesNo(cp.ReceivePost),
+              receiveTelemarketing: yesNo(cp.ReceiveTelemarketing),
+              primaryContact: strOrUndef(cp.PrimaryContact),
+              secondaryContact: strOrUndef(cp.SecondaryContact),
+              receiveMarketingAll: yesNo(cp.ReceiveMarketingAll),
+              receiveMarketingVehicle: yesNo(cp.ReceiveMarketingVehicle),
+              receiveMarketingService: yesNo(cp.ReceiveMarketingService),
+              receiveMarketingParts: yesNo(cp.ReceiveMarketingParts),
+              csiConsentService: yesNo(cp.CSIConsentService),
+              csiConsentVehicles: yesNo(cp.CSIConsentVehicles),
+              csiConsentSurveys: yesNo(cp.CSIConsentSurveys),
+              csiConsentBulkSms: yesNo(cp.CSIConsentBulkSMS),
+            }
+          : undefined;
+
+        const arData = evolve && ar.DbArSeqID
+          ? {
+              dbArSeqId: strOrUndef(ar.DbArSeqID),
+              arAccountNumber: strOrUndef(ar.ArAccountNumber),
+              arAccountType: strOrUndef(ar.ArAccountType),
+              arTypeDescrip: strOrUndef(ar.ArTypeDescrip),
+              inactiveAccount: yesNo(ar.InactiveAccount),
+              stopCredit: yesNo(ar.StopCredit),
+              creditLimitAmount: numOrUndef(ar.CreditLimitAmount),
+              creditAvailableAmount: numOrUndef(ar.CreditAvailableAmount),
+            }
+          : undefined;
+
         const customerRes = await createCustomer({
-          firstName: formData.firstName.trim() || undefined,
-          lastName: formData.lastName.trim() || undefined,
-          companyName: formData.companyName.trim(),
-          primaryEmail: formData.email.trim() || undefined,
-          crmReferenceNo: `CRM-${Date.now()}`,
-          custSequenceId: `CUST-${Date.now()}`,
-          customerType: "C",
-          activeCustomer: true,
-          leadType: "WALK_IN",
-          leadSource: "DIRECT",
-          contacts: phone
-            ? [
-                {
-                  contactType: "MOBILE",
-                  countryCode: "+91",
-                  contactNumber: phone,
-                },
-              ]
-            : undefined,
+          firstName: formData.firstName.trim() || strOrUndef(cd.FirstName),
+          lastName: formData.lastName.trim() || strOrUndef(cd.LastName),
+          companyName:
+            formData.companyName.trim() || strOrUndef(cd.CompanyName) || "",
+          primaryEmail:
+            formData.email.trim() || strOrUndef(cd.PrimaryEmail),
+          // Prefer Evolve's CRM identifiers when available — they're the
+          // source-of-truth for cross-system sync.
+          crmReferenceNo: strOrUndef(cd.CRMReferenceNo) ?? `CRM-${Date.now()}`,
+          custSequenceId:
+            strOrUndef(cd.CustSequenceID) ?? `CUST-${Date.now()}`,
+          customerType: strOrUndef(cd.CustomerType) ?? "C",
+          title: strOrUndef(cd.Title),
+          initial: strOrUndef(cd.Initial),
+          idNumber: strOrUndef(cd.IDNumber),
+          birthDate: strOrUndef(cd.BirthDate),
+          gender: strOrUndef(cd.Gender),
+          maritalStatus: numOrUndef(cd.MaritalStatus),
+          language: strOrUndef(cd.Language),
+          citizen: yesNo(cd.Citizen),
+          internalCustomer: yesNo(cd.InternalCustomer),
+          locked: yesNo(cd.Locked),
+          activeCustomer: yesNo(cd.ActiveCustomer) ?? true,
+          customerPersonal: strOrUndef(cd.CustomerPersonal),
+          status: numOrUndef(cd.Status),
+          financeInstitution: strOrUndef(cd.FinanceInstitution),
+          customerSalesType: strOrUndef(cd.CustomerSalesType),
+          secondaryEmail: strOrUndef(cd.SecondaryEmail),
+          webAddress: strOrUndef(cd.WebAddress),
+          tradingAs: strOrUndef(cd.TradingAs),
+          regNo: strOrUndef(cd.RegNo),
+          taxNo: strOrUndef(cd.TaxNo),
+          ficNo: strOrUndef(cd.FICNo),
+          currencyCode: strOrUndef(cd.CurrencyCode),
+          leadType: strOrUndef(cd.LeadType) ?? "WALK_IN",
+          leadSource: strOrUndef(cd.LeadSource) ?? "DIRECT",
+          defaultTaxCode: numOrUndef(cd.DefaultTaxCode),
+          fleetNo: strOrUndef(cd.FleetNo),
+          notes: strOrUndef(cd.Notes),
+          sellingDealer: strOrUndef(cd.SellingDealer),
+          sellingDate: strOrUndef(cd.SellingDate),
+          addresses: addresses.length > 0 ? addresses : undefined,
+          contacts: contacts.length > 0 ? contacts : undefined,
+          profile,
+          ar: arData,
         });
 
         if (!customerRes.success || !customerRes.data) {
@@ -466,6 +620,10 @@ const AddCustomer: React.FC = () => {
         return;
       }
 
+      const vehEvolve = evolvePayloadRef.current?.Vehicles ?? ({} as VinLookupFields);
+      const strOrU = (v: unknown) =>
+        typeof v === "string" && v.trim() ? v.trim() : undefined;
+
       const res = await addVehicle({
         customerId,
         vin: formData.vin.trim(),
@@ -477,6 +635,17 @@ const AddCustomer: React.FC = () => {
           formData.vehicleNumber.trim() || formData.vin.trim(),
         priority: formData.priority,
         serviceType: formData.serviceType,
+        // Persist extra Evolve fields when this submission originated from a
+        // VIN-lookup pre-fill.
+        engineNumber: strOrU(vehEvolve.EngineNumber),
+        seriesDescription: strOrU(vehEvolve.Series),
+        modelDescription: strOrU(vehEvolve.ModelDescription),
+        extColour: strOrU(vehEvolve.Colour),
+        registrationDate: strOrU(vehEvolve.RegistrationDate),
+        registrationYear: (() => {
+          const y = Number(vehEvolve.RegistrationYear);
+          return Number.isFinite(y) && y >= 1900 && y <= 2100 ? y : undefined;
+        })(),
       });
 
       if (res.success && res.data) {
