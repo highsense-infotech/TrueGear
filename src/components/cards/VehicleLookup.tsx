@@ -32,7 +32,7 @@ export function VehicleLookup({ onSearch, onAddNewVehicle, value }: VehicleLooku
           Vehicle Lookup
         </h2>
         <p className="text-[#999] text-[12px] sm:text-[13px]">
-          Enter the vehicle registration number to search
+          Enter the VIN or registration number to search
         </p>
       </div>
 
@@ -44,7 +44,7 @@ export function VehicleLookup({ onSearch, onAddNewVehicle, value }: VehicleLooku
 
           <Input
             type="text"
-            placeholder="Enter VIN Number to search"
+            placeholder="Enter VIN or Registration Number"
             className="flex-1 text-[13px] sm:text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none bg-transparent"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

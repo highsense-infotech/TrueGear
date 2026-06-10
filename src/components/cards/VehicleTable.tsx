@@ -64,6 +64,9 @@ interface VehicleTableProps {
   readOnly?: boolean;
   /** Increment this value from a parent to open the "Add New Vehicle" input. */
   addVehicleSignal?: number;
+  /** Bumped by parent to trigger the appointment-first lookup flow with `lookupQuery`. */
+  lookupSignal?: number;
+  lookupQuery?: string;
 }
 
 function formatEntryTime(isoString: string | null | undefined): { time: string; date: string } {
@@ -126,7 +129,7 @@ const RO_STATUS_LABEL: Record<string, string> = {
 };
 
 
-export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal }: VehicleTableProps) {
+export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal, lookupSignal, lookupQuery }: VehicleTableProps) {
   const [vehicles, setVehicles] = useState<DisplayVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +161,23 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
     setShowVehicleInput(true);
     setVehicleNumber("");
   }, [addVehicleSignal]);
+
+  // Parent-triggered appointment-first lookup. Runs the same flow as the
+  // "Add New Vehicle" → VIN submit path, but with the query coming from the
+  // Vehicle Lookup search box on the dashboard above.
+  const didMountLookupSignal = useRef(false);
+  useEffect(() => {
+    if (!didMountLookupSignal.current) {
+      didMountLookupSignal.current = true;
+      return;
+    }
+    if (lookupSignal === undefined) return;
+    const q = (lookupQuery ?? "").trim();
+    if (!q) return;
+    setVehicleNumber(q);
+    handleVinSubmit(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookupSignal]);
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
@@ -228,8 +248,8 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
     setShowVehicleInput(true);
   };
 
-  const handleVinSubmit = async () => {
-    const vin = vehicleNumber.trim();
+  const handleVinSubmit = async (overrideVin?: string) => {
+    const vin = (overrideVin ?? vehicleNumber).trim();
     if (!vin) return;
 
     setIsLookingUp(true);
@@ -256,7 +276,10 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
           return;
         }
         toast.success("Appointment found! Loading vehicle from records...");
-        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${apptVehicle.id}`);
+        // Appointment-first arrival is a NEW visit — pass reentry flag so
+        // driver / odometer / photo fields start empty (no carry-over from
+        // the prior visit).
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${apptVehicle.id}&reentry=true`);
         return;
       }
 
@@ -364,15 +387,6 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
   const isEmpty = vehicles.length === 0 && !loading;
   return (
     <div className="bg-white rounded-xl p-4 md:p-5">
-      {/* Header */}
-      <div className="mb-4 md:mb-5">
-        <h2 className="text-[#333] text-[15px] md:text-[16px] font-semibold">
-          Vehicle Lookup
-        </h2>
-        <p className="text-[#999] text-[12px]">
-          Enter the vehicle registration number to search
-        </p>
-      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -454,12 +468,12 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
             <h3 className="text-[#333] text-[15px] font-semibold">Vehicle Details</h3>
           </div>
           <div className="flex flex-col items-center justify-center py-8 gap-4">
-            <p className="text-[#333] text-base font-semibold">Enter the vehicle number</p>
+            <p className="text-[#333] text-base font-semibold">Enter the VIN or registration number</p>
             <input
               type="text"
               value={vehicleNumber}
               onChange={(e) => setVehicleNumber(e.target.value)}
-              placeholder="Vehicle number"
+              placeholder="e.g. AAK1518FLSB081400 or B081400"
               disabled={isLookingUp}
               className="w-full max-w-sm border border-[#e5e7eb] rounded-lg px-4 py-3 text-sm text-[#333] placeholder-[#999] focus:outline-none focus:border-[#999] transition-colors"
               onKeyDown={(e) => {

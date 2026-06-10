@@ -13,6 +13,8 @@ import {
   Plus,
   Pencil,
   Loader2,
+  Search,
+  X,
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
@@ -39,10 +41,15 @@ const AppointmentVehicleDetails: React.FC = () => {
   const { state, setState } = useAppointmentWizard();
   const currentStep         = 1;
 
-  // Saved vehicles from API
-  const [vehicles,  setVehicles]  = useState<VehicleListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // Saved vehicles from API (paginated; appends on Load More)
+  const [vehicles,      setVehicles]      = useState<VehicleListItem[]>([]);
+  const [isLoading,     setIsLoading]     = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError,     setLoadError]     = useState<string | null>(null);
+  const [vehiclePage,   setVehiclePage]   = useState(1);
+  const [vehicleTotal,  setVehicleTotal]  = useState(0);
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const VEHICLE_PAGE_SIZE = 10;
 
   // Makes / Models from API
   const [makes,         setMakes]         = useState<VehicleMake[]>([]);
@@ -99,15 +106,50 @@ const AppointmentVehicleDetails: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ─── Fetch vehicles ──────────────────────────────────────────────────────────
+  // ─── Fetch vehicles (paginated + searchable) ─────────────────────────────
+  // Debounce the search input so we don't fire a request per keystroke.
   useEffect(() => {
     if (!state.customerId) return;
-    setIsLoading(true);
-    getVehiclesByCustomer(state.customerId)
-      .then((res) => setVehicles(res.data?.data ?? []))
-      .catch(() => setLoadError("Could not load vehicles."))
-      .finally(() => setIsLoading(false));
-  }, [state.customerId]);
+    const customerId = state.customerId;
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+      setLoadError(null);
+      getVehiclesByCustomer(customerId, {
+        page: 1,
+        limit: VEHICLE_PAGE_SIZE,
+        search: vehicleSearch,
+      })
+        .then((res) => {
+          setVehicles(res.data?.data ?? []);
+          setVehicleTotal(res.data?.pagination?.total ?? 0);
+          setVehiclePage(1);
+        })
+        .catch(() => setLoadError("Could not load vehicles."))
+        .finally(() => setIsLoading(false));
+    }, vehicleSearch ? 300 : 0); // instant on first load; debounced on typing
+    return () => clearTimeout(timer);
+  }, [state.customerId, vehicleSearch]);
+
+  const handleLoadMoreVehicles = async () => {
+    if (!state.customerId || isLoadingMore) return;
+    const nextPage = vehiclePage + 1;
+    setIsLoadingMore(true);
+    try {
+      const res = await getVehiclesByCustomer(state.customerId, {
+        page: nextPage,
+        limit: VEHICLE_PAGE_SIZE,
+        search: vehicleSearch,
+      });
+      setVehicles((prev) => [...prev, ...(res.data?.data ?? [])]);
+      setVehiclePage(nextPage);
+    } catch {
+      setLoadError("Could not load more vehicles.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const hasMoreVehicles = vehicles.length < vehicleTotal;
 
   // ─── Fetch makes on mount ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -130,10 +172,24 @@ const AppointmentVehicleDetails: React.FC = () => {
         const list = res.data ?? [];
         setModels(list);
         // Edit flow: if we stashed a model name to match, select its ID now.
+        // The saved vehicle model often has extra variant/year suffixes (e.g.
+        // "15.180FT 4X2 C/C 2026") that don't exactly match the master list
+        // entries ("15.180 FL"). Try exact match, then a loose contains match
+        // on the first token. If still no match, surface the raw text in the
+        // search input so the user can see what was saved and pick correctly.
         if (pendingModelNameRef.current) {
-          const target = pendingModelNameRef.current.toLowerCase();
-          const match = list.find((m) => m.name.toLowerCase() === target);
-          if (match) setModelId(match.id);
+          const raw = pendingModelNameRef.current;
+          const target = raw.toLowerCase().trim();
+          let match = list.find((m) => m.name.toLowerCase() === target);
+          if (!match) {
+            const firstToken = target.split(/\s+/)[0];
+            match = list.find((m) => m.name.toLowerCase().startsWith(firstToken));
+          }
+          if (match) {
+            setModelId(match.id);
+          } else {
+            setModelSearch(raw);
+          }
           pendingModelNameRef.current = "";
         }
       })
@@ -380,6 +436,28 @@ const AppointmentVehicleDetails: React.FC = () => {
               Vehicles registered under {state.customerName || "this customer"}
             </p>
 
+            {/* Search input — filters by VIN or registration number (BE-side ILIKE) */}
+            <div className="relative mb-4">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#999]" />
+              <input
+                type="text"
+                placeholder="Search by registration number or VIN..."
+                value={vehicleSearch}
+                onChange={(e) => setVehicleSearch(e.target.value)}
+                className="w-full pl-9 pr-9 py-2 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] border-[#e5e7eb]"
+              />
+              {vehicleSearch && (
+                <button
+                  type="button"
+                  onClick={() => setVehicleSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#999] hover:text-[#333]"
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
             {/* IRM pre-filled vehicle card */}
             {irmVehicle && (
               <div className="flex flex-col gap-3 mb-3">
@@ -488,6 +566,34 @@ const AppointmentVehicleDetails: React.FC = () => {
                   );
                 })}
               </div>
+            )}
+
+            {/* Load More — appears only when there are more vehicles to fetch */}
+            {!isLoading && hasMoreVehicles && (
+              <div className="flex justify-center mt-4">
+                <button
+                  type="button"
+                  onClick={handleLoadMoreVehicles}
+                  disabled={isLoadingMore}
+                  className="px-4 py-2 text-sm font-medium text-[#ff5100] border border-[#ff5100] rounded-lg hover:bg-[#ff5100]/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>Load More ({vehicleTotal - vehicles.length} remaining)</>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Result count line */}
+            {!isLoading && vehicleTotal > 0 && (
+              <p className="text-xs text-[#999] text-center mt-3">
+                Showing {vehicles.length} of {vehicleTotal} vehicles
+              </p>
             )}
           </div>
 

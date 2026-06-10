@@ -143,8 +143,13 @@ const AppointmentCustomerSearch: React.FC = () => {
 
   const handleSearch = async () => {
     const phone = phoneSearch.trim();
-    const vin = regSearch.trim();
-    if (!phone && !vin) return;
+    const term  = regSearch.trim();
+    if (!phone && !term) return;
+
+    // VINs are ISO 3779 — always exactly 17 alphanumeric characters. Anything
+    // else (e.g. "B081400") is a registration number. Route to the correct
+    // Evolve search field so the BE doesn't always look in the VIN column.
+    const isVin = term.length === 17;
 
     setIsSearching(true);
     setSearchError(null);
@@ -155,7 +160,8 @@ const AppointmentCustomerSearch: React.FC = () => {
       // Step 1: Search CRM (IRM)
       const irmRes = await irmCustomerSearch({
         phone: phone || undefined,
-        vin: vin || undefined,
+        vin:   term && isVin  ? term : undefined,
+        reg:   term && !isVin ? term : undefined,
       });
       const irmData = irmRes.data ?? [];
 
@@ -166,11 +172,11 @@ const AppointmentCustomerSearch: React.FC = () => {
         return;
       }
 
-      // Step 2: Fall back to internal DB
+      // Step 2: Fall back to internal DB (q does ILIKE on both VIN and reg)
       setSearchStep("internal");
       const internalData: InternalCustomer[] = await searchInternalCustomers({
         phone: phone || undefined,
-        q: !phone && vin ? vin : undefined,
+        q: !phone && term ? term : undefined,
       });
 
       if (internalData.length > 0) {
@@ -398,13 +404,13 @@ const AppointmentCustomerSearch: React.FC = () => {
                 Search Customer
               </h3>
               <p className="text-sm text-[#999] mb-4">
-                Search the CRM by vehicle registration or phone number
+                Search the CRM by VIN, registration number, or phone number
               </p>
 
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="text-sm font-medium text-[#333]">
-                    Vehicle Registration
+                    VIN or Vehicle Registration
                   </label>
                   <div className="relative mt-1">
                     <Search
@@ -413,7 +419,7 @@ const AppointmentCustomerSearch: React.FC = () => {
                     />
                     <input
                       type="text"
-                      placeholder="e.g. BL 00 MY ZN or GJ 05 0932"
+                      placeholder="e.g. AAK1518FLSB081400 or B081400"
                       value={regSearch}
                       onChange={(e) => {
                         setRegSearch(e.target.value);

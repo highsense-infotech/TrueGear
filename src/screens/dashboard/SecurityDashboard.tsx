@@ -11,6 +11,7 @@ const SecurityDashboard: React.FC = () => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [addVehicleSignal, setAddVehicleSignal] = useState(0);
+  const [lookupSignal, setLookupSignal] = useState(0);
   const [stats, setStats] = useState<VehicleStats>({
     vehiclesEnteredToday: 0,
     vehiclesEnteredYesterday: 0,
@@ -60,6 +61,9 @@ const SecurityDashboard: React.FC = () => {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    if (query.trim()) {
+      setLookupSignal((s) => s + 1);
+    }
   };
 
   return (
@@ -107,9 +111,10 @@ const SecurityDashboard: React.FC = () => {
           {/* Vehicle Table */}
           <div className="overflow-x-auto">
             <VehicleTable
-              searchQuery={searchQuery}
               onStatsLoaded={setStats}
               addVehicleSignal={addVehicleSignal}
+              lookupSignal={lookupSignal}
+              lookupQuery={searchQuery}
             />
           </div>
         </>

@@ -28,6 +28,7 @@ interface PhotoSlot {
 interface CustomerData {
   firstName: string;
   lastName: string;
+  companyName: string;
   phoneNumber: string;
   email: string;
   vin: string;
@@ -119,6 +120,7 @@ const AddVehicle: React.FC = () => {
             setCustomerData({
               firstName: customer.firstName,
               lastName: customer.lastName,
+              companyName: customer.companyName ?? "",
               phoneNumber: customer.contactNumber || "",
               email: customer.primaryEmail || "",
               vin: vehicle.vin,
@@ -144,8 +146,10 @@ const AddVehicle: React.FC = () => {
               );
             }
 
-            // Map existing images to photo slots by category
-            if (images && images.length > 0) {
+            // Map existing images to photo slots by category — only when
+            // editing an in-progress visit. Re-entries are NEW visits and
+            // require fresh photos, so we leave the slots empty.
+            if (images && images.length > 0 && !isReEntry) {
               setPhotoSlots((prev) => {
                 const updated = [...prev];
                 images.forEach((img) => {
@@ -483,7 +487,9 @@ const AddVehicle: React.FC = () => {
             <div className="bg-[#f9f9f9] rounded-[8px] p-3">
               <p className="text-[#999] text-[11px] mb-1">Customer Name</p>
               <p className="text-[#333] text-[14px] font-medium">
-                {customerData.firstName} {customerData.lastName}
+                {customerData.companyName
+                  || `${customerData.firstName} ${customerData.lastName}`.trim()
+                  || "—"}
               </p>
             </div>
             <div className="bg-[#f9f9f9] rounded-[8px] p-3">
@@ -719,7 +725,7 @@ const AddVehicle: React.FC = () => {
         onClose={() => { setIsModalOpen(false); setConfirmError(null); }}
         onConfirm={handleModalConfirm}
         registration={customerData?.vehicleNumber || "BL 00 MY ZN"}
-        owner={customerData ? `${customerData.firstName} ${customerData.lastName}` : "Ravi Varma"}
+        owner={customerData ? (customerData.companyName || `${customerData.firstName} ${customerData.lastName}`.trim()) : "Ravi Varma"}
         photosCaptured={`${capturedCount}/8`}
         entryTime={entryTime}
         isConfirming={isConfirming}
