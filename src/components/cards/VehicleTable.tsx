@@ -484,7 +484,7 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
             />
             <Button
               variant="gradient"
-              onClick={handleVinSubmit}
+              onClick={() => handleVinSubmit()}
               disabled={!vehicleNumber.trim() || isLookingUp}
             >
               {isLookingUp ? (
