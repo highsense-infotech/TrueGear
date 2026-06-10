@@ -8,6 +8,7 @@ export interface CurrencyOption {
 }
 
 export const CURRENCIES: CurrencyOption[] = [
+  { code: "ZAR", symbol: "R", label: "South African Rand (R)", locale: "en-ZA" },
   { code: "INR", symbol: "₹", label: "Indian Rupee (₹)", locale: "en-IN" },
   { code: "USD", symbol: "$", label: "US Dollar ($)", locale: "en-US" },
   { code: "EUR", symbol: "€", label: "Euro (€)", locale: "de-DE" },
@@ -21,6 +22,7 @@ export interface TaxConfig {
 }
 
 const CURRENCY_TAX_MAP: Record<string, TaxConfig> = {
+  ZAR: { label: "VAT", percentage: 15 },
   INR: { label: "GST", percentage: 18 },
   AED: { label: "VAT", percentage: 5 },
   USD: { label: "Tax", percentage: 10 },
@@ -33,9 +35,9 @@ const TAX_OVERRIDES_KEY = "truegear_tax_overrides";
 
 function getInitialCurrency(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY) || "USD";
+    return localStorage.getItem(STORAGE_KEY) || "ZAR";
   } catch {
-    return "USD";
+    return "ZAR";
   }
 }
 

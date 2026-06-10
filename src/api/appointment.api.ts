@@ -117,9 +117,12 @@ export interface AppointmentListData {
 
 export interface VehiclesByCustomerData {
   data:  VehicleListItem[];
-  total: number;
-  page:  number;
-  limit: number;
+  pagination: {
+    page:       number;
+    limit:      number;
+    total:      number;
+    totalPages: number;
+  };
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────────
@@ -133,8 +136,19 @@ export const getSlotAvailability = async (
 
 export const getVehiclesByCustomer = async (
   customerId: string,
+  opts: { page?: number; limit?: number; search?: string } = {},
 ): Promise<ApiResponse<VehiclesByCustomerData>> => {
-  const { data } = await api.get('/vehicles', { params: { customerId, includeAll: 'true' } });
+  const { page = 1, limit = 10, search } = opts;
+  const params: Record<string, string | number> = {
+    customerId,
+    includeAll: 'true',
+    page,
+    limit,
+  };
+  // BE's `vin` param does ILIKE on both VIN and registration_number — exactly
+  // what we want for a unified search box.
+  if (search && search.trim()) params.vin = search.trim();
+  const { data } = await api.get('/vehicles', { params });
   return data;
 };
 
