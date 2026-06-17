@@ -39,9 +39,15 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Costing-only labour lines are never technician work — exclude them entirely
+  // from assignment. (no part + no parts cost)
+  const assignableItems = useMemo(
+    () => items.filter((i) => !i.isLabourOnly),
+    [items],
+  );
   // Only items not yet assigned are editable; already-assigned ones display as read-only.
-  const unassignedItems = useMemo(() => items.filter((i) => !i.assignedTechnicianId), [items]);
-  const assignedItems = useMemo(() => items.filter((i) => i.assignedTechnicianId), [items]);
+  const unassignedItems = useMemo(() => assignableItems.filter((i) => !i.assignedTechnicianId), [assignableItems]);
+  const assignedItems = useMemo(() => assignableItems.filter((i) => i.assignedTechnicianId), [assignableItems]);
 
   useEffect(() => {
     if (!isOpen) return;

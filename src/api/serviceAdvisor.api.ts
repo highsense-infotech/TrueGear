@@ -303,6 +303,9 @@ export interface SAJobCardItem {
   assignedAt: string | null;
   completedAt: string | null;
   isWarrantyClaim?: boolean;
+  // Costing-only labour line (no part + no parts cost). Shown in costing,
+  // excluded from technician assignment and parts confirmation.
+  isLabourOnly?: boolean;
 }
 
 export interface SAJobCardDetailData {

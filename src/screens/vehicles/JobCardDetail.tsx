@@ -192,7 +192,7 @@ const JobCardDetail: React.FC = () => {
         <div className="flex items-center gap-3">
           {canAllocateTechnicians &&
             (jobCard.status === "APPROVED" || jobCard.status === "IN_PROGRESS") &&
-            items.some((i) => !i.assignedTechnicianId) && (
+            items.some((i) => !i.assignedTechnicianId && !i.isLabourOnly) && (
               <Button
                 variant="gradient"
                 icon={<UserPlus size={18} />}
