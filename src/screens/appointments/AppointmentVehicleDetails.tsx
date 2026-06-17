@@ -19,7 +19,7 @@ import {
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
 import { getVehiclesByCustomer, type VehicleListItem } from "../../api/appointment.api";
-import { listMakes, listModelsByMake, updateVehicle, type VehicleMake, type VehicleModel } from "../../api/vehicle.api";
+import { listMakes, listModelsByMake, listModelCodes, updateVehicle, type VehicleMake, type VehicleModel, type VehicleModelCode } from "../../api/vehicle.api";
 import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,14 +56,21 @@ const AppointmentVehicleDetails: React.FC = () => {
   const [models,        setModels]        = useState<VehicleModel[]>([]);
   const [loadingMakes,  setLoadingMakes]  = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
+  // Third cascade level: Make → Series(model) → ModelCode.
+  const [modelCodes,        setModelCodes]        = useState<VehicleModelCode[]>([]);
+  const [modelCodeValue,    setModelCodeValue]    = useState("");
+  const [loadingModelCodes, setLoadingModelCodes] = useState(false);
 
   // Searchable combobox state
   const [makeSearch,  setMakeSearch]  = useState("");
   const [makeOpen,    setMakeOpen]    = useState(false);
   const [modelSearch, setModelSearch] = useState("");
   const [modelOpen,   setModelOpen]   = useState(false);
+  const [modelCodeSearch, setModelCodeSearch] = useState("");
+  const [modelCodeOpen,   setModelCodeOpen]   = useState(false);
   const makeRef  = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
+  const modelCodeRef = useRef<HTMLDivElement>(null);
   // Holds the model name to auto-select once models for the chosen make finish loading
   // (used by the edit-vehicle flow, since we only have brand/model strings to start with).
   const pendingModelNameRef = useRef<string>("");
@@ -101,6 +108,7 @@ const AppointmentVehicleDetails: React.FC = () => {
     const handler = (e: MouseEvent) => {
       if (makeRef.current && !makeRef.current.contains(e.target as Node)) setMakeOpen(false);
       if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false);
+      if (modelCodeRef.current && !modelCodeRef.current.contains(e.target as Node)) setModelCodeOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -197,6 +205,18 @@ const AppointmentVehicleDetails: React.FC = () => {
       .finally(() => setLoadingModels(false));
   }, [makeId]);
 
+  // ─── Fetch model codes when modelId changes (Make → Series → ModelCode) ──────
+  useEffect(() => {
+    setModelCodeValue("");
+    setModelCodeSearch("");
+    if (!modelId) { setModelCodes([]); return; }
+    setLoadingModelCodes(true);
+    listModelCodes(modelId)
+      .then((res) => setModelCodes(res.data ?? []))
+      .catch(() => setModelCodes([]))
+      .finally(() => setLoadingModelCodes(false));
+  }, [modelId]);
+
   const selectedVehicle   = vehicles.find((v) => v.id === selectedVehicleId);
   // Only show the IRM card if the vehicle doesn't already exist in local saved vehicles
   const irmVehicleRaw     = state.newVehicleData;
@@ -219,6 +239,11 @@ const AppointmentVehicleDetails: React.FC = () => {
 
   const selectedMakeName  = makes.find((m) => m.id === makeId)?.name  ?? "";
   const selectedModelName = models.find((m) => m.id === modelId)?.name ?? "";
+  // Evolve returns one row per model-year; the picker shows one entry per code
+  // (the full per-year rows are still persisted server-side).
+  const distinctModelCodes = Array.from(
+    new Map(modelCodes.map((c) => [c.code, c])).values(),
+  );
   const isNewFormValid  = showNewForm && regNumber.trim() && vin.trim() && makeId && modelId && fuelType && transmission && year;
   const canProceed      = selectedVehicleId === "__irm__" || selectedVehicleId || isNewFormValid;
 
@@ -294,6 +319,8 @@ const AppointmentVehicleDetails: React.FC = () => {
         registrationNumber: regNumber.trim(),
         brand:              selectedMakeName,
         model:              selectedModelName,
+        modelCode:          modelCodeValue || undefined,
+        modelDescription:   modelCodes.find((c) => c.code === modelCodeValue)?.description || undefined,
         manufacturingYear:  Number(year),
         fuelType,
         transmissionType:   transmission,
@@ -322,10 +349,10 @@ const AppointmentVehicleDetails: React.FC = () => {
       // IRM pre-filled vehicle — wizard state already contains newVehicleData; just ensure flags are set
       setState({
         vehicleId:           null,
-        vehicleName:         `${irmVehicle.brand} ${irmVehicle.model} ${irmVehicle.manufacturingYear}`,
+        vehicleName:         `${irmVehicle.brand} ${irmVehicle.model}${irmVehicle.manufacturingYear ? ` ${irmVehicle.manufacturingYear}` : ""}`,
         vehicleReg:          irmVehicle.registrationNumber,
         vehicleMakeModel:    `${irmVehicle.brand} ${irmVehicle.model}`,
-        vehicleYear:         String(irmVehicle.manufacturingYear),
+        vehicleYear:         irmVehicle.manufacturingYear ? String(irmVehicle.manufacturingYear) : "",
         vehicleFuel:         irmVehicle.fuelType,
         vehicleTransmission: irmVehicle.transmissionType,
         vehicleOdometer:     String(irmVehicle.odometerLast ?? 0),
@@ -335,10 +362,10 @@ const AppointmentVehicleDetails: React.FC = () => {
     } else if (selectedVehicle && !showNewForm) {
       setState({
         vehicleId:           selectedVehicle.id,
-        vehicleName:         `${selectedVehicle.brand} ${selectedVehicle.model} ${selectedVehicle.manufacturingYear}`,
+        vehicleName:         `${selectedVehicle.brand} ${selectedVehicle.model}${selectedVehicle.manufacturingYear ? ` ${selectedVehicle.manufacturingYear}` : ""}`,
         vehicleReg:          selectedVehicle.registrationNumber ?? "",
         vehicleMakeModel:    `${selectedVehicle.brand} ${selectedVehicle.model}`,
-        vehicleYear:         String(selectedVehicle.manufacturingYear),
+        vehicleYear:         selectedVehicle.manufacturingYear ? String(selectedVehicle.manufacturingYear) : "",
         vehicleFuel:         selectedVehicle.fuelType ?? "",
         vehicleTransmission: selectedVehicle.transmissionType ?? "",
         vehicleOdometer:     String(selectedVehicle.odometerLast ?? ""),
@@ -359,6 +386,8 @@ const AppointmentVehicleDetails: React.FC = () => {
         newVehicleData: {
           brand:              selectedMakeName,
           model:              selectedModelName,
+          modelCode:          modelCodeValue || undefined,
+          modelDescription:   modelCodes.find((c) => c.code === modelCodeValue)?.description || undefined,
           manufacturingYear:  Number(year),
           registrationNumber: regNumber.trim(),
           vin:                vin.trim(),
@@ -538,7 +567,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                       </div>
                       <div className="flex-1 flex flex-col gap-0.5">
                         <p className="text-sm font-bold text-[#333]">
-                          {makeLabel} {vehicle.model} {vehicle.manufacturingYear}
+                          {makeLabel} {vehicle.model}{vehicle.manufacturingYear ? ` ${vehicle.manufacturingYear}` : ""}
                         </p>
                         {vehicle.registrationNumber && (
                           <p className="text-xs text-[#999]">Reg: {vehicle.registrationNumber.toUpperCase()}</p>
@@ -734,6 +763,66 @@ const AppointmentVehicleDetails: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Model Code combobox (Make → Series → ModelCode) */}
+                <div>
+                  <label className="text-sm font-medium text-[#333]">Model Code</label>
+                  <div ref={modelCodeRef} className="relative mt-1">
+                    <input
+                      type="text"
+                      placeholder={
+                        !modelId
+                          ? "Select a model first"
+                          : loadingModelCodes
+                            ? "Loading model codes..."
+                            : modelCodes.length === 0
+                              ? "No model codes available"
+                              : "Search model code..."
+                      }
+                      disabled={!modelId || loadingModelCodes || modelCodes.length === 0}
+                      value={
+                        modelCodeOpen
+                          ? modelCodeSearch
+                          : (() => {
+                              const sel = modelCodes.find((c) => c.code === modelCodeValue);
+                              return sel ? (sel.description || sel.code) : modelCodeSearch;
+                            })()
+                      }
+                      onFocus={() => { setModelCodeOpen(true); setModelCodeSearch(""); }}
+                      onClick={() => { if (modelId && modelCodes.length) { setModelCodeOpen(true); setModelCodeSearch(""); } }}
+                      onChange={(e) => { setModelCodeSearch(e.target.value); setModelCodeOpen(true); }}
+                      className="w-full px-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] bg-white disabled:opacity-50"
+                    />
+                    {modelCodeOpen && modelId && modelCodes.length > 0 && (
+                      <div className="absolute z-20 mt-1 w-full bg-white border border-[#e5e7eb] rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        {distinctModelCodes
+                          .filter((c) => {
+                            const label = (c.description || c.code).toLowerCase();
+                            return label.includes(modelCodeSearch.toLowerCase());
+                          })
+                          .map((c) => (
+                            <div
+                              key={c.code}
+                              onMouseDown={() => {
+                                setModelCodeValue(c.code);
+                                setModelCodeSearch("");
+                                setModelCodeOpen(false);
+                              }}
+                              className={`px-3 py-2 text-sm cursor-pointer hover:bg-[#f5f5f5] ${c.code === modelCodeValue ? "text-[#ff5100] font-medium" : "text-[#333]"}`}
+                            >
+                              {c.description || c.code}
+                            </div>
+                          ))}
+                        {distinctModelCodes.filter((c) => {
+                          const label = (c.description || c.code).toLowerCase();
+                          return label.includes(modelCodeSearch.toLowerCase());
+                        }).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-[#999]">No results</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Fuel + Year */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -838,7 +927,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                   {selectedVehicleId === "__irm__" && irmVehicle
                     ? `${irmVehicle.brand} ${irmVehicle.model} ${irmVehicle.manufacturingYear || ""}`.trim()
                     : selectedVehicle
-                    ? `${selectedVehicle.brand} ${selectedVehicle.model} ${selectedVehicle.manufacturingYear}`
+                    ? `${selectedVehicle.brand} ${selectedVehicle.model} ${selectedVehicle.manufacturingYear || ""}`.trim()
                     : "Not selected yet"}
                 </span>
               </div>

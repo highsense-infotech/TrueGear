@@ -1,20 +1,21 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Loader2, Camera, X, Check, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Camera, X, Check, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import Button from "../../components/common/Button";
 import SignaturePad from "../../components/common/SignaturePad";
 import {
   getQcOutDashboard,
-  getQcOutChecklist,
+  getQcInItemsForCheckIn,
   uploadQcOutPhoto,
   submitQcOut,
   getCompletedWorks,
   type QcOutDashboardData,
-  type QcOutChecklistItem,
+  type QcInItemForReuse,
   type QcOutItemStatus,
   type QcOutCompletedWork,
 } from "../../api/qcOutInspection.api";
 import { Pagination } from "../../components/common/Pagination";
+import QcDamageReport from "../../components/cards/QcDamageReport";
 
 // Each checklist row's UI state during a live inspection. `photoUrls` are
 // S3 keys returned by the upload endpoint; we send them along with submit.
@@ -46,13 +47,22 @@ export default function QcOutInspectionDashboard() {
   // Inspection mode
   const [activeCheckInId, setActiveCheckInId] = useState<string | null>(null);
   const [activeMeta, setActiveMeta] = useState<{ reg: string; model: string } | null>(null);
-  const [checklist, setChecklist] = useState<QcOutChecklistItem[]>([]);
+  // Phase 9 — 3.10. QC Out now uses QC In items as the checklist template so
+  // the comparison endpoint can join QC In ↔ QC Out row-by-row to surface
+  // workshop damage (item PASS at entry, FAIL at exit).
+  const [checklist, setChecklist] = useState<QcInItemForReuse[]>([]);
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [remarks, setRemarks] = useState("");
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // ── Works Completed tab state ──
   const [activeTab, setActiveTab] = useState<"works" | "checklist">("works");
+  // Damage Report modal — opens for any past QC Out inspection (Phase 9 — 3.10 Gap B).
+  const [reportCheckInId, setReportCheckInId] = useState<string | null>(null);
+  const [reportSubtitle, setReportSubtitle] = useState<string>("");
+  // Category expand/collapse — default to first category open, rest collapsed
+  // so the long checklist isn't an endless scroll on load.
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
   const [works, setWorks] = useState<QcOutCompletedWork[]>([]);
   const [worksState, setWorksState] = useState<Record<string, { result: QcOutItemStatus | null; notes: string }>>({});
 
@@ -77,14 +87,33 @@ export default function QcOutInspectionDashboard() {
     setRemarks("");
     setSignatureDataUrl(null);
     setActiveTab("works");
-    const [cl, w] = await Promise.all([getQcOutChecklist(), getCompletedWorks(checkInId)]);
+    const [cl, w] = await Promise.all([
+      getQcInItemsForCheckIn(checkInId),
+      getCompletedWorks(checkInId),
+    ]);
     if (cl.success && cl.data) {
-      setChecklist(cl.data);
+      const items = cl.data.items ?? [];
+      if (items.length === 0) {
+        toast.error("No completed QC In found for this vehicle — QC Out requires QC In first.");
+        setActiveCheckInId(null);
+        setActiveMeta(null);
+        return;
+      }
+      setChecklist(items);
       const seed: Record<string, RowState> = {};
-      for (const c of cl.data) {
-        seed[c.id] = { status: "PASS", notes: "", photoUrls: [], uploading: false };
+      for (const c of items) {
+        // Pre-fill with whatever QC In said. Inspector flips to FAIL if
+        // they spot damage at exit; otherwise the row carries the entry
+        // result forward (so the comparison endpoint can flag a swap).
+        const initial: QcOutItemStatus = (c.qcInResult ?? "PASS") as QcOutItemStatus;
+        seed[c.id] = { status: initial, notes: "", photoUrls: [], uploading: false };
       }
       setRows(seed);
+    } else {
+      toast.error(cl.error?.message ?? "Failed to load QC checklist");
+      setActiveCheckInId(null);
+      setActiveMeta(null);
+      return;
     }
     if (w.success && w.data) {
       setWorks(w.data);
@@ -150,7 +179,7 @@ export default function QcOutInspectionDashboard() {
     for (const c of checklist) {
       const r = rows[c.id];
       if (r.status === "FAIL" && r.photoUrls.length === 0) {
-        toast.error(`"${c.label}" failed — add at least one photo.`);
+        toast.error(`"${c.itemLabel}" failed — add at least one photo.`);
         return;
       }
     }
@@ -168,7 +197,13 @@ export default function QcOutInspectionDashboard() {
       // the data URL via the submit body — server-side we leave the column
       // as-is for now; FE-only validation).
       const items = checklist.map((c, idx) => ({
-        itemLabel: c.label,
+        itemLabel: c.itemLabel,
+        // Carry the structured QC In fields through so the backend can
+        // wire qc_in_item_id and the comparison endpoint can join.
+        category: c.category,
+        subCategory: c.subCategory ?? undefined,
+        itemCode: c.itemCode,
+        qcInItemId: c.id,
         status: rows[c.id].status,
         notes: rows[c.id].notes,
         sortOrder: idx,
@@ -321,13 +356,72 @@ export default function QcOutInspectionDashboard() {
 
         {activeTab === "checklist" && (
         <div className="space-y-3">
-          {checklist.map((c) => {
+          {/* Group items by category so the QC Out form mirrors QC In's layout.
+              Each category is collapsible — keeps the form compact on long lists. */}
+          {Array.from(new Set(checklist.map((c) => c.category))).map((cat) => {
+            const catItems = checklist.filter((c) => c.category === cat);
+            const isOpen = openCategories[cat as string] ?? false;
+            // Live counters per category — total, completed (status assigned),
+            // fail count to surface attention at a glance.
+            const failCount = catItems.filter((c) => rows[c.id]?.status === "FAIL").length;
+            const passCount = catItems.filter((c) => rows[c.id]?.status === "PASS").length;
+            return (
+            <div key={cat as string} className="bg-white border border-[#e5e7eb] rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenCategories((prev) => ({ ...prev, [cat as string]: !isOpen }))
+                }
+                className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#fafafa]"
+                aria-expanded={isOpen}
+              >
+                <div className="flex items-center gap-2 flex-wrap text-left">
+                  <span className="text-[12px] uppercase tracking-wide text-[#333] font-semibold">
+                    {cat}
+                  </span>
+                  <span className="text-[11px] text-[#999]">({catItems.length})</span>
+                  {failCount > 0 && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">
+                      {failCount} fail
+                    </span>
+                  )}
+                  {passCount === catItems.length && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      All pass
+                    </span>
+                  )}
+                </div>
+                {isOpen ? (
+                  <ChevronUp className="w-4 h-4 text-[#999]" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-[#999]" />
+                )}
+              </button>
+              {isOpen && (
+              <div className="px-3 pb-3 space-y-2 border-t border-[#f0f0f0] pt-3">
+          {catItems.map((c) => {
             const r = rows[c.id];
             if (!r) return null;
+            // QC In reference badge — shows whether the issue was already
+            // present at entry. If the inspector flips PASS→FAIL on a PASS-at-in
+            // item, the comparison endpoint flags it as workshop damage.
+            const qcInBadgeCls =
+              c.qcInResult === "PASS" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : c.qcInResult === "FAIL" ? "bg-red-50 text-red-700 border-red-200"
+              : "bg-slate-50 text-slate-600 border-slate-200";
             return (
               <div key={c.id} className="bg-white border border-[#e5e7eb] rounded-xl p-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <p className="text-[14px] font-medium text-[#333]">{c.label}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[14px] font-medium text-[#333]">{c.itemLabel}</p>
+                    {c.subCategory && (
+                      <span className="text-[10px] text-[#999]">· {c.subCategory}</span>
+                    )}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${qcInBadgeCls}`}
+                          title={c.qcInComment ?? undefined}>
+                      QC In: {c.qcInResult ?? "—"}
+                    </span>
+                  </div>
                   <div className="flex gap-2">
                     {(["PASS", "FAIL", "NA"] as QcOutItemStatus[]).map((s) => (
                       <button
@@ -389,6 +483,11 @@ export default function QcOutInspectionDashboard() {
                   </div>
                 )}
               </div>
+            );
+          })}
+              </div>
+              )}
+            </div>
             );
           })}
         </div>
@@ -490,9 +589,21 @@ export default function QcOutInspectionDashboard() {
                         {r.inspectorName && <> · by {r.inspectorName}</>}
                       </p>
                     </div>
-                    <span className={`text-[12px] font-semibold px-2.5 py-0.5 rounded border ${r.overallStatus === "PASS" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
-                      {r.overallStatus === "PASS" ? <span className="inline-flex items-center gap-1"><CheckCircle2 size={12} /> PASS</span> : <span className="inline-flex items-center gap-1"><AlertCircle size={12} /> FAIL</span>}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReportCheckInId(r.checkInId);
+                          setReportSubtitle(`${(r.registrationNumber ?? "—").toUpperCase()} · ${r.brand} ${r.model}`);
+                        }}
+                        className="text-[11px] text-[#ff4f31] hover:underline"
+                      >
+                        Damage Report
+                      </button>
+                      <span className={`text-[12px] font-semibold px-2.5 py-0.5 rounded border ${r.overallStatus === "PASS" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+                        {r.overallStatus === "PASS" ? <span className="inline-flex items-center gap-1"><CheckCircle2 size={12} /> PASS</span> : <span className="inline-flex items-center gap-1"><AlertCircle size={12} /> FAIL</span>}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -520,6 +631,14 @@ export default function QcOutInspectionDashboard() {
       {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
       {/* `Check` import kept for future per-item PASS chip styling */}
       <span style={{ display: "none" }}>{<Check size={0} />}</span>
+
+      {/* QC In vs QC Out damage comparison report — Phase 9 — 3.10 Gap B */}
+      <QcDamageReport
+        isOpen={reportCheckInId !== null}
+        checkInId={reportCheckInId}
+        subtitle={reportSubtitle}
+        onClose={() => { setReportCheckInId(null); setReportSubtitle(""); }}
+      />
     </>
   );
 }

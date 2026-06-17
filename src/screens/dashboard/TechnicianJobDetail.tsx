@@ -8,6 +8,8 @@ import Button from "../../components/common/Button";
 import SignaturePad from "../../components/common/SignaturePad";
 import RequestPartsModal from "../../components/common/RequestPartsModal";
 import ProgressChip from "../../components/common/ProgressChip";
+import { useAuth } from "../../context/AuthContext";
+import { foremanUpdateWriteUp } from "../../api/workshop.api";
 import {
   getTechnicianJobDetail,
   startItemWork,
@@ -20,16 +22,21 @@ import {
   type TechnicianJobCardDetailData,
 } from "../../api/serviceAdvisor.api";
 
-const TAB_STATUS: Record<string, "pending" | "progress" | "completed"> = {
-  IN_PROGRESS: "progress",
-  COMPLETED: "completed",
+const TAB_STATUS: Record<string, "pending" | "progress" | "review" | "rework" | "completed"> = {
+  IN_PROGRESS:      "progress",
+  IN_SERVICE:       "progress",
+  FOREMAN_REVIEW:   "review",
+  FOREMAN_REJECTED: "rework",
+  COMPLETED:        "completed",
 };
 const toTabStatus = (s: string) => TAB_STATUS[s] ?? "pending";
 
 const statusConfig = {
-  pending: { label: "Pending", bg: "bg-[#ffe1b7]", text: "text-[#e89d00]" },
-  progress: { label: "In Progress", bg: "bg-[#b7d4ff]", text: "text-[#0061FF]" },
-  completed: { label: "Completed", bg: "bg-[#b3ffbd]", text: "text-[#00bf06]" },
+  pending:   { label: "Pending",            bg: "bg-[#ffe1b7]", text: "text-[#e89d00]" },
+  progress:  { label: "In Progress",        bg: "bg-[#b7d4ff]", text: "text-[#0061FF]" },
+  review:    { label: "Awaiting Sign-Off",  bg: "bg-[#fff4ed]", text: "text-[#ff4f31]" },
+  rework:    { label: "Foreman Rejected",   bg: "bg-red-50",    text: "text-red-700"  },
+  completed: { label: "Completed",          bg: "bg-[#b3ffbd]", text: "text-[#00bf06]" },
 } as const;
 
 const priorityStyle: Record<string, string> = {
@@ -61,6 +68,10 @@ const TechnicianJobDetail: React.FC = () => {
   // the whole card. Omit the param to fall back to the all-items view.
   const focusedItemId = searchParams.get("item");
 
+  const { hasPermission } = useAuth();
+  // Foreman / supervisor / super-admin can edit write-ups even after completion.
+  const canEditWriteUp = hasPermission('WORKSHOP', 'EDIT');
+
   const [data, setData] = useState<TechnicianJobCardDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +82,13 @@ const TechnicianJobDetail: React.FC = () => {
   const [completeNotes, setCompleteNotes] = useState("");
   const [completeSubmitting, setCompleteSubmitting] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
+
+  // Foreman/supervisor write-up edit state (3.8 — Both technician AND
+  // foreman should have write-up access).
+  const [writeUpEditForId, setWriteUpEditForId] = useState<string | null>(null);
+  const [editCause, setEditCause] = useState("");
+  const [editCorrection, setEditCorrection] = useState("");
+  const [writeUpSaving, setWriteUpSaving] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   // Phase 3 — diagnosis editing + parts request + photo upload state
@@ -149,6 +167,43 @@ const TechnicianJobDetail: React.FC = () => {
       toast.error("Save failed");
     } finally {
       setDiagSubmitting(false);
+    }
+  };
+
+  // Foreman write-up edit (3.8 — foreman/supervisor access)
+  const openWriteUpEditor = (itemId: string, cause: string | null, correction: string | null) => {
+    setWriteUpEditForId(itemId);
+    setEditCause(cause ?? "");
+    setEditCorrection(correction ?? "");
+  };
+  const closeWriteUpEditor = () => {
+    setWriteUpEditForId(null);
+    setEditCause("");
+    setEditCorrection("");
+  };
+  const submitWriteUpEdit = async () => {
+    if (!writeUpEditForId) return;
+    if (editCause.trim().length < 10 || editCorrection.trim().length < 10) {
+      toast.error("Both Cause and Correction must be at least 10 characters.");
+      return;
+    }
+    setWriteUpSaving(true);
+    try {
+      const res = await foremanUpdateWriteUp(writeUpEditForId, {
+        diagnosisNotes: editCause.trim(),
+        completionNotes: editCorrection.trim(),
+      });
+      if (res.success) {
+        toast.success("Write-up updated");
+        closeWriteUpEditor();
+        await fetchDetail();
+      } else {
+        toast.error(res.error?.message ?? "Update failed");
+      }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setWriteUpSaving(false);
     }
   };
 
@@ -494,6 +549,9 @@ const TechnicianJobDetail: React.FC = () => {
                     )}
                   </div>
                   <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-[#999] mb-0.5">
+                      Complaint
+                    </p>
                     <p className={`text-[14px] sm:text-[15px] font-semibold text-[#333] wrap-break-word ${
                       isComplete ? "line-through text-[#666]" : ""
                     }`}>
@@ -577,7 +635,7 @@ const TechnicianJobDetail: React.FC = () => {
                 <div className="mt-3 pt-3 border-t border-[#e5e7eb]">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] uppercase tracking-wide text-[#666] flex items-center gap-1">
-                      <Stethoscope size={12} /> Diagnosis
+                      <Stethoscope size={12} /> Cause (Diagnosis) *
                       {item.diagnosedAt && (
                         <span className="ml-1 text-[10px] text-[#04c397] font-medium normal-case tracking-normal">
                           ✓ saved
@@ -589,7 +647,7 @@ const TechnicianJobDetail: React.FC = () => {
                         onClick={() => openDiagnosisEditor(item.id, item.diagnosisNotes)}
                         className="text-[12px] text-[#ff4f31] hover:underline"
                       >
-                        {item.diagnosedAt ? "Edit" : "Add diagnosis"}
+                        {item.diagnosedAt ? "Edit" : "Add cause"}
                       </button>
                     )}
                   </div>
@@ -599,15 +657,19 @@ const TechnicianJobDetail: React.FC = () => {
                       <textarea
                         value={diagNotes}
                         onChange={(e) => setDiagNotes(e.target.value)}
-                        rows={2}
+                        rows={3}
                         disabled={diagSubmitting}
-                        placeholder="What did you find? (e.g. brake pads worn beyond limit)"
+                        placeholder="Record the Cause — what's wrong and why (min 10 chars). e.g. Front brake pads worn beyond 2mm limit, hot-spotting on rotor visible."
                         className="w-full px-3 py-2 rounded-md border border-[#e5e7eb] bg-white text-[13px] focus:outline-none focus:border-[#ff4f31] resize-y"
                       />
+                      <p className="text-[11px] text-[#999] mt-1">
+                        {diagNotes.trim().length}/10 characters
+                        {diagNotes.trim().length < 10 && " — required to clock in"}
+                      </p>
                       <div className="flex gap-2 mt-2">
                         <Button variant="secondary" onClick={cancelDiagnosisEditor} disabled={diagSubmitting}>Cancel</Button>
                         <Button variant="gradient" onClick={submitDiagnosis} disabled={diagSubmitting}>
-                          {diagSubmitting ? "Saving..." : "Save Diagnosis"}
+                          {diagSubmitting ? "Saving..." : "Save Cause"}
                         </Button>
                       </div>
                     </div>
@@ -752,15 +814,61 @@ const TechnicianJobDetail: React.FC = () => {
                 </div>
               )}
 
-              {/* Completion notes — only shown once the item is finished. */}
-              {isComplete && item.completionNotes && (
-                <div className="mt-3 pt-3 border-t border-emerald-200">
-                  <p className="text-[11px] uppercase tracking-wide text-[#666] mb-1">
-                    Completion notes
-                  </p>
-                  <p className="text-[13px] text-[#333] whitespace-pre-wrap">
-                    {item.completionNotes}
-                  </p>
+              {/* OEM compliance write-up — full Complaint/Cause/Correction
+                  + Start/End times, shown once the item is completed. This
+                  is the digitised replacement for the paper job card pack. */}
+              {isComplete && (
+                <div className="mt-3 pt-3 border-t border-emerald-200 bg-[#f0fdf4] -mx-3 px-3 pb-3 rounded-b-[10px]">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] uppercase tracking-wide text-[#04c397] font-semibold">
+                      Compliance Write-Up
+                    </p>
+                    {canEditWriteUp && (
+                      <button
+                        type="button"
+                        onClick={() => openWriteUpEditor(item.id, item.diagnosisNotes, item.completionNotes)}
+                        className="text-[11px] text-[#ff4f31] hover:underline"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 text-[12px]">
+                    <div>
+                      <span className="text-[#666] uppercase text-[10px] tracking-wide block">Complaint</span>
+                      <span className="text-[#333]">{item.jobDescription || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#666] uppercase text-[10px] tracking-wide block">Cause</span>
+                      <span className="text-[#333] whitespace-pre-wrap">{item.diagnosisNotes || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#666] uppercase text-[10px] tracking-wide block">Correction</span>
+                      <span className="text-[#333] whitespace-pre-wrap">{item.completionNotes || "—"}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-emerald-200">
+                      <div>
+                        <span className="text-[#666] uppercase text-[10px] tracking-wide block">Start Time</span>
+                        <span className="text-[#333]">
+                          {(() => {
+                            if (item.timeLogs.length === 0) return "—";
+                            const first = [...item.timeLogs].sort(
+                              (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+                            )[0];
+                            return new Date(first.startedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" });
+                          })()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#666] uppercase text-[10px] tracking-wide block">End Time</span>
+                        <span className="text-[#333]">
+                          {item.completedAt
+                            ? new Date(item.completedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })
+                            : "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -805,22 +913,73 @@ const TechnicianJobDetail: React.FC = () => {
       <Modal
         isOpen={completeForId !== null}
         onClose={closeCompleteModal}
-        title="Complete Job"
+        title="Complete Job — Write-Up"
         size="md"
       >
         <div className="flex flex-col gap-3">
+          {/* OEM compliance write-up summary block. Shows Complaint + Cause
+              + first start time + current "End now" so the technician sees
+              the full record in the exact format Johan asked for. */}
+          {(() => {
+            const item = items.find((i) => i.id === completeForId);
+            if (!item) return null;
+            const firstStart = item.timeLogs.length > 0
+              ? [...item.timeLogs].sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0].startedAt
+              : null;
+            const fmt = (iso: string | null) => {
+              if (!iso) return "—";
+              const d = new Date(iso);
+              return d.toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" });
+            };
+            return (
+              <div className="bg-[#f9fafb] border border-[#e5e7eb] rounded-[10px] p-3 text-[12px]">
+                <div className="grid grid-cols-1 gap-2">
+                  <div>
+                    <span className="text-[#999] uppercase text-[10px] tracking-wide block">Complaint</span>
+                    <span className="text-[#333]">{item.jobDescription || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#999] uppercase text-[10px] tracking-wide block">Cause (Diagnosis)</span>
+                    <span className="text-[#333] whitespace-pre-wrap">{item.diagnosisNotes || "—"}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-[#e5e7eb]">
+                    <div>
+                      <span className="text-[#999] uppercase text-[10px] tracking-wide block">Start Time</span>
+                      <span className="text-[#333]">{fmt(firstStart)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#999] uppercase text-[10px] tracking-wide block">End Time</span>
+                      <span className="text-[#333]">{fmt(new Date().toISOString())} <span className="text-[#999]">(on submit)</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           <p className="text-[13px] text-[#666]">
-            Add any final comments about the work performed. The job will be
-            marked complete and any running timer will stop.
+            Record the <strong>Correction</strong> performed on this job. Minimum 10
+            characters — describe the work done (parts replaced, adjustments made,
+            tests performed). Required by OEM compliance.
           </p>
-          <textarea
-            value={completeNotes}
-            onChange={(e) => setCompleteNotes(e.target.value)}
-            disabled={completeSubmitting}
-            placeholder="e.g. Replaced filter, system tested OK."
-            rows={4}
-            className="w-full px-3 py-2 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31] resize-y"
-          />
+          <div>
+            <label className="text-[11px] uppercase tracking-wide text-[#666] mb-1 block">
+              Correction *
+            </label>
+            <textarea
+              value={completeNotes}
+              onChange={(e) => setCompleteNotes(e.target.value)}
+              disabled={completeSubmitting}
+              placeholder="e.g. Replaced front brake pads, bled the brake fluid line, road-tested for stopping power. No abnormal noise on test."
+              rows={4}
+              minLength={10}
+              required
+              className="w-full px-3 py-2 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31] resize-y"
+            />
+            <p className="text-[11px] text-[#999] mt-1">
+              {completeNotes.trim().length}/10 characters
+              {completeNotes.trim().length < 10 && " — minimum not met"}
+            </p>
+          </div>
 
           {/* Phase 3 — Technician signature (required). */}
           <div>
@@ -845,7 +1004,7 @@ const TechnicianJobDetail: React.FC = () => {
             <Button
               onClick={submitComplete}
               className="flex-1"
-              disabled={completeSubmitting}
+              disabled={completeSubmitting || completeNotes.trim().length < 10 || !signatureDataUrl}
             >
               {completeSubmitting ? "Completing..." : "Complete Job"}
             </Button>
@@ -861,6 +1020,63 @@ const TechnicianJobDetail: React.FC = () => {
         onClose={() => setPartsForId(null)}
         onRequested={() => { /* nothing else to refresh — parts manager handles it next */ }}
       />
+
+      {/* Foreman / supervisor write-up edit modal (3.8) */}
+      <Modal
+        isOpen={writeUpEditForId !== null}
+        onClose={closeWriteUpEditor}
+        title="Edit Compliance Write-Up"
+        size="md"
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-[#666]">
+            Foreman / supervisor edit. Refine the technician's Cause or Correction
+            notes — both must be at least 10 characters.
+          </p>
+          <div>
+            <label className="text-[11px] uppercase tracking-wide text-[#666] mb-1 block">
+              Cause (Diagnosis) *
+            </label>
+            <textarea
+              value={editCause}
+              onChange={(e) => setEditCause(e.target.value)}
+              rows={3}
+              disabled={writeUpSaving}
+              className="w-full px-3 py-2 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31] resize-y"
+            />
+            <p className="text-[11px] text-[#999] mt-1">
+              {editCause.trim().length}/10{editCause.trim().length < 10 && " — min not met"}
+            </p>
+          </div>
+          <div>
+            <label className="text-[11px] uppercase tracking-wide text-[#666] mb-1 block">
+              Correction *
+            </label>
+            <textarea
+              value={editCorrection}
+              onChange={(e) => setEditCorrection(e.target.value)}
+              rows={3}
+              disabled={writeUpSaving}
+              className="w-full px-3 py-2 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31] resize-y"
+            />
+            <p className="text-[11px] text-[#999] mt-1">
+              {editCorrection.trim().length}/10{editCorrection.trim().length < 10 && " — min not met"}
+            </p>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button onClick={closeWriteUpEditor} variant="secondary" className="flex-1" disabled={writeUpSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitWriteUpEdit}
+              className="flex-1"
+              disabled={writeUpSaving || editCause.trim().length < 10 || editCorrection.trim().length < 10}
+            >
+              {writeUpSaving ? "Saving..." : "Save Write-Up"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

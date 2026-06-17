@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import Button from "../common/Button";
 import Input from "../common/Input";
 
@@ -7,9 +7,11 @@ interface VehicleLookupProps {
   onSearch?: (query: string) => void;
   onAddNewVehicle?: () => void;
   value?: string;
+  /** Parent indicates a lookup is in-flight (Evolve + local DB). */
+  loading?: boolean;
 }
 
-export function VehicleLookup({ onSearch, onAddNewVehicle, value }: VehicleLookupProps) {
+export function VehicleLookup({ onSearch, onAddNewVehicle, value, loading }: VehicleLookupProps) {
   const [searchQuery, setSearchQuery] = useState(value ?? "");
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export function VehicleLookup({ onSearch, onAddNewVehicle, value }: VehicleLooku
   }, [value]);
 
   const handleSearch = () => {
+    if (loading) return;
     if (onSearch) {
       onSearch(searchQuery);
     }
@@ -51,21 +54,39 @@ export function VehicleLookup({ onSearch, onAddNewVehicle, value }: VehicleLooku
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSearch();
             }}
+            disabled={loading}
           />
         </div>
 
         {/* Search Button */}
-        <Button variant="gradient" onClick={handleSearch}>
-          Search
+        <Button variant="gradient" onClick={handleSearch} disabled={loading || !searchQuery.trim()}>
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Searching...
+            </span>
+          ) : (
+            "Search"
+          )}
         </Button>
 
         {/* Add New Vehicle — triggers the existing input in VehicleTable */}
         {onAddNewVehicle && (
-          <Button variant="secondary" onClick={onAddNewVehicle}>
+          <Button variant="secondary" onClick={onAddNewVehicle} disabled={loading}>
             + Add New Vehicle
           </Button>
         )}
       </div>
+
+      {/* Status hint while waiting on Evolve / DB — Evolve calls can take a
+          few seconds (up to ~25s if their pool is exhausted). Show progress
+          so the user doesn't think the page froze. */}
+      {loading && (
+        <p className="text-[12px] text-[#999] mt-3 flex items-center gap-2">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Checking Evolve + local records — this can take a few seconds.
+        </p>
+      )}
     </div>
   );
 }

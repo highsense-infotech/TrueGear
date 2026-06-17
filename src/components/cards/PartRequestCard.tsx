@@ -4,7 +4,7 @@ interface PartRequestCardProps {
   vehicleNumber: string;
   vehicleModel: string;
   serviceDescription: string;
-  status: "pending" | "available" | "unavailable" | "dispatched";
+  status: "pending" | "available" | "unavailable" | "dispatched" | "accepted" | "rejected";
   requestTime: string;
   onMarkAvailable?: () => void;
   onSetETA?: () => void;
@@ -34,6 +34,16 @@ const statusConfig = {
   dispatched: {
     label: "Dispatched",
     bgColor: "bg-[#0061FF]",
+    textColor: "text-white",
+  },
+  accepted: {
+    label: "Accepted",
+    bgColor: "bg-[#00C853]",
+    textColor: "text-white",
+  },
+  rejected: {
+    label: "Rejected",
+    bgColor: "bg-[#ff4f31]",
     textColor: "text-white",
   },
 };

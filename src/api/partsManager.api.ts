@@ -1,7 +1,7 @@
 import api from './axios';
 import type { ApiResponse } from './types';
 
-export type PartStatus = 'pending' | 'available' | 'unavailable' | 'dispatched';
+export type PartStatus = 'pending' | 'available' | 'unavailable' | 'dispatched' | 'accepted' | 'rejected';
 
 export interface PartRequest {
   id: string;
@@ -66,3 +66,35 @@ export const markPartUnavailable = (
 
 export const markPartDispatched = (partId: string): Promise<ApiResponse<{ id: string; status: string }>> =>
   api.put(`/parts-manager/parts/${partId}/mark-dispatched`).then((res) => res.data);
+
+// ─── Technician Acceptance ───────────────────────────────────────────────────
+export interface PendingAcceptanceItem {
+  id:                   string;
+  jobCardId:            string;
+  jobCardItemId:        string;
+  vehicleId:            string;
+  partName:             string;
+  partNumber:           string | null;
+  quantity:             number;
+  status:               PartStatus;
+  unitPrice:            string | null;
+  updatedAt:            string;
+  assignedTechnicianId: string | null;
+  jobDescription:       string | null;
+  registrationNumber:   string | null;
+  vin:                  string | null;
+  brand:                string | null;
+  model:                string | null;
+}
+
+export const listPartsPendingAcceptance = (): Promise<ApiResponse<PendingAcceptanceItem[]>> =>
+  api.get('/parts-manager/parts/pending-acceptance').then((res) => res.data);
+
+export const acceptDispatchedPart = (partId: string): Promise<ApiResponse<{ id: string; status: string }>> =>
+  api.post(`/parts-manager/parts/${partId}/accept`).then((res) => res.data);
+
+export const rejectDispatchedPart = (
+  partId: string,
+  reason: string,
+): Promise<ApiResponse<{ id: string; status: string; reason: string }>> =>
+  api.post(`/parts-manager/parts/${partId}/reject`, { reason }).then((res) => res.data);

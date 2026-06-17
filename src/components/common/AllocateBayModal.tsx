@@ -9,9 +9,11 @@ import {
   listBays,
   PRIORITIES,
   REPAIR_CATEGORIES,
+  BAY_CATEGORIES,
   type WorkshopBay,
   type WorkshopPriority,
   type RepairCategory,
+  type BayCategory,
   type ReworkAssignment,
 } from "../../api/workshop.api";
 import { listTechnicians, type Technician } from "../../api/serviceAdvisor.api";
@@ -23,6 +25,9 @@ type Props = {
   // Pre-filled values when re-allocating; null/undefined for a fresh allocation.
   existing?: {
     bayId: string;
+    // Bay category of the currently-allocated bay, so re-allocation pre-selects
+    // the right category. null for legacy bays created before categories.
+    category?: BayCategory | null;
     priority: WorkshopPriority;
     repairCategory: RepairCategory;
     notes: string | null;
@@ -37,6 +42,7 @@ type Props = {
 
 export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onClose, onAllocated }: Props) {
   const [bays, setBays] = useState<WorkshopBay[]>([]);
+  const [category, setCategory] = useState<BayCategory | "">("");
   const [bayId, setBayId] = useState("");
   const [priority, setPriority] = useState<WorkshopPriority>("MEDIUM");
   const [repairCategory, setRepairCategory] = useState<RepairCategory>("OTHER");
@@ -49,27 +55,37 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [reworkRows, setReworkRows] = useState<Record<string, { technicianId: string; reworkNotes: string }>>({});
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setLoadingBays(true);
-    setError(null);
-    listBays()
-      .then((res) => {
-        if (res.success && res.data) setBays(res.data);
-        else setError(res.error?.message ?? "Failed to load bays");
-      })
-      .catch(() => setError("Failed to load bays"))
-      .finally(() => setLoadingBays(false));
-  }, [isOpen]);
-
+  // Reset form fields when the modal opens, seeding the category from the
+  // existing allocation's bay (re-allocate) so the right list loads.
   useEffect(() => {
     if (!isOpen) return;
     setBayId(existing?.bayId ?? "");
     setPriority(existing?.priority ?? "MEDIUM");
     setRepairCategory(existing?.repairCategory ?? "OTHER");
     setNotes(existing?.notes ?? "");
+    setCategory(existing?.category ?? "");
     setError(null);
   }, [isOpen, existing]);
+
+  // Load bays for the selected category (filtered server-side). A fresh
+  // allocation shows nothing until a category is picked; re-allocating a legacy
+  // bay with no category falls back to loading all bays so it still shows.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!category && !existing) { setBays([]); return; }
+    let cancelled = false;
+    setLoadingBays(true);
+    setError(null);
+    listBays(category || undefined)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setBays(res.data);
+        else setError(res.error?.message ?? "Failed to load bays");
+      })
+      .catch(() => { if (!cancelled) setError("Failed to load bays"); })
+      .finally(() => { if (!cancelled) setLoadingBays(false); });
+    return () => { cancelled = true; };
+  }, [isOpen, category, existing]);
 
   // Rework: load techs + seed one row per failed work with the inspector's
   // note pre-filled as the brief.
@@ -136,6 +152,21 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
     <Modal isOpen={isOpen} onClose={onClose} title={isRework ? "Send for Rework" : existing ? "Re-allocate Bay" : "Allocate to Bay"} size={isRework ? "lg" : "md"}>
       <div className="flex flex-col gap-4">
         <div>
+          <label className="block text-[13px] font-medium text-[#333] mb-1.5">Bay Category</label>
+          <select
+            value={category}
+            onChange={(e) => { setCategory(e.target.value as BayCategory | ""); setBayId(""); }}
+            disabled={submitting}
+            className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31]"
+          >
+            <option value="">Select category</option>
+            {BAY_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label className="block text-[13px] font-medium text-[#333] mb-1.5">Bay</label>
           <SearchableDropdown
             options={availableBays.map((b) => ({
@@ -144,9 +175,15 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
             }))}
             value={bayId}
             onChange={(id) => setBayId(id)}
-            placeholder={loadingBays ? "Loading bays..." : "Pick an available bay"}
+            placeholder={
+              !category && !existing
+                ? "Select a category first"
+                : loadingBays
+                  ? "Loading bays..."
+                  : "Pick an available bay"
+            }
             loading={loadingBays}
-            disabled={submitting}
+            disabled={submitting || (!category && !existing)}
           />
         </div>
 

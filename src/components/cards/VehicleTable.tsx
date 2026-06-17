@@ -67,6 +67,8 @@ interface VehicleTableProps {
   /** Bumped by parent to trigger the appointment-first lookup flow with `lookupQuery`. */
   lookupSignal?: number;
   lookupQuery?: string;
+  /** Bubble the in-flight state to the parent so the lookup card can show a loader. */
+  onLookingUpChange?: (looking: boolean) => void;
 }
 
 function formatEntryTime(isoString: string | null | undefined): { time: string; date: string } {
@@ -129,7 +131,7 @@ const RO_STATUS_LABEL: Record<string, string> = {
 };
 
 
-export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal, lookupSignal, lookupQuery }: VehicleTableProps) {
+export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, includeAll = false, readOnly = false, addVehicleSignal, lookupSignal, lookupQuery, onLookingUpChange }: VehicleTableProps) {
   const [vehicles, setVehicles] = useState<DisplayVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +150,11 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
   const [showVehicleInput, setShowVehicleInput] = useState(false);
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
+
+  // Bubble isLookingUp to the parent so the Vehicle Lookup card can show a loader.
+  useEffect(() => {
+    onLookingUpChange?.(isLookingUp);
+  }, [isLookingUp, onLookingUpChange]);
 
   // When a parent increments addVehicleSignal, open the Add New Vehicle input.
   // Skip the first render so mounting with the initial value doesn't auto-open it.
@@ -284,10 +291,11 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
       }
 
       const res = await vinLookup(vin);
-      const hasData = res.data?.found && res.data && (
+      // Evolve (third-party) hit — pre-fill from external data.
+      const hasEvolveData = res.data?.found && res.data && res.data.source !== 'local' && (
         Object.keys(res.data.CustomerDetail).length > 0 || Object.keys(res.data.Vehicles).length > 0
       );
-      if (hasData) {
+      if (hasEvolveData) {
         // Step 1: Found in third-party — pre-fill from external data
         sessionStorage.setItem("vinLookupData", JSON.stringify(res.data));
         toast.success("Vehicle data found! Pre-filling details...");
@@ -295,7 +303,52 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
         return;
       }
 
-      // Step 2: Not in third-party — search local DB
+      // Step 1b: Backend already fell back to local DB inside vinLookup and
+      // found the vehicle. Skip the redundant searchVehicles call — we have
+      // the vehicle id right here. (Earlier path went to searchVehicles which
+      // applies a phantom-vehicle filter that excludes already-completed
+      // vehicles; the vinLookup local fallback has no such filter.)
+      const directLocalVehicles = res.data?.source === 'local'
+        ? (res.data?.vehicles ?? [])
+        : [];
+      if (directLocalVehicles.length > 0) {
+        const foundDirect = directLocalVehicles[0];
+
+        // The vinLookup local fallback returns raw vehicle rows with no
+        // activeCheckIn / inWorkshop metadata, so apply the same active-visit
+        // guard as Step 2 using the searchVehicles result already fetched in
+        // Step 0. This blocks a duplicate gate entry before the re-entry call;
+        // the backend 409 remains the hard backstop for any vehicle the
+        // searchVehicles phantom filter excluded.
+        const meta = (apptRes.data ?? []).find((v) => v.id === foundDirect.id);
+        if (meta?.activeCheckIn) {
+          toast.error(
+            `${meta.registrationNumber || meta.vin} is already inside the workshop. Please complete the Gate Exit process before creating a new Gate Entry.`,
+            { duration: 6000 },
+          );
+          return;
+        }
+        if (meta?.inWorkshop) {
+          toast.error(
+            `${meta.registrationNumber || meta.vin} is in workshop — ${meta.pendingJobItems} job${meta.pendingJobItems === 1 ? "" : "s"} pending. Wait for the technician to finish.`,
+            { duration: 6000 },
+          );
+          return;
+        }
+
+        const reEntryRes = await reEntryVehicle(foundDirect.id);
+        if (!reEntryRes.success) {
+          toast.error(reEntryRes.error?.message ?? "Re-entry not allowed", { duration: 6000 });
+          return;
+        }
+        const newVehicleId = reEntryRes.data?.id ?? foundDirect.id;
+        toast.success("Vehicle found! New entry created for this visit.");
+        navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${newVehicleId}&reentry=true`);
+        return;
+      }
+
+      // Step 2: vinLookup didn't find it. Try searchVehicles which has the
+      // activeCheckIn / inWorkshop metadata for the standard guards.
       const localRes = await searchVehicles(vin);
       if (localRes.success && (localRes.data ?? []).length > 0) {
         const found = (localRes.data ?? [])[0];

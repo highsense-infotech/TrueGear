@@ -143,6 +143,7 @@ export interface AddVehiclePayload {
   serviceType?: string;
   seriesDescription?: string;
   modelDescription?: string;
+  modelCode?: string;
   registrationDate?: string;
   registrationYear?: number;
 }
@@ -215,7 +216,7 @@ export interface VehicleDetailData {
     condition: string | null;
   };
   customer: VehicleDetailCustomer;
-  images: { id: string; vehicleId: string; imageCategory: string | null; imagePath: string; createdAt: string }[];
+  images: { id: string; vehicleId: string; imageCategory: string | null; imagePath: string; createdAt: string; capturedAt?: string | null }[];
   imageCount: number;
   // Phase 1 — per-visit fields captured at gate entry. Null if there's no
   // active visit yet (vehicle exists in master but no current check-in).
@@ -230,6 +231,7 @@ export interface VehicleDetailData {
     complaintText: string | null;
     roStatus: string | null;
     odometerReading: number | null;
+    checkInTime?: string | null;
   } | null;
 }
 
@@ -248,14 +250,32 @@ export interface UploadedImage {
   createdAt: string;
 }
 
+export interface PhotoMeta {
+  capturedAt?: string;
+  gpsLat?: number | null;
+  gpsLng?: number | null;
+  gpsAccuracyM?: number | null;
+  addressText?: string | null;
+  deviceUserAgent?: string;
+}
+
 export const uploadVehicleImages = async (
   vehicleId: string,
   files: File[],
-  category?: string
+  category?: string,
+  meta?: PhotoMeta,
 ): Promise<ApiResponse<{ uploaded: UploadedImage[]; photosCaptured: string }>> => {
   const formData = new FormData();
   files.forEach((file) => formData.append("images", file));
   if (category) formData.append("category", category);
+  // Phase 8 — compliance metadata (3.3). Server rejects uploads older than
+  // 5 minutes to ensure photos are live captures, not gallery selections.
+  if (meta?.capturedAt)      formData.append("capturedAt",      meta.capturedAt);
+  if (meta?.gpsLat   != null) formData.append("gpsLat",          String(meta.gpsLat));
+  if (meta?.gpsLng   != null) formData.append("gpsLng",          String(meta.gpsLng));
+  if (meta?.gpsAccuracyM != null) formData.append("gpsAccuracyM", String(meta.gpsAccuracyM));
+  if (meta?.addressText)      formData.append("addressText",      meta.addressText);
+  if (meta?.deviceUserAgent)  formData.append("deviceUserAgent",  meta.deviceUserAgent);
   const { data } = await api.post(`/vehicles/${vehicleId}/images`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -266,11 +286,18 @@ export const replaceVehicleImage = async (
   vehicleId: string,
   imageId: string,
   file: File,
-  category?: string
+  category?: string,
+  meta?: PhotoMeta,
 ): Promise<ApiResponse<UploadedImage>> => {
   const formData = new FormData();
   formData.append("images", file);
   if (category) formData.append("category", category);
+  if (meta?.capturedAt)         formData.append("capturedAt",      meta.capturedAt);
+  if (meta?.gpsLat   != null)   formData.append("gpsLat",          String(meta.gpsLat));
+  if (meta?.gpsLng   != null)   formData.append("gpsLng",          String(meta.gpsLng));
+  if (meta?.gpsAccuracyM != null) formData.append("gpsAccuracyM",  String(meta.gpsAccuracyM));
+  if (meta?.addressText)        formData.append("addressText",      meta.addressText);
+  if (meta?.deviceUserAgent)    formData.append("deviceUserAgent",  meta.deviceUserAgent);
   const { data } = await api.put(`/vehicles/${vehicleId}/images/${imageId}`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -304,6 +331,22 @@ export const listMakes = async (): Promise<ApiResponse<VehicleMake[]>> => {
 
 export const listModelsByMake = async (makeId: string): Promise<ApiResponse<VehicleModel[]>> => {
   const { data } = await api.get(`/vehicles/makes/${makeId}/models`);
+  return data;
+};
+
+export interface VehicleModelCode {
+  id: string;
+  modelId: string;
+  code: string;
+  mandmCode: string | null;
+  description: string | null;
+  modelYear: number | null;
+}
+
+// Third level of the Make → Series → ModelCode cascade. Fetched on demand
+// when a model (series) is selected; the backend caches results from Evolve.
+export const listModelCodes = async (modelId: string): Promise<ApiResponse<VehicleModelCode[]>> => {
+  const { data } = await api.get(`/vehicles/models/${modelId}/codes`);
   return data;
 };
 
@@ -358,9 +401,21 @@ export type VinLookupFields = Record<string, string>;
 
 export interface VinLookupData {
   found: boolean;
+  // Whether the result came from Evolve ("evolve") or the local DB fallback
+  // ("local"). Local responses include the matched vehicle rows under `vehicles`.
+  source?: 'evolve' | 'local';
   CustomerDetail: VinLookupFields;
   CustomerProfile: VinLookupFields;
   Vehicles: VinLookupFields;
+  // Populated when source === 'local'. Bare vehicle records from `vehicles`.
+  vehicles?: Array<{
+    id: string;
+    vin: string | null;
+    registrationNumber: string | null;
+    brand: string | null;
+    model: string | null;
+    [key: string]: unknown;
+  }>;
 }
 
 export const vinLookup = async (term: string): Promise<ApiResponse<VinLookupData>> => {

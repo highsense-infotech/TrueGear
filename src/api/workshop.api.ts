@@ -22,9 +22,18 @@ export interface BayOccupant {
   allocatedAt: string;
 }
 
+export type BayCategory = "SERVICE" | "MAJOR" | "PDI";
+
+export const BAY_CATEGORIES: { value: BayCategory; label: string }[] = [
+  { value: "SERVICE", label: "Service" },
+  { value: "MAJOR", label: "Major" },
+  { value: "PDI", label: "PDI" },
+];
+
 export interface WorkshopBay {
   id: string;
   bayNo: string;
+  category: BayCategory | null;
   location: string | null;
   capabilities: string[];
   isActive: boolean;
@@ -44,10 +53,14 @@ export interface ForemanDashboardItem {
   damagesNotes: string | null;
   customerName: string | null;
   checkInTime: string;
+  // The actionable job card for this check-in (if any), so the Foreman can
+  // open it to allocate technicians.
+  jobCardId: string | null;
   allocation: {
     checkInId: string;
     bayId: string;
     bayNo: string;
+    bayCategory: BayCategory | null;
     priority: WorkshopPriority;
     repairCategory: RepairCategory;
     notes: string | null;
@@ -72,13 +85,17 @@ export const getForemanDashboard = async (
 
 // ─── Bay CRUD ─────────────────────────────────────────────────────────────
 
-export const listBays = async (): Promise<ApiResponse<WorkshopBay[]>> => {
-  const { data } = await api.get(`/workshop/bays`);
+export const listBays = async (
+  category?: BayCategory,
+): Promise<ApiResponse<WorkshopBay[]>> => {
+  const { data } = await api.get(`/workshop/bays`, {
+    params: category ? { category } : undefined,
+  });
   return data;
 };
 
 export const createBay = async (
-  payload: { bayNo: string; location?: string; capabilities?: string[]; isActive?: boolean },
+  payload: { bayNo: string; category?: BayCategory | null; location?: string; capabilities?: string[]; isActive?: boolean },
 ): Promise<ApiResponse<WorkshopBay>> => {
   const { data } = await api.post(`/workshop/bays`, payload);
   return data;
@@ -86,7 +103,7 @@ export const createBay = async (
 
 export const updateBay = async (
   id: string,
-  payload: Partial<{ bayNo: string; location: string | null; capabilities: string[]; isActive: boolean }>,
+  payload: Partial<{ bayNo: string; category: BayCategory | null; location: string | null; capabilities: string[]; isActive: boolean }>,
 ): Promise<ApiResponse<WorkshopBay>> => {
   const { data } = await api.put(`/workshop/bays/${id}`, payload);
   return data;
@@ -133,6 +150,56 @@ export const releaseAllocation = async (
   checkInId: string,
 ): Promise<ApiResponse<null>> => {
   const { data } = await api.post(`/workshop/check-ins/${checkInId}/release`);
+  return data;
+};
+
+// ─── Foreman Sign-Off (Phase 7 — 3.9) ────────────────────────────────────────
+export interface JobCardAwaitingSignOff {
+  id:                 string;
+  vehicleId:          string | null;
+  status:             string;
+  assignedTechnicianId: string | null;
+  priority:           string | null;
+  totalEstimate:      string | null;
+  currencyCode:       string | null;
+  updatedAt:          string;
+  registrationNumber: string | null;
+  brand:              string | null;
+  model:              string | null;
+  technicianUsername: string | null;
+}
+
+export const listJobCardsAwaitingSignOff = async (): Promise<ApiResponse<JobCardAwaitingSignOff[]>> => {
+  const { data } = await api.get('/workshop/job-cards/awaiting-sign-off');
+  return data;
+};
+
+export const signOffJobCard = async (
+  jobCardId: string,
+  signatureUrl: string,
+): Promise<ApiResponse<{ id: string; status: string }>> => {
+  const { data } = await api.post(`/workshop/job-cards/${jobCardId}/sign-off`, { signatureUrl });
+  return data;
+};
+
+export const rejectJobCard = async (
+  jobCardId: string,
+  reason: string,
+  reassignTechnicianId?: string,
+): Promise<ApiResponse<{ id: string; status: string; reason: string }>> => {
+  const { data } = await api.post(`/workshop/job-cards/${jobCardId}/reject`, {
+    reason,
+    reassignTechnicianId,
+  });
+  return data;
+};
+
+// Foreman/supervisor edit of the OEM Cause + Correction write-up on an item.
+export const foremanUpdateWriteUp = async (
+  itemId: string,
+  payload: { diagnosisNotes?: string; completionNotes?: string },
+): Promise<ApiResponse<{ itemId: string; updatedBy: string }>> => {
+  const { data } = await api.patch(`/workshop/items/${itemId}/write-up`, payload);
   return data;
 };
 

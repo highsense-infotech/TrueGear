@@ -85,6 +85,13 @@ export function Sidebar({ open, setOpen }: Props) {
           <X />
         </button>
 
+        {/* Company Logo */}
+        <img
+          src="/logo.png"
+          alt="ELT Group"
+          className="w-16 sm:w-18 lg:w-20 h-auto object-contain mb-5"
+        />
+
         {!open && (
           <button className="bg-[#fbfbfb] border border-[#ebebeb] rounded-[10px] p-3 w-12.5 h-12.5 flex items-center justify-center mb-5">
             <Menu className="w-6 h-6 text-[#333]" />

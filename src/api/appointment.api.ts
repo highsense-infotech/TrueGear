@@ -65,6 +65,7 @@ export interface CreateAppointmentPayload {
     engineNumber?:      string;
     seriesDescription?: string;
     modelDescription?:  string;
+    modelCode?:         string;
     extColour?:         string;
     registrationDate?:  string;
     sellingDate?:       string;
@@ -295,5 +296,30 @@ export const linkAppointmentToCheckIn = async (
   checkInId:     string,
 ): Promise<ApiResponse<AppointmentRecord>> => {
   const { data } = await api.patch(`/appointments/${appointmentId}/check-in`, { checkInId });
+  return data;
+};
+
+// ─── Today's Appointments (Gate Entry quick-pick) ────────────────────────────
+export interface TodaysAppointment {
+  id:                       string;
+  bookingRef:               string | null;
+  appointmentTime:          string;
+  serviceType:              string;
+  status:                   string;
+  estimatedDurationMinutes: number | null;
+  vehicleId:                string | null;
+  registrationNumber:       string | null;
+  vin:                      string | null;
+  brand:                    string | null;
+  model:                    string | null;
+  manufacturingYear:        number | null;
+  customerId:               string | null;
+  customerName:             string | null;
+  customerPhone:            string | null;
+  hasActiveCheckIn:         boolean;
+}
+
+export const listTodaysAppointmentsForGate = async (): Promise<ApiResponse<TodaysAppointment[]>> => {
+  const { data } = await api.get('/appointments/today/gate-entry');
   return data;
 };

@@ -73,10 +73,12 @@ const Login: React.FC = () => {
 
       {/* Content Container */}
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 sm:px-6 md:px-8 py-6 sm:py-8 md:py-12 gap-6 sm:gap-8">
-        {/* Title */}
-        <h1 className="text-center font-['Playfair_Display'] text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight text-transparent bg-clip-text bg-linear-to-b from-white to-[#d0d0d0] drop-shadow-lg px-2">
-          TrueGear
-        </h1>
+        {/* Company Logo */}
+        <img
+          src="/logo.png"
+          alt="ELT Group"
+          className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-lg px-2"
+        />
 
         {/* Glass Card */}
         <div className="w-full max-w-[320px] sm:max-w-100 md:max-w-120 lg:max-w-136.25 rounded-2xl sm:rounded-[20px] border border-white/20 bg-white/10 backdrop-blur-xl p-5 sm:p-6 md:p-8 lg:p-10 shadow-2xl mx-2 sm:mx-4">

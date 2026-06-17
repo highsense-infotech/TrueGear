@@ -6,6 +6,7 @@ import { ROUTES } from "../../constants/routes";
 import { getMyTechnicianJobs, type TechnicianItem } from "../../api/serviceAdvisor.api";
 import ProgressChip from "../../components/common/ProgressChip";
 import { Pagination } from "../../components/common/Pagination";
+import { PendingPartsAcceptance } from "../../components/cards/PendingPartsAcceptance.tsx";
 
 const statusConfig = {
   pending: { label: "Pending", bg: "bg-[#FFE1B7]", text: "text-[#E89D00]" },
@@ -90,6 +91,11 @@ const TechnicianDashboard = () => {
           icon={<Clock className="w-7 h-7 sm:w-8 sm:h-8 text-[#00BF06]" strokeWidth={3} />}
         />
       </div>
+
+      {/* Pending Parts Acceptance — shown above today's jobs so techs can
+          confirm physical part receipt before starting work. Auto-hides
+          when nothing is pending. */}
+      <PendingPartsAcceptance />
 
       <div className="mb-3 sm:mb-4">
         <h2 className="text-[16px] sm:text-[18px] font-semibold text-[#333] mb-0.5 sm:mb-1">

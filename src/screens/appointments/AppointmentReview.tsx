@@ -140,6 +140,7 @@ const AppointmentReview: React.FC = () => {
           engineNumber:       state.newVehicleData.engineNumber     || undefined,
           seriesDescription:  state.newVehicleData.seriesDescription || undefined,
           modelDescription:   state.newVehicleData.modelDescription  || undefined,
+          modelCode:          state.newVehicleData.modelCode          || undefined,
           extColour:          state.newVehicleData.extColour         || undefined,
           registrationDate:   state.newVehicleData.registrationDate  || undefined,
           sellingDate:        state.newVehicleData.sellingDate        || undefined,

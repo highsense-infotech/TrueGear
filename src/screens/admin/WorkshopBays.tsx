@@ -9,8 +9,10 @@ import {
   updateBay,
   deleteBay,
   REPAIR_CATEGORIES,
+  BAY_CATEGORIES,
   type WorkshopBay,
   type RepairCategory,
+  type BayCategory,
 } from "../../api/workshop.api";
 
 const WorkshopBays = () => {
@@ -18,15 +20,15 @@ const WorkshopBays = () => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<{ bayNo: string; location: string; capabilities: RepairCategory[]; isActive: boolean }>(
-    { bayNo: "", location: "", capabilities: [], isActive: true },
+  const [form, setForm] = useState<{ bayNo: string; category: BayCategory | ""; location: string; capabilities: RepairCategory[]; isActive: boolean }>(
+    { bayNo: "", category: "", location: "", capabilities: [], isActive: true },
   );
   const [deleteTarget, setDeleteTarget] = useState<WorkshopBay | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const reset = () => {
-    setForm({ bayNo: "", location: "", capabilities: [], isActive: true });
+    setForm({ bayNo: "", category: "", location: "", capabilities: [], isActive: true });
     setEditingId(null);
     setCreating(false);
   };
@@ -44,6 +46,7 @@ const WorkshopBays = () => {
     setEditingId(b.id);
     setForm({
       bayNo: b.bayNo,
+      category: b.category ?? "",
       location: b.location ?? "",
       capabilities: (b.capabilities ?? []) as RepairCategory[],
       isActive: b.isActive,
@@ -63,6 +66,7 @@ const WorkshopBays = () => {
     if (!form.bayNo.trim()) { toast.error("Bay number is required"); return; }
     const payload = {
       bayNo: form.bayNo.trim(),
+      category: form.category || null,
       location: form.location.trim() || undefined,
       capabilities: form.capabilities,
       isActive: form.isActive,
@@ -135,6 +139,19 @@ const WorkshopBays = () => {
               />
             </div>
             <div>
+              <label className="block text-[12px] text-[#666] mb-1">Category</label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as BayCategory | "" }))}
+                className="w-full h-11 px-3 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] focus:outline-none focus:border-[#ff4f31]"
+              >
+                <option value="">Uncategorised</option>
+                {BAY_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-[12px] text-[#666] mb-1">Location</label>
               <input
                 type="text"
@@ -200,6 +217,7 @@ const WorkshopBays = () => {
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-semibold text-[#333]">
                   {b.bayNo}
+                  {b.category && <span className="ml-2 text-[11px] text-[#ff4f31] bg-[#fff5f2] px-2 py-0.5 rounded font-medium">{BAY_CATEGORIES.find((c) => c.value === b.category)?.label ?? b.category}</span>}
                   {!b.isActive && <span className="ml-2 text-[11px] text-[#999] font-normal">(inactive)</span>}
                   {b.currentAllocationId && <span className="ml-2 text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded">occupied</span>}
                 </p>

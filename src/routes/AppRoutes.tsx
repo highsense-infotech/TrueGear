@@ -224,6 +224,18 @@ const AppRoutes: React.FC = () => (
           }
         />
 
+        {/* Foreman → Job Card Detail for technician allocation. WORKSHOP:view
+            required (Foreman/super-admin). Reuses the JobCardDetail screen;
+            allocation controls inside are gated to WORKSHOP:edit. */}
+        <Route
+          path="foreman-dashboard/job-card-detail/:jobCardId"
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.WORKSHOP, action: ACTIONS.VIEW }}>
+              <JobCardDetail />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Workshop Bays master — WORKSHOP:edit required (admin/foreman) */}
         <Route
           path={ROUTES.WORKSHOP_BAYS.slice(1)}

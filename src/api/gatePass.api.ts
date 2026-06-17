@@ -14,6 +14,7 @@ export interface GatePass {
   redeemedAt: string | null;
   odometerOut: number | null;
   driverOutName: string | null;
+  driverOutLicenceImageUrl: string | null;
   driverOutSignatureUrl: string | null;
   notes: string | null;
   invoice:
@@ -65,9 +66,23 @@ export const lookupGatePass = async (code: string): Promise<ApiResponse<GatePass
 export interface RedeemGatePassPayload {
   odometerOut?: number;
   driverOutName?: string;
+  driverOutLicenceImageUrl?: string;
   driverOutSignatureUrl?: string;
   notes?: string;
 }
+
+// Uploads the driver's-licence photo captured at the gate. Returns the stored
+// path (sent back in redeem as driverOutLicenceImageUrl) and a signed preview URL.
+export const uploadGatePassLicencePhoto = async (
+  file: File,
+): Promise<ApiResponse<{ path: string; url: string }>> => {
+  const formData = new FormData();
+  formData.append("image", file);
+  const { data } = await api.post(`/gate-pass/licence-photo`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
 
 export const redeemGatePass = async (
   code: string,

@@ -64,6 +64,7 @@ export interface NewVehicleData {
   engineNumber?:      string;
   seriesDescription?: string;
   modelDescription?:  string;
+  modelCode?:         string;
   extColour?:         string;
   registrationDate?:  string;
   sellingDate?:       string;

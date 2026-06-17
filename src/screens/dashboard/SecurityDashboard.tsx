@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { VehicleLookup } from "../../components/cards/VehicleLookup.tsx";
+import { TodaysAppointments } from "../../components/cards/TodaysAppointments.tsx";
 import { Truck } from "lucide-react";
 import { VehicleTable } from "../../components/cards/VehicleTable.tsx";
 import { ROUTES } from "../../constants/routes.ts";
@@ -12,6 +13,7 @@ const SecurityDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [addVehicleSignal, setAddVehicleSignal] = useState(0);
   const [lookupSignal, setLookupSignal] = useState(0);
+  const [lookupBusy, setLookupBusy] = useState(false);
   const [stats, setStats] = useState<VehicleStats>({
     vehiclesEnteredToday: 0,
     vehiclesEnteredYesterday: 0,
@@ -99,12 +101,18 @@ const SecurityDashboard: React.FC = () => {
             />
           </div>
 
+          {/* Today's Appointments — quick pick for booked vehicles */}
+          <div className="mb-6 lg:mb-7.5">
+            <TodaysAppointments />
+          </div>
+
           {/* Vehicle Lookup */}
           <div className="mb-6 lg:mb-7.5">
             <VehicleLookup
               value={searchQuery}
               onSearch={handleSearch}
               onAddNewVehicle={() => setAddVehicleSignal((s) => s + 1)}
+              loading={lookupBusy}
             />
           </div>
 
@@ -115,6 +123,7 @@ const SecurityDashboard: React.FC = () => {
               addVehicleSignal={addVehicleSignal}
               lookupSignal={lookupSignal}
               lookupQuery={searchQuery}
+              onLookingUpChange={setLookupBusy}
             />
           </div>
         </>

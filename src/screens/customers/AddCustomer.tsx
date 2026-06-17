@@ -25,8 +25,10 @@ import {
   addVehicle,
   listMakes,
   listModelsByMake,
+  listModelCodes,
   type VehicleMake,
   type VehicleModel,
+  type VehicleModelCode,
   type VinLookupFields,
 } from "../../api/vehicle.api";
 import {
@@ -44,6 +46,7 @@ interface CustomerData {
   vehicleNumber: string;
   vehicleMake: string;
   vehicleModel: string;
+  modelCode: string;
   vin: string;
   manufacturingYear: string;
   odometerLast: string;
@@ -85,6 +88,10 @@ const AddCustomer: React.FC = () => {
   const [selectedMakeId, setSelectedMakeId] = useState<string>("");
   const [loadingMakes, setLoadingMakes] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
+  // Third cascade level: Make → Series(model) → ModelCode.
+  const [modelCodes, setModelCodes] = useState<VehicleModelCode[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
+  const [loadingModelCodes, setLoadingModelCodes] = useState(false);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeItem[]>([]);
 
   // Fetch service types from DB (same source as appointment booking)
@@ -116,6 +123,7 @@ const AddCustomer: React.FC = () => {
     vehicleNumber: "",
     vehicleMake: "",
     vehicleModel: "",
+    modelCode: "",
     vin: "",
     manufacturingYear: "",
     odometerLast: "",
@@ -293,9 +301,34 @@ const AddCustomer: React.FC = () => {
     );
     if (matchingModel) {
       setFormData((prev) => ({ ...prev, vehicleModel: matchingModel.name }));
+      setSelectedModelId(matchingModel.id);
     }
     setPendingModelName(null);
   }, [models, pendingModelName]);
+
+  // Fetch model codes when a model (series) is selected. Make → Series →
+  // ModelCode. Cache-first on the backend; empty list = no codes / Evolve
+  // unavailable (user can still proceed).
+  useEffect(() => {
+    if (!selectedModelId) {
+      setModelCodes([]);
+      return;
+    }
+    const fetchCodes = async () => {
+      setLoadingModelCodes(true);
+      try {
+        const res = await listModelCodes(selectedModelId);
+        if (res.success && res.data) {
+          setModelCodes(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch model codes:", err);
+      } finally {
+        setLoadingModelCodes(false);
+      }
+    };
+    fetchCodes();
+  }, [selectedModelId]);
 
   const handleMakeChange = (makeId: string, makeName: string) => {
     setSelectedMakeId(makeId);
@@ -303,17 +336,28 @@ const AddCustomer: React.FC = () => {
       ...prev,
       vehicleMake: makeName,
       vehicleModel: "",
+      modelCode: "",
     }));
     setModels([]);
+    // Reset the dependent ModelCode cascade.
+    setSelectedModelId("");
+    setModelCodes([]);
     if (errors.vehicleMake) setErrors((prev) => ({ ...prev, vehicleMake: "" }));
     if (errors.vehicleModel)
       setErrors((prev) => ({ ...prev, vehicleModel: "" }));
   };
 
-  const handleModelChange = (_modelId: string, modelName: string) => {
-    setFormData((prev) => ({ ...prev, vehicleModel: modelName }));
+  const handleModelChange = (modelId: string, modelName: string) => {
+    setFormData((prev) => ({ ...prev, vehicleModel: modelName, modelCode: "" }));
+    // Drives the model-code fetch effect.
+    setSelectedModelId(modelId);
+    setModelCodes([]);
     if (errors.vehicleModel)
       setErrors((prev) => ({ ...prev, vehicleModel: "" }));
+  };
+
+  const handleModelCodeChange = (code: string) => {
+    setFormData((prev) => ({ ...prev, modelCode: code }));
   };
 
   // Close dropdown when clicking outside
@@ -358,6 +402,8 @@ const AddCustomer: React.FC = () => {
     setShowNewCustomerForm(true);
     setSelectedMakeId("");
     setModels([]);
+    setSelectedModelId("");
+    setModelCodes([]);
     setFormData({
       firstName: "",
       lastName: "",
@@ -367,6 +413,7 @@ const AddCustomer: React.FC = () => {
       vehicleNumber: "",
       vehicleMake: "",
       vehicleModel: "",
+      modelCode: "",
       vin: "",
       manufacturingYear: "",
       odometerLast: "",
@@ -639,7 +686,12 @@ const AddCustomer: React.FC = () => {
         // VIN-lookup pre-fill.
         engineNumber: strOrU(vehEvolve.EngineNumber),
         seriesDescription: strOrU(vehEvolve.Series),
-        modelDescription: strOrU(vehEvolve.ModelDescription),
+        // Prefer the selected Model Code's description; fall back to the
+        // Evolve VIN-lookup value when no code was picked.
+        modelCode: formData.modelCode.trim() || undefined,
+        modelDescription:
+          modelCodes.find((c) => c.code === formData.modelCode)?.description ??
+          strOrU(vehEvolve.ModelDescription),
         extColour: strOrU(vehEvolve.Colour),
         registrationDate: strOrU(vehEvolve.RegistrationDate),
         registrationYear: (() => {
@@ -691,6 +743,7 @@ const AddCustomer: React.FC = () => {
       vehicleNumber: "",
       vehicleMake: "",
       vehicleModel: "",
+      modelCode: "",
       vin: "",
       manufacturingYear: "",
       odometerLast: "",
@@ -1097,6 +1150,34 @@ const AddCustomer: React.FC = () => {
                     {errors.vehicleModel}
                   </p>
                 )}
+              </div>
+
+              {/* Model Code (Make → Series → ModelCode) */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Model Code
+                </label>
+                <SearchableDropdown
+                  options={Array.from(
+                    new Map(modelCodes.map((c) => [c.code, c])).values(),
+                  ).map((c) => ({
+                    id: c.code,
+                    name: c.description || c.code,
+                  }))}
+                  value={formData.modelCode}
+                  onChange={(id) => handleModelCodeChange(id)}
+                  placeholder={
+                    !selectedModelId
+                      ? "Select a model first"
+                      : loadingModelCodes
+                        ? "Loading model codes..."
+                        : modelCodes.length === 0
+                          ? "No model codes available"
+                          : "Select Model Code"
+                  }
+                  disabled={!selectedModelId || loadingModelCodes || modelCodes.length === 0}
+                  loading={loadingModelCodes}
+                />
               </div>
 
               {/* Manufacturing Year */}

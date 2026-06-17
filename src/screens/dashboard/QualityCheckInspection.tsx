@@ -508,7 +508,10 @@ const QualityCheckInspection: React.FC = () => {
   const handlePhotoDelete = async (itemId: string, photoId: string) => {
     if (!inspectionId) return;
     const res = await deleteItemPhoto(inspectionId, itemId, photoId);
-    if (res.success && res.data) {
+    // DELETE returns ApiResponse<null>, so res.data is intentionally null on
+    // success. Only gate on res.success — checking res.data would skip the
+    // local state update and leave the deleted photo visible until refresh.
+    if (res.success) {
       const removePhoto = (items: InspectionItem[]) =>
         items.map((item) =>
           item.id === itemId
@@ -518,6 +521,9 @@ const QualityCheckInspection: React.FC = () => {
       setExteriorItems((prev) => removePhoto(prev));
       setInteriorItems((prev) => removePhoto(prev));
       setBrakeItemsList((prev) => removePhoto(prev));
+    } else {
+      // Surface the server error so user knows the delete failed.
+      console.error("Photo delete failed:", res.error);
     }
   };
 

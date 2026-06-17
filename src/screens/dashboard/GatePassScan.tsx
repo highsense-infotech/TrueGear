@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { Search, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Search, ShieldCheck, CheckCircle2, Camera, Loader2 } from "lucide-react";
 import Button from "../../components/common/Button";
 import {
   listActiveGatePassesPaginated,
   lookupGatePass,
   redeemGatePass,
+  uploadGatePassLicencePhoto,
   type GatePass,
   type GatePassListItem,
 } from "../../api/gatePass.api";
@@ -20,6 +21,11 @@ export default function GatePassScan() {
 
   const [odo, setOdo] = useState("");
   const [driver, setDriver] = useState("");
+  // Driver's-licence photo captured at the gate.
+  const [licencePath, setLicencePath] = useState("");
+  const [licencePreview, setLicencePreview] = useState("");
+  const [uploadingLicence, setUploadingLicence] = useState(false);
+  const licenceInputRef = useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState("");
 
   const [page, setPage] = useState(1);
@@ -48,6 +54,8 @@ export default function GatePassScan() {
         setPass(res.data);
         setOdo("");
         setDriver("");
+        setLicencePath("");
+        setLicencePreview("");
         setNotes("");
       } else {
         toast.error(res.error?.message ?? "Gate pass not found");
@@ -59,15 +67,37 @@ export default function GatePassScan() {
     }
   };
 
+  const onLicencePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setUploadingLicence(true);
+    try {
+      const res = await uploadGatePassLicencePhoto(file);
+      if (res.success && res.data) {
+        setLicencePath(res.data.path);
+        setLicencePreview(res.data.url);
+      } else {
+        toast.error(res.error?.message ?? "Upload failed");
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error?.message ?? "Upload failed");
+    } finally {
+      setUploadingLicence(false);
+    }
+  };
+
   const redeem = async () => {
     if (!pass) return;
     const odoN = odo ? Number(odo) : undefined;
     if (odo && (isNaN(odoN!) || odoN! < 0)) return toast.error("Invalid odometer");
+    if (!licencePath) return toast.error("Driver's licence photo is required");
     setBusy(true);
     try {
       const res = await redeemGatePass(pass.code, {
         odometerOut: odoN,
         driverOutName: driver.trim() || undefined,
+        driverOutLicenceImageUrl: licencePath,
         notes: notes.trim() || undefined,
       });
       if (res.success) {
@@ -149,6 +179,49 @@ export default function GatePassScan() {
                   onChange={(e) => setDriver(e.target.value)}
                   className="mt-1 w-full h-10 border border-[#e5e7eb] rounded-md px-2 text-[13px] outline-none focus:border-[#ff4f31]"
                 />
+              </div>
+              <div>
+                <label className="text-[12px] text-[#999]">
+                  Driver's licence photo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={licenceInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={onLicencePhoto}
+                  className="hidden"
+                />
+                {licencePreview ? (
+                  <div className="mt-1 flex items-center gap-2">
+                    <img
+                      src={licencePreview}
+                      alt="Driver's licence"
+                      className="h-10 w-16 object-cover rounded-md border border-[#e5e7eb]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => licenceInputRef.current?.click()}
+                      disabled={uploadingLicence}
+                      className="text-[12px] text-[#ff4f31] underline"
+                    >
+                      Retake
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => licenceInputRef.current?.click()}
+                    disabled={uploadingLicence}
+                    className="mt-1 w-full h-10 border border-dashed border-[#e5e7eb] rounded-md px-2 text-[13px] text-[#666] flex items-center justify-center gap-1.5 hover:border-[#ff4f31]"
+                  >
+                    {uploadingLicence ? (
+                      <><Loader2 size={14} className="animate-spin" /> Uploading...</>
+                    ) : (
+                      <><Camera size={14} /> Take / upload photo</>
+                    )}
+                  </button>
+                )}
               </div>
               <Button variant="gradient" onClick={redeem} disabled={busy}>
                 <CheckCircle2 size={16} className="mr-1" />

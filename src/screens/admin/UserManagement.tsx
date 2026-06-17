@@ -826,7 +826,9 @@ function UsersTab() {
   const totalFiltered = totalUsers;
 
   // ── Create ────────────────────────────────────────────────────────────────
-  const assignableRoles = roles.filter((r) => r.slug !== "super-admin");
+  // All roles are assignable, including super-admin (clients may need more than
+  // one admin). The backend places no limit on the number of super-admin users.
+  const assignableRoles = roles;
 
   const openCreate = () => {
     setCreateForm({

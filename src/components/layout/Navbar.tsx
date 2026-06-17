@@ -45,7 +45,7 @@ export function Header({ toggleSidebar }: Props) {
   };
 
   const currentRoute = routeTitles[location.pathname] || {
-    title: "TrueGear",
+    title: "ELT Group",
     description: "",
   };
 

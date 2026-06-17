@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Loader2, Wrench, Clock } from "lucide-react";
-import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+import { Loader2, Wrench, Clock, UserPlus } from "lucide-react";
 import { StatCard } from "../../components/cards/StatCard";
 import Button from "../../components/common/Button";
 import { AllocateBayModal } from "../../components/common/AllocateBayModal";
@@ -12,6 +12,7 @@ import {
   type WorkshopBay,
 } from "../../api/workshop.api";
 import { Pagination } from "../../components/common/Pagination";
+import { ForemanSignOff } from "../../components/cards/ForemanSignOff.tsx";
 
 const REPAIR_LABEL: Record<string, string> = {
   ENGINE: "Engine",
@@ -30,6 +31,7 @@ const PRIORITY_COLOUR: Record<string, string> = {
 };
 
 const ForemanDashboard = () => {
+  const navigate = useNavigate();
   const [items, setItems] = useState<ForemanDashboardItem[]>([]);
   const [bays, setBays] = useState<WorkshopBay[]>([]);
   const [stats, setStats] = useState({ awaiting: 0, inWorkshop: 0 });
@@ -119,6 +121,10 @@ const ForemanDashboard = () => {
 
   return (
     <>
+      {/* Foreman Sign-Off — cards in FOREMAN_REVIEW state (tech-done, awaiting
+          foreman approval before QC Out). Auto-hides when empty. */}
+      <ForemanSignOff />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
         <StatCard
           title="Awaiting Allocation"
@@ -144,10 +150,10 @@ const ForemanDashboard = () => {
       <div className="mb-6">
         <h3 className="text-[14px] sm:text-[15px] font-semibold text-[#333] mb-2">Bay Occupancy</h3>
         <div className="flex flex-wrap gap-2">
-          {bays.length === 0 ? (
+          {bays.filter((b) => b.isActive).length === 0 ? (
             <p className="text-[13px] text-[#999]">No bays configured.</p>
           ) : (
-            bays.map((b) => {
+            bays.filter((b) => b.isActive).map((b) => {
               const isOcc = !!b.currentAllocationId;
               return (
                 <div
@@ -253,7 +259,7 @@ const ForemanDashboard = () => {
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex flex-col sm:flex-row gap-2">
                     <Button
                       variant={inWorkshop || isRework ? "outline" : "gradient"}
                       icon={<Wrench size={16} />}
@@ -261,6 +267,15 @@ const ForemanDashboard = () => {
                     >
                       {isRework ? "Send for Rework" : inWorkshop ? "Re-allocate" : "Allocate Bay"}
                     </Button>
+                    {it.jobCardId && (
+                      <Button
+                        variant="gradient"
+                        icon={<UserPlus size={16} />}
+                        onClick={() => navigate(`/foreman-dashboard/job-card-detail/${it.jobCardId}`)}
+                      >
+                        Allocate Technicians
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -315,6 +330,7 @@ const ForemanDashboard = () => {
           allocateTarget?.allocation
             ? {
                 bayId: allocateTarget.allocation.bayId,
+                category: allocateTarget.allocation.bayCategory,
                 priority: allocateTarget.allocation.priority,
                 repairCategory: allocateTarget.allocation.repairCategory,
                 notes: allocateTarget.allocation.notes,
@@ -329,7 +345,6 @@ const ForemanDashboard = () => {
         onClose={() => setAllocateOpen(false)}
         onAllocated={async () => {
           await fetchAll();
-          toast.success("Dashboard refreshed");
         }}
       />
     </>

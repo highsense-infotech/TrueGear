@@ -17,6 +17,8 @@ import {
   requestPartsConfirmation,
   type SAJobCardDetailData,
 } from "../../api/serviceAdvisor.api";
+import { usePermission } from "../../hooks/usePermission";
+import { MODULES, ACTIONS } from "../../constants/permissions";
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
   DRAFT: { label: "Draft", bg: "bg-gray-100", text: "text-gray-600" },
@@ -46,6 +48,9 @@ const JobCardDetail: React.FC = () => {
   const navigate = useNavigate();
   const { jobCardId } = useParams<{ jobCardId: string }>();
   const { formatCurrency, currency } = useCurrency();
+  // Technician allocation is Foreman-only (WORKSHOP:edit). Service Advisors can
+  // view the job card but must not see Assign / Reassign controls.
+  const canAllocateTechnicians = usePermission(MODULES.WORKSHOP, ACTIONS.EDIT);
 
   const [data, setData] = useState<SAJobCardDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,7 +190,8 @@ const JobCardDetail: React.FC = () => {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-lg font-semibold text-gray-800">Job Card Details</h2>
         <div className="flex items-center gap-3">
-          {(jobCard.status === "APPROVED" || jobCard.status === "IN_PROGRESS") &&
+          {canAllocateTechnicians &&
+            (jobCard.status === "APPROVED" || jobCard.status === "IN_PROGRESS") &&
             items.some((i) => !i.assignedTechnicianId) && (
               <Button
                 variant="gradient"
@@ -340,7 +346,7 @@ const JobCardDetail: React.FC = () => {
                         <span className="text-[11px] font-medium text-green-600 shrink-0">
                           ✓ Completed
                         </span>
-                      ) : (
+                      ) : canAllocateTechnicians ? (
                         <button
                           type="button"
                           onClick={() => {
@@ -353,7 +359,7 @@ const JobCardDetail: React.FC = () => {
                         >
                           ↻ Reassign
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   )}
                 </div>

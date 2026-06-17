@@ -1,11 +1,12 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { CheckCircle, FileCheckCorner, User, Car, ArrowLeft, Loader2 } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { PhotoCaptureCard } from "../../components/cards/PhotoCaptureCard";
-import { stampImage, requestGeolocation } from "../../utils/stampImage";
+import { stampImageWithMeta, requestGeolocation } from "../../utils/stampImage";
+import LiveCameraCapture from "../../components/common/LiveCameraCapture";
 import { ConfirmVehicleEntryModal } from "../../components/common/ConfirmVehicleEntryModal";
 import { ROUTES } from "../../constants/routes";
 import {
@@ -47,8 +48,8 @@ const AddVehicle: React.FC = () => {
   const vehicleIdFromUrl = searchParams.get("vehicleId");
   const isReEntry = searchParams.get("reentry") === "true";
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [validationError, setValidationError] = useState<string>("");
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
@@ -146,13 +147,27 @@ const AddVehicle: React.FC = () => {
               );
             }
 
-            // Map existing images to photo slots by category — only when
-            // editing an in-progress visit. Re-entries are NEW visits and
-            // require fresh photos, so we leave the slots empty.
-            if (images && images.length > 0 && !isReEntry) {
+            // Map existing images to photo slots by category. For re-entries
+            // we filter to photos taken in THIS visit (after the active
+            // check-in started) — gate-release should have archived prior
+            // visit photos to vehicle_check_in_photos, but if any leak
+            // through we don't want to re-show them. For non-re-entry edits,
+            // show everything in vehicle_images.
+            if (images && images.length > 0) {
+              const visitStart = isReEntry && activeCheckIn?.checkInTime
+                ? new Date(activeCheckIn.checkInTime).getTime()
+                : null;
               setPhotoSlots((prev) => {
                 const updated = [...prev];
                 images.forEach((img) => {
+                  // Skip pre-fill for re-entry if the photo predates the active
+                  // check-in (i.e. left over from a prior visit).
+                  if (visitStart != null) {
+                    const ts = img.capturedAt
+                      ? new Date(img.capturedAt).getTime()
+                      : new Date(img.createdAt).getTime();
+                    if (ts < visitStart) return;
+                  }
                   const slotIndex = updated.findIndex(
                     (slot) => slot.title === img.imageCategory
                   );
@@ -228,35 +243,39 @@ const AddVehicle: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  // Handle capture button click - opens file picker
+  // Phase 8B — opens the live camera modal for this slot. Gallery picks
+  // are no longer possible — capture is OEM-compliant by enforcement.
   const handleCapture = (index: number) => {
     setActiveSlot(index);
-    fileInputRef.current?.click();
+    setCameraOpen(true);
   };
 
-  // Handle file selection - upload to API
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || activeSlot === null) {
-      event.target.value = "";
-      setActiveSlot(null);
-      return;
-    }
+  // Receives the live-captured frame from <LiveCameraCapture>. Same upload
+  // path as the legacy file-input flow but without the gallery option.
+  const handleCameraCapture = async (file: File) => {
+    if (activeSlot === null) return;
+    setCameraOpen(false);
+    await processCapturedFile(file, activeSlot);
+    setActiveSlot(null);
+  };
 
-    const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!allowedExtensions.includes(ext)) {
-      toast.error("Only JPG, JPEG, PNG, and WEBP files are allowed.");
-      event.target.value = "";
-      setActiveSlot(null);
-      return;
-    }
-
-    const slotIndex = activeSlot;
+  // Extracted from the original handleFileChange so live camera and (legacy)
+  // file input both route through one place.
+  const processCapturedFile = async (file: File, slotIndex: number) => {
     const slot = photoSlots[slotIndex];
 
-    // Stamp the image with geolocation + date-time
-    const stampedFile = await stampImage(file);
+    // Stamp the image with geolocation + date-time. Returns metadata so the
+    // upload can include lat/lng/capturedAt for compliance audit (3.3).
+    const captured = await stampImageWithMeta(file);
+    const stampedFile = captured.file;
+    const photoMeta = {
+      capturedAt: captured.capturedAt,
+      gpsLat: captured.gpsLat,
+      gpsLng: captured.gpsLng,
+      gpsAccuracyM: captured.gpsAccuracyM,
+      addressText: captured.addressText,
+      deviceUserAgent: captured.deviceUserAgent,
+    };
 
     // Show uploading state with local preview
     const reader = new FileReader();
@@ -279,7 +298,7 @@ const AddVehicle: React.FC = () => {
       try {
         if (slot.imageId) {
           // Replace existing image
-          const res = await replaceVehicleImage(vehicleId, slot.imageId, stampedFile, slot.title);
+          const res = await replaceVehicleImage(vehicleId, slot.imageId, stampedFile, slot.title, photoMeta);
           if (res.success && res.data) {
             const imgData = res.data;
             setPhotoSlots((prev) => {
@@ -296,7 +315,7 @@ const AddVehicle: React.FC = () => {
           }
         } else {
           // Upload new image
-          const res = await uploadVehicleImages(vehicleId, [stampedFile], slot.title);
+          const res = await uploadVehicleImages(vehicleId, [stampedFile], slot.title, photoMeta);
           if (res.success && res.data && res.data.uploaded.length > 0) {
             const uploaded = res.data.uploaded[0];
             setPhotoSlots((prev) => {
@@ -332,8 +351,6 @@ const AddVehicle: React.FC = () => {
       });
     }
 
-    event.target.value = "";
-    setActiveSlot(null);
   };
 
   // Handle delete button click - delete from API
@@ -443,14 +460,13 @@ const AddVehicle: React.FC = () => {
 
   return (
     <>
-      {/* Hidden file input for camera capture */}
-      <input
-        type="file"
-        accept=".jpg,.jpeg,.png,.webp"
-        capture="environment"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
+      {/* Live camera capture — replaces the file input (3.3 compliance).
+          No gallery option; uses MediaDevices.getUserMedia. */}
+      <LiveCameraCapture
+        isOpen={cameraOpen}
+        title={activeSlot != null ? photoSlots[activeSlot]?.title : "Live Capture"}
+        onClose={() => { setCameraOpen(false); setActiveSlot(null); }}
+        onCapture={handleCameraCapture}
       />
 
       {/* Breadcrumb */}

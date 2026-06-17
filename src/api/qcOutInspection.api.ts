@@ -52,6 +52,12 @@ export interface SubmitInspectionItem {
   notes?: string;
   sortOrder?: number;
   photoUrls?: string[];
+  // Phase 9 — 3.10. Optional but recommended so comparison endpoint can
+  // join QC In ↔ QC Out row-by-row.
+  category?: string;
+  subCategory?: string;
+  itemCode?: string;
+  qcInItemId?: string;
 }
 
 export interface SubmitWorkVerification {
@@ -141,5 +147,60 @@ export const submitQcOut = async (
   payload: SubmitInspectionPayload,
 ): Promise<ApiResponse<{ inspectionId: string; overallStatus: "PASS" | "FAIL" }>> => {
   const { data } = await api.post(`/qc-out/check-ins/${checkInId}/submit`, payload);
+  return data;
+};
+
+// ─── Phase 9 — 3.10 QC In ↔ QC Out parity ────────────────────────────────────
+export interface QcInItemForReuse {
+  id:           string;
+  category:     string;
+  subCategory:  string | null;
+  itemCode:     string;
+  itemLabel:    string;
+  sortOrder:    number;
+  qcInResult:   "PASS" | "FAIL" | "NA" | null;
+  qcInComment:  string | null;
+}
+
+export interface QcComparisonRow {
+  category:     string | null;
+  subCategory:  string | null;
+  itemCode:     string | null;
+  itemLabel:    string;
+  qcInItemId:   string | null;
+  qcInResult:   "PASS" | "FAIL" | "NA" | null;
+  qcInComment:  string | null;
+  qcOutItemId:  string | null;
+  qcOutResult:  "PASS" | "FAIL" | "NA" | null;
+  qcOutNotes:   string | null;
+  damage:       boolean;
+  fixed:        boolean;
+  missingAtOut: boolean;
+}
+
+export interface QcComparison {
+  qcInInspectionId:  string | null;
+  qcOutInspectionId: string | null;
+  overallStatus?:    "PASS" | "FAIL";
+  summary: {
+    total:              number;
+    damageCount:        number;
+    fixedCount:         number;
+    missingAtOutCount:  number;
+  };
+  rows: QcComparisonRow[];
+}
+
+export const getQcInItemsForCheckIn = async (
+  checkInId: string,
+): Promise<ApiResponse<{ qcInInspectionId: string; items: QcInItemForReuse[] }>> => {
+  const { data } = await api.get(`/qc-out/check-ins/${checkInId}/qc-in-items`);
+  return data;
+};
+
+export const getQcComparison = async (
+  checkInId: string,
+): Promise<ApiResponse<QcComparison>> => {
+  const { data } = await api.get(`/qc-out/check-ins/${checkInId}/comparison`);
   return data;
 };
