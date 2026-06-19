@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Loader2, Droplets } from "lucide-react";
 import Button from "../../components/common/Button";
+import { ShopScopeBadge } from "../../components/common/ShopScopeBadge";
 import { getWashbayQueue, markReadyForRelease, type WashbayItem } from "../../api/washbay.api";
 
 function formatWaitTime(roStatusAt: string | null): string {
@@ -50,6 +51,7 @@ export default function WashbayDashboard() {
       <div className="mb-4 flex items-center gap-2">
         <Droplets className="text-[#0061FF]" size={20} />
         <h2 className="text-[18px] font-semibold text-[#333]">Washbay queue</h2>
+        <ShopScopeBadge className="ml-1" />
       </div>
 
       {loading ? (

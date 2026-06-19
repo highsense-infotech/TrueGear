@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { User, AuthData } from '../types/user.types';
+import type { User, AuthData, ShopScope } from '../types/user.types';
 import { logout as logoutApi } from '../api/auth.api';
 
 const STORAGE_KEY = 'tg_auth';
@@ -12,6 +12,10 @@ interface AuthContextType {
   logout: () => Promise<void>;
   hasRole: (roleSlug: string) => boolean;
   hasPermission: (resource: string, action: string) => boolean;
+  // Record-level scope (UX layer only — the backend is the real boundary).
+  // Defaults preserve current behaviour for users without an assigned scope.
+  shopScope: ShopScope;
+  warrantyOnly: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,8 +66,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAuthenticated = !!token && !!user;
 
+  // Derived scope — defaults to unrestricted (ALL / false) for users without
+  // an assigned scope, matching the backend defaults.
+  const shopScope: ShopScope = user?.shopScope ?? 'ALL';
+  const warrantyOnly: boolean = user?.warrantyOnly ?? false;
+
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout, hasRole, hasPermission }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout, hasRole, hasPermission, shopScope, warrantyOnly }}>
       {children}
     </AuthContext.Provider>
   );

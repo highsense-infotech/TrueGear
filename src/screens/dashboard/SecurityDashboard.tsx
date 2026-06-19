@@ -5,6 +5,7 @@ import { VehicleLookup } from "../../components/cards/VehicleLookup.tsx";
 import { TodaysAppointments } from "../../components/cards/TodaysAppointments.tsx";
 import { Truck } from "lucide-react";
 import { VehicleTable } from "../../components/cards/VehicleTable.tsx";
+import { ShopScopeBadge } from "../../components/common/ShopScopeBadge.tsx";
 import { ROUTES } from "../../constants/routes.ts";
 import type { VehicleStats } from "../../api/vehicle.api";
 
@@ -73,6 +74,7 @@ const SecurityDashboard: React.FC = () => {
       {/* Dashboard Content - Only show on index route */}
       {isIndexRoute && (
         <>
+          <ShopScopeBadge className="mb-4" />
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-7.5">
             <StatCard

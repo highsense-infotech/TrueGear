@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { Truck } from "lucide-react";
 import { QCTable } from "../../components/cards/QCTable.tsx";
+import { ShopScopeBadge } from "../../components/common/ShopScopeBadge.tsx";
 import { ROUTES } from "../../constants/routes.ts";
 import { getQCDashboard, startInspection, type QCStats, type QCQueueItem, type QCPagination } from "../../api/qc.api";
 
@@ -122,6 +123,7 @@ const QualityCheckDashboard: React.FC = () => {
       {/* Dashboard Content - Only show on index route */}
       {isIndexRoute && (
         <>
+          <ShopScopeBadge className="mb-4" />
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-7.5">
             <StatCard

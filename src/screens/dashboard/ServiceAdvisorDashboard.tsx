@@ -3,6 +3,8 @@ import toast from "react-hot-toast";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { Truck, Clock, CheckCircle, Calendar, Loader2 } from "lucide-react";
 import { ServiceAdvisorTable } from "../../components/cards/ServiceAdvisorTable.tsx";
+import { ShopScopeBadge } from "../../components/common/ShopScopeBadge.tsx";
+import { WarrantyScopeBadge } from "../../components/common/WarrantyScopeBadge.tsx";
 import { Outlet, useLocation } from "react-router-dom";
 import ROUTES from "../../constants/routes.ts";
 import {
@@ -74,6 +76,10 @@ const ServiceAdvisorDashboard: React.FC = () => {
     <>
       {isIndexRoute && (
         <>
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <ShopScopeBadge />
+            <WarrantyScopeBadge />
+          </div>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-7.5">
             <StatCard

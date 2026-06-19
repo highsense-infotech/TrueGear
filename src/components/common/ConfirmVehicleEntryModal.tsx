@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import Button from './Button';
+
+export type EntryShop = 'SERVICE' | 'MAJOR' | 'PDI';
 
 interface ConfirmVehicleEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (shop: EntryShop) => void;
   registration: string;
   owner: string;
   photosCaptured: string;
@@ -24,6 +27,9 @@ export function ConfirmVehicleEntryModal({
   isConfirming = false,
   error,
 }: ConfirmVehicleEntryModalProps) {
+  // Shop the vehicle is routed to at the gate. Drives Major/Service scoping
+  // for foreman/controller. Defaults to SERVICE.
+  const [shop, setShop] = useState<EntryShop>('SERVICE');
   if (!isOpen) return null;
 
   return (
@@ -55,6 +61,29 @@ export function ConfirmVehicleEntryModal({
           </div>
         </div>
 
+        {/* Shop routing — picks which workshop (and which foreman/controller
+            scope) this vehicle belongs to. */}
+        <div className="mb-6">
+          <p className="text-[#999] text-[12px] mb-1.5">Route to Shop</p>
+          <div className="flex gap-2">
+            {(['SERVICE', 'MAJOR', 'PDI'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setShop(s)}
+                disabled={isConfirming}
+                className={`flex-1 h-11 rounded-[10px] border text-[14px] font-medium transition-colors ${
+                  shop === s
+                    ? 'border-[#ff4f31] bg-[#fff5f2] text-[#ff4f31]'
+                    : 'border-[#e5e7eb] bg-white text-[#555] hover:bg-[#fafafa]'
+                }`}
+              >
+                {s === 'SERVICE' ? 'Service' : s === 'MAJOR' ? 'Major' : 'PDI'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Error Message */}
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-[10px]">
@@ -72,7 +101,7 @@ export function ConfirmVehicleEntryModal({
           </Button>
           <Button
             variant="gradient"
-            onClick={onConfirm}
+            onClick={() => onConfirm(shop)}
             disabled={isConfirming}
             icon={isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
           >

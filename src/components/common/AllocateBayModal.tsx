@@ -18,6 +18,7 @@ import {
 } from "../../api/workshop.api";
 import { listTechnicians, type Technician } from "../../api/serviceAdvisor.api";
 import type { QcOutFailedWork } from "../../api/qcOutInspection.api";
+import { useAuth } from "../../context/AuthContext";
 
 type Props = {
   isOpen: boolean;
@@ -41,6 +42,13 @@ type Props = {
 };
 
 export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onClose, onAllocated }: Props) {
+  // Shop-scoped foreman (SERVICE/MAJOR) is locked to their shop's bay category;
+  // ALL / super-admin choose freely. PDI is never a user scope. UX only — the
+  // backend already rejects out-of-shop allocations.
+  const { shopScope } = useAuth();
+  const lockedCategory: BayCategory | null =
+    shopScope === "SERVICE" || shopScope === "MAJOR" ? (shopScope as BayCategory) : null;
+
   const [bays, setBays] = useState<WorkshopBay[]>([]);
   const [category, setCategory] = useState<BayCategory | "">("");
   const [bayId, setBayId] = useState("");
@@ -63,9 +71,11 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
     setPriority(existing?.priority ?? "MEDIUM");
     setRepairCategory(existing?.repairCategory ?? "OTHER");
     setNotes(existing?.notes ?? "");
-    setCategory(existing?.category ?? "");
+    // Lock to the foreman's shop category when scoped; otherwise seed from the
+    // existing allocation (re-allocate) or leave empty for a fresh allocation.
+    setCategory(lockedCategory ?? existing?.category ?? "");
     setError(null);
-  }, [isOpen, existing]);
+  }, [isOpen, existing, lockedCategory]);
 
   // Load bays for the selected category (filtered server-side). A fresh
   // allocation shows nothing until a category is picked; re-allocating a legacy
@@ -156,14 +166,17 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
           <select
             value={category}
             onChange={(e) => { setCategory(e.target.value as BayCategory | ""); setBayId(""); }}
-            disabled={submitting}
-            className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31]"
+            disabled={submitting || !!lockedCategory}
+            className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31] disabled:bg-[#f5f5f5] disabled:text-[#888]"
           >
             <option value="">Select category</option>
             {BAY_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>
+          {lockedCategory && (
+            <p className="text-[11px] text-gray-400 mt-1">Locked to your shop ({lockedCategory}).</p>
+          )}
         </div>
 
         <div>

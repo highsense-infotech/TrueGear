@@ -377,7 +377,7 @@ const AddVehicle: React.FC = () => {
     });
   };
 
-  const handleModalConfirm = async () => {
+  const handleModalConfirm = async (shop: "SERVICE" | "MAJOR" | "PDI") => {
     if (!vehicleId) {
       setConfirmError("Vehicle ID not found.");
       return;
@@ -395,6 +395,7 @@ const AddVehicle: React.FC = () => {
         fuelLevel: fuelLevel || undefined,
         damagesNotes: damagesNotes.trim() || undefined,
         complaintText: complaintText.trim() || undefined,
+        shop,
       });
       if (res.success) {
         toast.success(`Vehicle entry confirmed — ${res.data?.receivingNo ?? ""}`.trim());

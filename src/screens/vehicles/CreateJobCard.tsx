@@ -22,6 +22,7 @@ import {
 } from "../../api/serviceAdvisor.api";
 import { listServiceTypes } from "../../api/serviceType.api";
 import { useCurrency } from "../../context/CurrencyContext";
+import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
 
 const CreateJobCard: React.FC = () => {
@@ -31,6 +32,7 @@ const CreateJobCard: React.FC = () => {
   const editJobCardId = searchParams.get("editJobCardId");
   const isEditMode = !!editJobCardId;
   const { taxConfig, currency } = useCurrency();
+  const { warrantyOnly } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([{
     id: Date.now(),
     jobDescription: "",
@@ -529,6 +531,13 @@ const CreateJobCard: React.FC = () => {
       <div className="flex flex-col gap-3 md:gap-5 w-full pb-8">
         {/* Header Section */}
         <JobCardHeader onBackClick={handleBackClick} edit={isEditMode} />
+
+        {warrantyOnly && (
+          <div className="rounded-xl border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 text-[13px] text-[#c2410c]">
+            Warranty clerk — select <span className="font-semibold">Warranty Service</span> as the
+            service type. Only warranty job cards can be created with this account.
+          </div>
+        )}
 
         {/* Vehicle Summary Card */}
         <VehicleSummaryCard

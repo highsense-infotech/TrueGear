@@ -243,6 +243,8 @@ export default function QcOutInspectionDashboard() {
   // ────────── Inspection mode ──────────
   if (activeCheckInId) {
     const verifiedCount = works.filter((w) => worksState[w.id]?.result).length;
+    // Total failed checklist items across all categories — surfaced on the tab.
+    const checklistFailCount = checklist.filter((c) => rows[c.id]?.status === "FAIL").length;
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -267,11 +269,16 @@ export default function QcOutInspectionDashboard() {
           <button
             type="button"
             onClick={() => setActiveTab("checklist")}
-            className={`px-3 py-1.5 text-[13px] rounded-md transition ${
+            className={`px-3 py-1.5 text-[13px] rounded-md transition inline-flex items-center gap-1.5 ${
               activeTab === "checklist" ? "bg-white text-[#333] shadow-sm font-semibold" : "text-[#666]"
             }`}
           >
             Checklist
+            {checklistFailCount > 0 && (
+              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
+                {checklistFailCount} FAIL
+              </span>
+            )}
           </button>
         </div>
 

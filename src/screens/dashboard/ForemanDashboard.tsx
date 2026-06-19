@@ -13,6 +13,7 @@ import {
 } from "../../api/workshop.api";
 import { Pagination } from "../../components/common/Pagination";
 import { ForemanSignOff } from "../../components/cards/ForemanSignOff.tsx";
+import { ShopScopeBadge } from "../../components/common/ShopScopeBadge";
 
 const REPAIR_LABEL: Record<string, string> = {
   ENGINE: "Engine",
@@ -124,6 +125,8 @@ const ForemanDashboard = () => {
       {/* Foreman Sign-Off — cards in FOREMAN_REVIEW state (tech-done, awaiting
           foreman approval before QC Out). Auto-hides when empty. */}
       <ForemanSignOff />
+
+      <ShopScopeBadge className="mb-4" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
         <StatCard

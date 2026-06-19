@@ -15,9 +15,11 @@ import {
   getJobCardDetail,
   shareEstimate,
   requestPartsConfirmation,
+  approveJobCard,
   type SAJobCardDetailData,
 } from "../../api/serviceAdvisor.api";
 import { usePermission } from "../../hooks/usePermission";
+import { useAuth } from "../../context/AuthContext";
 import { MODULES, ACTIONS } from "../../constants/permissions";
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
@@ -51,10 +53,13 @@ const JobCardDetail: React.FC = () => {
   // Technician allocation is Foreman-only (WORKSHOP:edit). Service Advisors can
   // view the job card but must not see Assign / Reassign controls.
   const canAllocateTechnicians = usePermission(MODULES.WORKSHOP, ACTIONS.EDIT);
+  // Warranty clerks accept the estimate in-app on the customer's behalf.
+  const { warrantyOnly } = useAuth();
 
   const [data, setData] = useState<SAJobCardDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const [requestingParts, setRequestingParts] = useState(false);
   const [approvalUrl, setApprovalUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -130,6 +135,30 @@ const JobCardDetail: React.FC = () => {
       toast.error(msg);
     } finally {
       setSharing(false);
+    }
+  };
+
+  // Warranty acceptance — the clerk approves the shared estimate on the
+  // customer's behalf. Backend is scope-guarded (warranty cards only) and
+  // records acceptance provenance (acceptedBy / acceptanceChannel='STAFF').
+  const handleAcceptWarranty = async () => {
+    if (!jobCardId || accepting) return;
+    setAccepting(true);
+    try {
+      const res = await approveJobCard(jobCardId);
+      if (res.success && res.data) {
+        toast.success("Warranty job accepted on customer's behalf");
+        setData((prev) =>
+          prev
+            ? { ...prev, jobCard: { ...prev.jobCard, status: res.data!.status, approvedAt: res.data!.approvedAt } }
+            : prev,
+        );
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.error?.message || "Failed to accept warranty job";
+      toast.error(msg);
+    } finally {
+      setAccepting(false);
     }
   };
 
@@ -415,6 +444,24 @@ const JobCardDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Warranty clerk — accept the shared estimate on the customer's behalf. */}
+      {warrantyOnly && (jobCard.status === "SHARED" || jobCard.status === "MODIFICATION_REQUESTED") && (
+        <div className="bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-4 flex flex-col gap-3">
+          <p className="text-sm text-[#c2410c]">
+            Warranty acceptance — accept this estimate on the customer's behalf.
+          </p>
+          <Button
+            variant="gradient"
+            className="w-full md:w-auto"
+            icon={<Check size={18} />}
+            onClick={handleAcceptWarranty}
+            disabled={accepting}
+          >
+            {accepting ? "Accepting..." : "Accept on Customer's Behalf"}
+          </Button>
+        </div>
+      )}
 
       {/* Modification Request Note + Edit + Re-share actions */}
       {jobCard.status === "MODIFICATION_REQUESTED" && (

@@ -374,6 +374,8 @@ export interface ConfirmEntryPayload {
   fuelLevel?: FuelLevel;
   damagesNotes?: string;
   complaintText?: string;
+  // Shop the vehicle is routed to at the gate (drives Major/Service scoping).
+  shop?: "SERVICE" | "MAJOR" | "PDI";
 }
 
 export const confirmVehicleEntry = async (

@@ -30,6 +30,7 @@ import {
   type ManagedRole,
   type ManagedUser,
   type RolePermission,
+  type ShopScope,
 } from "../../api/userManagement.api.ts";
 import { MODULES, ACTIONS } from "../../constants/permissions.ts";
 
@@ -114,6 +115,15 @@ const ALL_MODULES = [
   { key: MODULES.CUSTOMER_PROFILE, label: "Customer Profile" },
   { key: MODULES.VEHICLE_OUT, label: "Vehicle Out" },
   { key: MODULES.TECHNICIAN, label: "Technician" },
+  // Previously enforced server-side but missing from the admin grid — now
+  // assignable so foreman / QC / warranty / invoicing / gate-release roles
+  // can be configured without super-admin or direct API calls.
+  { key: MODULES.WORKSHOP, label: "Workshop" },
+  { key: MODULES.QC_OUT, label: "QC Out" },
+  { key: MODULES.WASHBAY, label: "Washbay" },
+  { key: MODULES.WARRANTY, label: "Warranty" },
+  { key: MODULES.INVOICING, label: "Invoicing" },
+  { key: MODULES.GATE_RELEASE, label: "Gate Release" },
 ];
 
 const ALL_ACTIONS = [
@@ -743,6 +753,8 @@ function UsersTab() {
     email: "",
     password: "",
     roleSlug: "",
+    shopScope: "ALL" as ShopScope,
+    warrantyOnly: false,
   });
   const [createUsernameError, setCreateUsernameError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -754,6 +766,8 @@ function UsersTab() {
     username: "",
     email: "",
     roleSlug: "",
+    shopScope: "ALL" as ShopScope,
+    warrantyOnly: false,
   });
   const [editUsernameError, setEditUsernameError] = useState("");
   const [editing, setEditing] = useState(false);
@@ -836,6 +850,8 @@ function UsersTab() {
       email: "",
       password: "",
       roleSlug: assignableRoles[0]?.slug || "",
+      shopScope: "ALL",
+      warrantyOnly: false,
     });
     setCreateUsernameError("");
     setCreateModalOpen(true);
@@ -872,6 +888,8 @@ function UsersTab() {
       username: user.username,
       email: user.email,
       roleSlug: user.role.slug,
+      shopScope: user.shopScope ?? "ALL",
+      warrantyOnly: user.warrantyOnly ?? false,
     });
     setEditUsernameError("");
     setEditModalOpen(true);
@@ -1259,6 +1277,29 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          <div>
+            <label className={labelClass}>Shop Scope</label>
+            <select
+              value={createForm.shopScope}
+              onChange={(e) => setCreateForm((f) => ({ ...f, shopScope: e.target.value as ShopScope }))}
+              className={inputClass}
+            >
+              <option value="ALL">All shops (unrestricted)</option>
+              <option value="SERVICE">Service shop only</option>
+              <option value="MAJOR">Major shop only</option>
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Restricts a foreman / controller to one shop. Super-admins ignore this.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-[13px] text-[#333] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={createForm.warrantyOnly}
+              onChange={(e) => setCreateForm((f) => ({ ...f, warrantyOnly: e.target.checked }))}
+            />
+            Warranty jobs only (warranty clerk)
+          </label>
           <div className="flex gap-3 pt-1">
             <Button variant="outline" onClick={() => setCreateModalOpen(false)} className="flex-1">
               Cancel
@@ -1329,6 +1370,29 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          <div>
+            <label className={labelClass}>Shop Scope</label>
+            <select
+              value={editForm.shopScope}
+              onChange={(e) => setEditForm((f) => ({ ...f, shopScope: e.target.value as ShopScope }))}
+              className={inputClass}
+            >
+              <option value="ALL">All shops (unrestricted)</option>
+              <option value="SERVICE">Service shop only</option>
+              <option value="MAJOR">Major shop only</option>
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Restricts a foreman / controller to one shop. Super-admins ignore this.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-[13px] text-[#333] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={editForm.warrantyOnly}
+              onChange={(e) => setEditForm((f) => ({ ...f, warrantyOnly: e.target.checked }))}
+            />
+            Warranty jobs only (warranty clerk)
+          </label>
           <div className="flex gap-3 pt-1">
             <Button variant="outline" onClick={() => setEditModalOpen(false)} className="flex-1">
               Cancel

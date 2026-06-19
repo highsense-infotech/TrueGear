@@ -10,6 +10,8 @@ export interface ManagedRole {
   createdAt: string;
 }
 
+export type ShopScope = 'SERVICE' | 'MAJOR' | 'ALL';
+
 export interface ManagedUser {
   id: string;
   username: string;
@@ -17,6 +19,8 @@ export interface ManagedUser {
   isActive: boolean;
   createdAt: string;
   role: { name: string; slug: string };
+  shopScope?: ShopScope;
+  warrantyOnly?: boolean;
 }
 
 export interface RolesPaginatedData {
@@ -70,12 +74,21 @@ export const createUser = (data: {
   email: string;
   password: string;
   roleSlug: string;
+  shopScope?: ShopScope;
+  warrantyOnly?: boolean;
 }): Promise<ApiResponse<ManagedUser>> =>
   api.post('/user-management/users', data).then((res) => res.data);
 
 export const updateUser = (
   id: string,
-  data: { username?: string; email?: string; roleSlug?: string; isActive?: boolean },
+  data: {
+    username?: string;
+    email?: string;
+    roleSlug?: string;
+    isActive?: boolean;
+    shopScope?: ShopScope;
+    warrantyOnly?: boolean;
+  },
 ): Promise<ApiResponse<ManagedUser>> =>
   api.put(`/user-management/users/${id}`, data).then((res) => res.data);
 
