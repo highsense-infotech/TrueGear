@@ -612,8 +612,15 @@ const AddCustomer: React.FC = () => {
           // Prefer Evolve's CRM identifiers when available — they're the
           // source-of-truth for cross-system sync.
           crmReferenceNo: strOrUndef(cd.CRMReferenceNo) ?? `CRM-${Date.now()}`,
+          // Local walk-in placeholder: use a UUID (matches the appointment
+          // flow's randomUUID) so it is recognized by the local-placeholder
+          // guard in customers/service.ts (syncFromIrm) and is globally unique
+          // — avoids the old `CUST-<Date.now()>` which (a) wasn't recognized as
+          // a placeholder and (b) collided when two walk-ins hit the same ms.
+          // Evolve overwrites this in-place once Customer Maintenance returns
+          // the real DMSReferenceNo.
           custSequenceId:
-            strOrUndef(cd.CustSequenceID) ?? `CUST-${Date.now()}`,
+            strOrUndef(cd.CustSequenceID) ?? crypto.randomUUID(),
           customerType: strOrUndef(cd.CustomerType) ?? "C",
           title: strOrUndef(cd.Title),
           initial: strOrUndef(cd.Initial),
