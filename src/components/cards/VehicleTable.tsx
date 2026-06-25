@@ -296,7 +296,45 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
         Object.keys(res.data.CustomerDetail).length > 0 || Object.keys(res.data.Vehicles).length > 0
       );
       if (hasEvolveData) {
-        // Step 1: Found in third-party — pre-fill from external data
+        // Even when Evolve returns data, the backend also reports whether this
+        // vehicle already exists in OUR local DB (res.data.vehicleId) — e.g. a
+        // vehicle that came through the gate before and whose appointment is now
+        // COMPLETED. That is a RE-ENTRY of a known vehicle, not a brand-new
+        // customer, so route it through the re-entry flow instead of the Evolve
+        // pre-fill "Add Customer" screen. (Without this, a completed vehicle that
+        // also exists in Evolve always lands on add-customer?vinLookup=true.)
+        const existingId = res.data?.vehicleId ?? null;
+        if (existingId) {
+          // Apply the same active-visit guards as the local paths, using the
+          // searchVehicles metadata already fetched in Step 0.
+          const meta = (apptRes.data ?? []).find((v) => v.id === existingId);
+          if (meta?.activeCheckIn) {
+            toast.error(
+              `${meta.registrationNumber || meta.vin} is already inside the workshop. Please complete the Gate Exit process before creating a new Gate Entry.`,
+              { duration: 6000 },
+            );
+            return;
+          }
+          if (meta?.inWorkshop) {
+            toast.error(
+              `${meta.registrationNumber || meta.vin} is in workshop — ${meta.pendingJobItems} job${meta.pendingJobItems === 1 ? "" : "s"} pending. Wait for the technician to finish.`,
+              { duration: 6000 },
+            );
+            return;
+          }
+
+          const reEntryRes = await reEntryVehicle(existingId);
+          if (!reEntryRes.success) {
+            toast.error(reEntryRes.error?.message ?? "Re-entry not allowed", { duration: 6000 });
+            return;
+          }
+          const newVehicleId = reEntryRes.data?.id ?? existingId;
+          toast.success("Vehicle found! New entry created for this visit.");
+          navigate(`${ROUTES.ADD_VEHICLE}?vehicleId=${newVehicleId}&reentry=true`);
+          return;
+        }
+
+        // Step 1: Genuinely new vehicle — pre-fill from external data
         sessionStorage.setItem("vinLookupData", JSON.stringify(res.data));
         toast.success("Vehicle data found! Pre-filling details...");
         navigate(`${ROUTES.ADD_CUSTOMER}?vinLookup=true`);

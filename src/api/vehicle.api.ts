@@ -406,6 +406,11 @@ export interface VinLookupData {
   // Whether the result came from Evolve ("evolve") or the local DB fallback
   // ("local"). Local responses include the matched vehicle rows under `vehicles`.
   source?: 'evolve' | 'local';
+  // Set on an Evolve hit when the matched customer/vehicle already exists in our
+  // local DB. A non-null vehicleId means this is a re-entry of a known vehicle
+  // (e.g. a completed prior visit), not a brand-new customer.
+  customerId?: string | null;
+  vehicleId?: string | null;
   CustomerDetail: VinLookupFields;
   CustomerProfile: VinLookupFields;
   Vehicles: VinLookupFields;
