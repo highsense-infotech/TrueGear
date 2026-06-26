@@ -317,17 +317,29 @@
 
   /* ── Divider ── */
   hr.section-hr { border: none; border-top: 2px solid var(--border); margin: 50px 0; }
+
+  /* ── Clarification callout ── */
+  .clarify {
+    background: #fff7ed;
+    border: 1px dashed var(--amber);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 18px 0;
+    font-size: 13px;
+    color: #92400e;
+  }
+  .clarify strong { color: var(--amber); }
 </style>
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════════════════ COVER -->
 <div class="cover">
-  <span class="badge">Internal Product Document — v2.0</span>
+  <span class="badge">Internal Product Document — v3.0</span>
   <h1>ELT Group <span>Workshop</span><br>Management System</h1>
-  <p>Complete System Overview, User Roles & Workflow Guide — Written for workshop staff, service advisors, managers and business owners.</p>
+  <p>Complete System Overview, User Roles &amp; Workflow Guide — covering the full vehicle journey from booking to gate release. Written for workshop staff, service advisors, managers and business owners.</p>
   <div class="cover-meta">
-    <div><strong>Version</strong>2.0 — April 2026</div>
+    <div><strong>Version</strong>3.0 — June 2026</div>
     <div><strong>Audience</strong>All Workshop Staff</div>
     <div><strong>Classification</strong>Internal Use Only</div>
     <div><strong>Language</strong>Simple English</div>
@@ -340,26 +352,33 @@
 <div class="toc">
   <h2>📋 Table of Contents</h2>
   <ol>
-    <li><a href="#roles">User Roles & Permissions</a>
+    <li><a href="#pipeline">The Vehicle Journey — At a Glance</a></li>
+    <li><a href="#roles">User Roles &amp; Access Model</a>
       <ol class="sub">
-        <li>Role Overview Table</li>
-        <li>Role Cards — What each user sees & does</li>
+        <li>How Access Works (Module-Based RBAC)</li>
+        <li>System Modules / Dashboards</li>
+        <li>Default Roles &amp; Permissions</li>
+        <li>How Workflow Modules Map to Roles</li>
       </ol>
     </li>
     <li><a href="#workflow">Complete Workflow — Step by Step</a>
       <ol class="sub">
-        <li>Appointment Booking (Receptionist)</li>
-        <li>Vehicle Walk-In / Entry</li>
-        <li>QC Inspection</li>
+        <li>Appointment Booking</li>
+        <li>Gate Entry / Confirm Entry</li>
+        <li>QC Inspection (QC-In)</li>
         <li>Job Card Creation</li>
-        <li>Service Type Selection</li>
-        <li>Service Category (B / C / D)</li>
-        <li>Parts Auto-Loading Logic</li>
-        <li>Parts Consumption from Store</li>
-        <li>Send Estimated Job Card (Email / WhatsApp)</li>
-        <li>Job History Tracking</li>
+        <li>Parts Request &amp; Confirmation</li>
+        <li>Share Estimate &amp; Customer Approval</li>
+        <li>Workshop Allocation &amp; Technician Work</li>
+        <li>Foreman Sign-Off</li>
+        <li>QC-Out (Post-Service Quality Check)</li>
+        <li>Washbay</li>
+        <li>Invoicing &amp; Billing</li>
+        <li>Gate Pass &amp; Release</li>
       </ol>
     </li>
+    <li><a href="#types">Service Types, Categories &amp; Parts Auto-Loading</a></li>
+    <li><a href="#warranty">Warranty &amp; Supplementary Parts</a></li>
     <li><a href="#scenario">Real Example — End to End</a></li>
     <li><a href="#admin">Admin Controls</a></li>
     <li><a href="#statuses">All System Statuses Reference</a></li>
@@ -367,97 +386,242 @@
 </div>
 
 
+<!-- ═══════════════════════════════════════════════════ 0. PIPELINE -->
+<div class="section" id="pipeline">
+  <span class="section-label">Section 01</span>
+  <h2 class="section-title">The Vehicle Journey — At a Glance</h2>
+  <p class="section-intro">The system now manages the <strong>full vehicle lifecycle</strong> — not just job cards. A vehicle moves through twelve stages from the moment it is booked to the moment it drives out of the gate. Each stage is handled by a specific area of the workshop, and the vehicle's <strong>RO (Repair Order) status</strong> moves forward automatically as work progresses.</p>
+
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box green">📅 1. Appointment Booking</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">🛡️ 2. Gate Entry / Confirm Entry<sub>RO: ARRIVED</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box purple">🔍 3. QC Inspection (QC-In)</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box blue">📋 4. Job Card Creation<sub>Job Card: DRAFT</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">📦 5. Parts Request &amp; Confirmation</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box green">✅ 6. Share Estimate &amp; Customer Approval<sub>APPROVED / PARTIALLY APPROVED</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box blue">🔧 7. Workshop Allocation &amp; Technician Work<sub>IN PROGRESS</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box dark">👷 8. Foreman Sign-Off<sub>COMPLETED</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box purple">🛡️ 9. QC-Out<sub>RO: QC_PASSED</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box blue">💧 10. Washbay<sub>RO: READY_FOR_RELEASE</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">🧾 11. Invoicing &amp; Billing<sub>Invoice: PAID</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box green">🔑 12. Gate Pass &amp; Release<sub>RO: RELEASED → CLOSED</sub></div>
+    </div>
+  </div>
+</div>
 
 
 <!-- ═══════════════════════════════════════════════════ 2. ROLES -->
 <div class="section" id="roles">
-  <span class="section-label">Section 01</span>
-  <h2 class="section-title">User Roles & Permissions</h2>
-  <p class="section-intro">ELT Group has 7 user roles. Each role has its own login and can only access what is relevant to their job. Below is a guide to every role in the system.</p>
+  <span class="section-label">Section 02</span>
+  <h2 class="section-title">User Roles &amp; Access Model</h2>
+  <p class="section-intro">Access is no longer tied to a fixed list of roles. The system now uses <strong>module-based, permission-driven access control (RBAC)</strong>. Each role is simply a bundle of permissions, and each user is assigned one role. Every screen the user sees is decided by the modules their role can access.</p>
+
+  <!-- 2.1 How access works -->
+  <h3 class="sub-title" id="r1_how">2.1 — How Access Works (Module-Based RBAC)</h3>
+  <p class="section-intro">A permission is made of two parts: a <strong>module</strong> (what part of the system, e.g. <em>JOB_CARD</em>) and an <strong>action</strong> (what they can do with it). Roles and permissions are fully <strong>admin-configurable</strong> — the Super Admin can create new roles, rename them, and switch any module on or off for each role from User Management.</p>
+
+  <div class="card-grid">
+    <div class="role-card" style="border-top-color:#0066ff">
+      <div class="icon">🧩</div>
+      <h4>Modules</h4>
+      <p>The areas of the system — Gate Entry, QC Inspection, Job Cards, Workshop, Washbay, Billing and more. A role only sees modules it has been granted.</p>
+    </div>
+    <div class="role-card" style="border-top-color:#16a34a">
+      <div class="icon">⚙️</div>
+      <h4>Actions</h4>
+      <p>What a role can do inside a module: <strong>view</strong>, <strong>create</strong>, <strong>edit</strong>, <strong>delete</strong>, and <strong>approve</strong>.</p>
+    </div>
+    <div class="role-card" style="border-top-color:#7c3aed">
+      <div class="icon">🛠️</div>
+      <h4>Roles are Configurable</h4>
+      <p>The Super Admin creates roles and assigns module permissions. Only the Super Admin role itself is protected — it cannot be edited or deleted.</p>
+    </div>
+  </div>
+
+  <div class="info-box blue">
+    <div class="icon">🔐</div>
+    <div>
+      <strong>Super Admin is absolute</strong>
+      <p>The Super Admin bypasses every permission check and can access all modules. Permission changes take effect almost immediately (the system caches permissions for a few minutes). Some users can also be limited by <em>shop scope</em> (which workshop they belong to) or restricted to <em>warranty-only</em> job cards.</p>
+    </div>
+  </div>
+
+  <!-- 2.2 Modules -->
+  <h3 class="sub-title" id="r2_modules">2.2 — System Modules / Dashboards</h3>
+  <p class="section-intro">These are the modules in the system today. Each one maps to a dashboard or screen. Whether a user can open it depends on whether their role has <em>view</em> on that module.</p>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Module</th><th>Dashboard / Screen</th><th>Used By (typical)</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-green">APPOINTMENT</span></td><td>Appointments</td><td>Receptionist <em>(deactivated — see 2.4)</em></td></tr>
+        <tr><td><span class="tag tag-amber">GATE_ENTRY</span></td><td>Gate Entry</td><td>Security Gate Keeper</td></tr>
+        <tr><td><span class="tag tag-purple">QC_INSPECTION</span></td><td>QC Inspection (QC-In)</td><td>QC Inspector</td></tr>
+        <tr><td><span class="tag tag-blue">JOB_CARD</span></td><td>Job Cards</td><td>Service Advisor</td></tr>
+        <tr><td><span class="tag tag-amber">PARTS_MANAGER</span></td><td>Spare Parts</td><td>Parts Manager</td></tr>
+        <tr><td><span class="tag tag-blue">TECHNICIAN</span></td><td>Technician</td><td>Technician</td></tr>
+        <tr><td><span class="tag tag-gray">WORKSHOP</span></td><td>Workshop (Foreman)</td><td>Foreman</td></tr>
+        <tr><td><span class="tag tag-purple">QC_OUT</span></td><td>QC Out</td><td>QC Inspector (Foreman: view)</td></tr>
+        <tr><td><span class="tag tag-blue">WASHBAY</span></td><td>Washbay</td><td>Foreman</td></tr>
+        <tr><td><span class="tag tag-red">WARRANTY</span></td><td>Warranty Store</td><td>Parts Manager (Warranty Clerk)</td></tr>
+        <tr><td><span class="tag tag-amber">INVOICING</span></td><td>Billing</td><td>Finance</td></tr>
+        <tr><td><span class="tag tag-green">GATE_RELEASE</span></td><td>Gate Release</td><td>Security Gate Keeper</td></tr>
+        <tr><td><span class="tag tag-amber">VEHICLE_OUT</span></td><td>Vehicle Out</td><td>Security / Service Advisor</td></tr>
+        <tr><td><span class="tag tag-blue">VEHICLE_360</span></td><td>Vehicle 360 (full history)</td><td>Service Advisor, Admin</td></tr>
+        <tr><td><span class="tag tag-gray">CUSTOMER_PROFILE</span></td><td>Customer Profile</td><td>Front-desk staff, Admin</td></tr>
+        <tr><td><span class="tag tag-gray">USER_MANAGEMENT / ROLE_MANAGEMENT</span></td><td>User Management</td><td>Super Admin</td></tr>
+        <tr><td><span class="tag tag-gray">DASHBOARD</span></td><td>Home Dashboard</td><td>All</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 2.3 Default roles -->
+  <h3 class="sub-title" id="r3_default">2.3 — Default Roles &amp; Permissions</h3>
+  <p class="section-intro">The system seeds <strong>ten roles</strong> out of the box. Because access is permission-driven, several roles intentionally span more than one workflow module (for example, the QC Inspector handles both QC-In and QC-Out, and the Foreman runs both Workshop and Washbay) — so there is no separate "Washbay Operator" or "Warranty Storekeeper" role. The nine <strong>active</strong> roles are shown below; the Super Admin can add more or deactivate any role at any time (a deactivated role can no longer log in). <em>The Receptionist role has been deactivated and is therefore not listed here — see 2.4.</em></p>
 
   <!-- Role Cards -->
   <div class="card-grid">
     <div class="role-card" style="border-top-color:#1a1a1a">
       <div class="icon">👑</div>
       <h4>Super Admin</h4>
-      <p>Full access to everything — all modules, all users, all data. Manages the entire system and permissions.</p>
-    </div>
-    <div class="role-card" style="border-top-color:#9c27b0">
-      <div class="icon">🔍</div>
-      <h4>QC Inspector</h4>
-      <p>Performs vehicle inspections on arrival. Marks each checklist item as Pass, Fail, or NA and submits the report.</p>
+      <p>Full access to every module and all data. Manages users, roles and permissions for the whole system.</p>
     </div>
     <div class="role-card" style="border-top-color:#ff8800">
       <div class="icon">🛡️</div>
       <h4>Security Gate Keeper</h4>
-      <p>Manages vehicle check-in at the workshop gate. Registers arriving vehicles, records odometer and takes entry photos.</p>
+      <p>Handles both ends of the gate — confirms vehicles in (Gate Entry) and redeems the gate pass at exit (Gate Release).</p>
+    </div>
+    <div class="role-card" style="border-top-color:#9c27b0">
+      <div class="icon">🔍</div>
+      <h4>QC Inspector</h4>
+      <p>Performs the entry inspection (QC-In) <em>and</em> the post-service verification (QC-Out). Marks each item Pass / Fail / NA and signs off.</p>
     </div>
     <div class="role-card" style="border-top-color:#0066ff">
       <div class="icon">🧑‍💼</div>
       <h4>Service Advisor</h4>
-      <p>Front-line staff. Creates job cards, builds estimates, shares them with customers and tracks job progress end to end.</p>
+      <p>Owns the Job Card — builds estimates from inspection findings, requests parts, shares estimates and tracks the job.</p>
     </div>
     <div class="role-card" style="border-top-color:#d97706">
       <div class="icon">📦</div>
       <h4>Parts Manager</h4>
-      <p>Manages the parts inventory. Confirms part availability for job cards and dispatches parts to the workshop bay.</p>
+      <p>Confirms and dispatches parts. Also acts as the <strong>Warranty Clerk</strong> (v1) — manages removed warranty parts.</p>
+    </div>
+    <div class="role-card" style="border-top-color:#0891b2">
+      <div class="icon">🔧</div>
+      <h4>Technician</h4>
+      <p>Carries out the allocated work — logs time, uploads diagnosis/repair photos, accepts parts and marks items complete.</p>
+    </div>
+    <div class="role-card" style="border-top-color:#475569">
+      <div class="icon">👷</div>
+      <h4>Foreman</h4>
+      <p>Runs the workshop — allocates vehicles to bays and technicians, signs off completed work, and manages the washbay queue.</p>
     </div>
     <div class="role-card" style="border-top-color:#16a34a">
-      <div class="icon">🧑‍💻</div>
-      <h4>Receptionist</h4>
-      <p>Handles front desk operations — manages appointments, registers customers and vehicles, and supports walk-in entries.</p>
+      <div class="icon">🧾</div>
+      <h4>Finance</h4>
+      <p>Handles billing — generates invoices, records payments and voids invoices when a correction is needed.</p>
+    </div>
+    <div class="role-card" style="border-top-color:#6b7280">
+      <div class="icon">👤</div>
+      <h4>Customer</h4>
+      <p>Self-service role. The customer reviews and approves the shared estimate online — no staff login required.</p>
     </div>
   </div>
 
   <!-- Role Permission Table -->
-  <h3 class="sub-title">Role Permissions — Full Reference Table</h3>
+  <h3 class="sub-title">Default Role Permissions — Reference Table</h3>
   <div class="tbl-wrap">
     <table>
       <thead>
         <tr>
           <th>Role</th>
-          <th>Can See</th>
+          <th>Modules Granted</th>
           <th>Can Do</th>
-          <th>Cannot Do</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td><strong>👑 Super Admin</strong></td>
-          <td>All modules — Gate Entry, QC Inspection, Job Cards, Parts, Users, Dashboard, Appointments, Vehicle 360</td>
-          <td>Create / edit / delete users and roles, manage all permissions, access every module and report</td>
-          <td>Nothing — full access</td>
-        </tr>
-        <tr>
-          <td><strong>🔍 QC Inspector</strong></td>
-          <td>QC Inspection module only</td>
-          <td>View, create, update and delete inspection reports for vehicles</td>
-          <td>Cannot access Gate Entry, Job Cards, Parts, or User Management</td>
+          <td>Every module (bypasses all permission checks)</td>
+          <td>Everything — create/edit/delete users, roles and permissions; full access to every screen and report</td>
         </tr>
         <tr>
           <td><strong>🛡️ Security Gate Keeper</strong></td>
-          <td>Gate Entry module, vehicle records, customer details</td>
-          <td>Check vehicles in, register new vehicles, record odometer and photos, create and update customer records</td>
-          <td>Cannot create job cards, cannot access QC or Parts modules</td>
+          <td>GATE_ENTRY, GATE_RELEASE + vehicles, vehicle-images, vehicle-accessories, check-ins, confirm-entry, customers</td>
+          <td>Confirm vehicles in at the gate <em>and</em> redeem the gate pass at exit; manage vehicle &amp; customer records</td>
+        </tr>
+        <tr>
+          <td><strong>🔍 QC Inspector</strong></td>
+          <td>QC_INSPECTION, QC_OUT + qc-inspections</td>
+          <td>Perform the entry inspection (QC-In) and the post-service verification (QC-Out)</td>
         </tr>
         <tr>
           <td><strong>🧑‍💼 Service Advisor</strong></td>
-          <td>Job Card module, service advisor dashboard, inspection reports</td>
-          <td>Create job cards, build and share estimates, confirm jobs, track service progress, view and manage job card items</td>
-          <td>Cannot manage users, cannot access Parts Manager module directly, cannot do Gate Entry</td>
+          <td>JOB_CARD + service-advisor</td>
+          <td>Create job cards, build/share estimates, request parts and track jobs</td>
         </tr>
         <tr>
           <td><strong>📦 Parts Manager</strong></td>
-          <td>Parts Manager module, parts inventory, parts requests from job cards</td>
-          <td>View parts requests, confirm availability, dispatch parts to bay, add and update parts in inventory</td>
-          <td>Cannot create job cards, cannot approve customer estimates, cannot access Gate Entry or QC</td>
+          <td>PARTS_MANAGER, WARRANTY + parts-manager</td>
+          <td>Confirm &amp; dispatch parts; act as Warranty Clerk (v1) — manage warranty parts</td>
         </tr>
         <tr>
-          <td><strong>🧑‍💻 Receptionist</strong></td>
-          <td>Appointments, customer records, vehicle records, service advisor dashboard</td>
-          <td>Book and manage appointments, register customers and vehicles, create and update service advisor records</td>
-          <td>Cannot manage users or roles, cannot access Parts Manager or QC Inspection modules</td>
+          <td><strong>🔧 Technician</strong></td>
+          <td>TECHNICIAN + job-cards (read/update), qc-inspections (read/update), vehicles (read)</td>
+          <td>Carry out allocated work, log time, upload photos and mark items complete</td>
         </tr>
+        <tr>
+          <td><strong>👷 Foreman</strong></td>
+          <td>WORKSHOP, WASHBAY + QC_OUT (view); reads vehicles, qc-inspections, job-cards</td>
+          <td>Allocate bays/technicians, sign off completed work and manage the washbay queue</td>
+        </tr>
+        <tr>
+          <td><strong>🧾 Finance</strong></td>
+          <td>INVOICING + JOB_CARD (view); reads job-cards, customers, vehicles</td>
+          <td>Generate invoices, capture payments and void invoices</td>
+        </tr>
+        <tr>
+          <td><strong>👤 Customer</strong></td>
+          <td>customers, service-advisor (self-service)</td>
+          <td>Review and respond to the shared estimate via a secure public link</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="clarify">
+    <strong>NEEDS CLARIFICATION: Owner of the Appointments module.</strong>
+    The <strong>Receptionist</strong> role has been <strong>deactivated</strong>. It previously held three modules — APPOINTMENT, GATE_ENTRY and WASHBAY. Gate Entry is still covered by the Security Gate Keeper and the Washbay queue by the Foreman, but <strong>APPOINTMENT was held only by the Receptionist and is now unassigned</strong>. Please confirm which active role should own appointment booking (Section 3.1) so this document can name it exactly.
+  </div>
+
+  <!-- 2.4 Module → role mapping -->
+  <h3 class="sub-title" id="r4_ops">2.4 — How Workflow Modules Map to Roles</h3>
+  <p class="section-intro">The newer workflow stages are <strong>not</strong> separate roles — each module is granted to one of the seeded roles above, and several roles deliberately wear more than one hat. This is the reverse lookup: for each workflow module, the role that owns it.</p>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Module</th><th>Dashboard</th><th>Owned By Role</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-blue">TECHNICIAN</span></td><td>Technician</td><td>Technician</td></tr>
+        <tr><td><span class="tag tag-gray">WORKSHOP</span></td><td>Workshop allocation &amp; sign-off</td><td>Foreman</td></tr>
+        <tr><td><span class="tag tag-purple">QC_OUT</span></td><td>Post-service QC</td><td>QC Inspector <em>(Foreman has view)</em></td></tr>
+        <tr><td><span class="tag tag-blue">WASHBAY</span></td><td>Washbay queue</td><td>Foreman <em>(was also Receptionist — deactivated)</em></td></tr>
+        <tr><td><span class="tag tag-red">WARRANTY</span></td><td>Warranty Store</td><td>Parts Manager <em>(Warranty Clerk, v1)</em></td></tr>
+        <tr><td><span class="tag tag-amber">INVOICING</span></td><td>Billing</td><td>Finance</td></tr>
+        <tr><td><span class="tag tag-green">GATE_RELEASE</span></td><td>Gate pass redemption</td><td>Security Gate Keeper</td></tr>
+        <tr><td><span class="tag tag-green">APPOINTMENT</span></td><td>Appointment booking</td><td><em>Receptionist (deactivated) — needs reassignment</em></td></tr>
       </tbody>
     </table>
   </div>
@@ -466,308 +630,437 @@
     <div class="icon">💡</div>
     <div>
       <strong>How Roles Connect</strong>
-      <p>The Receptionist books the appointment → the Gate Keeper checks the vehicle in → the QC Inspector inspects it → the Service Advisor builds the estimate → the Customer approves it → the Parts Manager dispatches parts → work begins. Every person only sees what they need.</p>
+      <p>Front-desk staff book the appointment → Gate Keeper confirms entry → QC Inspector inspects → Service Advisor builds &amp; shares the estimate → Customer approves → Foreman allocates &amp; Technician works → Foreman signs off → QC Inspector does QC-Out → Washbay cleans → Finance bills → Security releases the vehicle. Each person only sees the modules they need.</p>
     </div>
   </div>
 </div>
 
 
-
-<!-- ═══════════════════════════════════════════════════ 4. WORKFLOW -->
+<!-- ═══════════════════════════════════════════════════ 3. WORKFLOW -->
 <div class="section" id="workflow">
-  <span class="section-label">Section 02</span>
+  <span class="section-label">Section 03</span>
   <h2 class="section-title">Complete Workflow — Step by Step</h2>
-  <p class="section-intro">This section walks through every step of the vehicle's journey in the workshop. Each workflow is explained simply with a visual flow and numbered steps.</p>
+  <p class="section-intro">This section walks through every stage of the vehicle's journey. Each stage shows who performs it, the visual flow, and what status the vehicle / job card lands in.</p>
 
-  <!-- 4.1 Receptionist / Appointment Booking -->
-  <h3 class="sub-title" id="w1_rec">2.1 — Appointment Booking (Receptionist)</h3>
-  <p class="section-intro">The journey begins when a customer contacts the workshop to book a service. The Receptionist handles this from the front desk — capturing all details and reserving a time slot before the vehicle even arrives.</p>
+  <!-- 3.1 Appointment -->
+  <h3 class="sub-title" id="w1">3.1 — Appointment Booking <span style="font-weight:400;color:var(--muted);font-size:14px">(Front Desk — Appointments module)</span></h3>
+  <p class="section-intro">The journey usually begins with a booking. Front-desk staff search for the customer, pick the vehicle, choose a service type and an available time slot, and confirm — generating a booking reference. Walk-ins without an appointment are also supported (the journey then starts at Gate Entry). <em>See the note in Section 2.4 — the Receptionist role that previously owned this module has been deactivated.</em></p>
 
   <div class="flow-wrap">
     <div class="flow">
-      <div class="flow-box dark">📞 Customer Contacts Workshop (Call / Walk-in / Online)</div>
+      <div class="flow-box dark">📞 Customer Contacts Workshop</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box green">🧑‍💻 Receptionist Opens Appointment Booking Screen</div>
+      <div class="flow-box green">🔎 Search Customer<sub>By phone / VIN / reg — CRM or local lookup</sub></div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box blue">👤 Enter Customer Details<sub>Name, Mobile Number, Email</sub></div>
+      <div class="flow-box blue">🚗 Select / Add Vehicle</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box blue">🚗 Enter Vehicle Details<sub>Plate Number, Make, Model, Year</sub></div>
+      <div class="flow-box primary">🔧 Choose Service Type + Record Complaints</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">🔧 Select Service Type &amp; Requirements<sub>B / C / D Service, AMC / Paid / Scheduled / Warranty</sub></div>
+      <div class="flow-box amber">📅 Pick Available Time Slot<sub>Slot capacity enforced; full slots blocked</sub></div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box amber">📅 Select Date &amp; Time Slot<sub>Available slots shown — booked slots greyed out</sub></div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box green">✅ Confirm Appointment<sub>Confirmation sent to customer via WhatsApp / SMS</sub></div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box green">Appointment Status: SCHEDULED</div>
+      <div class="flow-box green">✅ Confirm — Booking Ref Generated<sub>Status: BOOKED → CONFIRMED</sub></div>
     </div>
   </div>
 
   <ul class="steps">
-    <li><div class="step-num">1</div><div class="step-body"><h5>Customer Contacts Workshop</h5><p>Customer calls, walks in, or requests a booking. Receptionist opens the Appointment Booking screen from the dashboard.</p></div></li>
-    <li><div class="step-num">2</div><div class="step-body"><h5>Enter Customer Details</h5><p>Receptionist enters the customer's full name, mobile number and email. If the customer already exists in the system, their profile loads automatically — no re-entry needed.</p><p class="note">→ Example: Mobile number 050-1234567 already registered → customer name and vehicle history loads instantly.</p></div></li>
-    <li><div class="step-num">3</div><div class="step-body"><h5>Enter Vehicle Details</h5><p>Receptionist enters the vehicle plate number. System performs a VIN lookup — if found, vehicle details (Make, Model, Year, Variant) are auto-filled. If not found, Receptionist enters manually.</p><p class="note">→ Example: Enter "FAW J6 500" → System fills Make: FAW, Model: J6 500, Year: 2022 automatically.</p></div></li>
-    <li><div class="step-num">4</div><div class="step-body"><h5>Select Service Type &amp; Requirements</h5><p>Receptionist selects what service the customer needs — B, C or D Service and whether it is AMC, Paid, Scheduled or Warranty. Any additional customer requests or notes are also recorded here.</p></div></li>
-    <li><div class="step-num">5</div><div class="step-body"><h5>Select Date &amp; Time Slot</h5><p>Calendar shows available dates. On selecting a date, available time slots appear. Already-booked slots are greyed out and cannot be selected.</p><p class="note">→ Validation: Cannot book a past date. Cannot book a slot that is already full.</p></div></li>
-    <li><div class="step-num">6</div><div class="step-body"><h5>Confirm Appointment</h5><p>Receptionist clicks "Confirm Appointment." System saves the record, generates a unique Appointment Reference Number, and sends a confirmation message to the customer's mobile.</p><p class="note">→ Appointment Status changes to: SCHEDULED</p></div></li>
+    <li><div class="step-num">1</div><div class="step-body"><h5>Find the Customer</h5><p>Front-desk staff search by phone number, VIN or registration. Existing customers (and their vehicles) load automatically; new customers are added on the spot.</p></div></li>
+    <li><div class="step-num">2</div><div class="step-body"><h5>Select Service &amp; Record Complaints</h5><p>Choose the service type and note the customer's complaints. These complaints carry forward to Gate Entry and the Job Card.</p></div></li>
+    <li><div class="step-num">3</div><div class="step-body"><h5>Pick a Time Slot</h5><p>Available slots are shown based on configured capacity per hour. Full slots are blocked. Slot length is driven by the service type.</p></div></li>
+    <li><div class="step-num">4</div><div class="step-body"><h5>Confirm Appointment</h5><p>A unique booking reference is generated and an optional confirmation is sent to the customer. Status: <strong>BOOKED</strong>, then <strong>CONFIRMED</strong>.</p></div></li>
   </ul>
-
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr><th>Appointment Status</th><th>Meaning</th></tr></thead>
-      <tbody>
-        <tr><td><span class="tag tag-blue">SCHEDULED</span></td><td>Appointment confirmed, customer yet to arrive</td></tr>
-        <tr><td><span class="tag tag-green">CONFIRMED</span></td><td>Workshop confirmed the slot with customer</td></tr>
-        <tr><td><span class="tag tag-amber">ARRIVED</span></td><td>Customer has arrived at the workshop</td></tr>
-        <tr><td><span class="tag tag-green">COMPLETED</span></td><td>Service completed successfully</td></tr>
-        <tr><td><span class="tag tag-red">CANCELLED</span></td><td>Appointment cancelled by customer or workshop</td></tr>
-        <tr><td><span class="tag tag-gray">NO SHOW</span></td><td>Customer did not arrive on the appointment date</td></tr>
-      </tbody>
-    </table>
-  </div>
 
   <div class="info-box green">
     <div class="icon">💡</div>
     <div>
-      <strong>What Happens on Appointment Day</strong>
-      <p>When the customer arrives, the Gate Keeper searches by plate number or appointment reference. The system finds the booking and loads all pre-filled details — no re-entry needed. This saves time and avoids mistakes at the gate.</p>
+      <strong>At Gate Entry, the booking is linked automatically</strong>
+      <p>When the vehicle arrives, the Gate Keeper finds the pending appointment by plate; all customer, vehicle and complaint details pre-fill, and the appointment moves to <strong>CHECKED_IN</strong>.</p>
     </div>
   </div>
 
 
-  <!-- 4.2 Vehicle Entry -->
-  <h3 class="sub-title" id="w2_entry">2.2 — Vehicle Walk-In / Entry</h3>
-  <p class="section-intro">Every vehicle journey starts here. Whether a customer booked in advance or just arrived, this is how they enter the system.</p>
+  <!-- 3.2 Gate Entry -->
+  <h3 class="sub-title" id="w2">3.2 — Gate Entry / Confirm Entry <span style="font-weight:400;color:var(--muted);font-size:14px">(Security Gate Keeper)</span></h3>
+  <p class="section-intro">Every vehicle is formally received at the gate. The Gate Keeper captures photos and odometer, confirms the entry, and the system generates a Receiving Number and sets the vehicle's RO status to <strong>ARRIVED</strong>.</p>
 
   <div class="flow-wrap">
     <div class="flow">
-      <div class="flow-box dark">🚗 Vehicle Arrives at Workshop Gate</div>
+      <div class="flow-box dark">🚗 Vehicle Arrives at Gate</div>
       <div class="arrow-down">↓</div>
       <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center">
         <div>
-          <div class="flow-box blue">📅 Has Appointment?<sub>Search by plate number</sub></div>
+          <div class="flow-box blue">📅 Has Appointment?<sub>Search by plate</sub></div>
           <div class="arrow-down" style="text-align:center">↓ YES</div>
-          <div class="flow-box green">✅ Load Appointment Details<sub>Customer + vehicle auto-filled</sub></div>
+          <div class="flow-box green">✅ Booking Linked — Details Pre-filled</div>
         </div>
         <div>
           <div class="flow-box amber">🚶 Walk-In<sub>No appointment</sub></div>
           <div class="arrow-down" style="text-align:center">↓ NO</div>
-          <div class="flow-box amber">✏️ Enter Details Manually<sub>Name, mobile, vehicle</sub></div>
+          <div class="flow-box amber">✏️ Enter Customer &amp; Vehicle Manually</div>
         </div>
       </div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">📸 Take Entry Photos + Record Odometer</div>
+      <div class="flow-box primary">📸 Capture Entry Photos (min 4) + Odometer + Fuel + Complaints</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box green">✅ Vehicle IN — Status: VEHICLE IN</div>
+      <div class="flow-box green">✅ Confirm Entry — Receiving No (RCV-…) Generated<sub>RO Status: ARRIVED</sub></div>
     </div>
   </div>
 
   <ul class="steps">
-    <li><div class="step-num">1</div><div class="step-body"><h5>Search Vehicle</h5><p>The Gate Staff or Service Advisor types the vehicle plate number. If an appointment exists, all details load automatically.</p></div></li>
-    <li><div class="step-num">2</div><div class="step-body"><h5>VIN Lookup</h5><p>System checks a third-party database. If vehicle data is found (brand, model, year), it auto-fills the form. No manual typing needed.</p><p class="note">→ Example: Enter "FAW-J6-500" → System auto-fills Make: FAW, Model: J6 500, Year: 2022</p></div></li>
-    <li><div class="step-num">3</div><div class="step-body"><h5>Take Entry Photos</h5><p>Up to 4 photos of the vehicle are taken (front, back, sides). This protects both the workshop and customer from disputes about existing damage.</p></div></li>
-    <li><div class="step-num">4</div><div class="step-body"><h5>Record Odometer</h5><p>Current mileage is entered. This is saved to the vehicle's history for future reference.</p></div></li>
-    <li><div class="step-num">5</div><div class="step-body"><h5>Confirm Entry</h5><p>Entry is confirmed. Vehicle status changes to <strong>VEHICLE IN</strong> and becomes visible on the Service Advisor's dashboard.</p></div></li>
+    <li><div class="step-num">1</div><div class="step-body"><h5>Identify the Vehicle</h5><p>Search by plate. If an appointment exists it is linked and all details pre-fill; otherwise the Gate Keeper registers the customer and vehicle manually (walk-in).</p></div></li>
+    <li><div class="step-num">2</div><div class="step-body"><h5>Capture Condition</h5><p>Entry photos are taken (minimum 4, with timestamp / location), along with odometer reading, fuel level and any complaints noted by the driver. This protects both workshop and customer.</p></div></li>
+    <li><div class="step-num">3</div><div class="step-body"><h5>Confirm Entry</h5><p>The Gate Keeper confirms. The system generates a <strong>Receiving Number (RCV-…)</strong> and sets the vehicle's RO status to <strong>ARRIVED</strong>. The vehicle now appears for QC.</p></div></li>
   </ul>
 
 
-  <!-- 4.3 QC Inspection -->
-  <h3 class="sub-title" id="w3_qc">2.3 — QC Inspection by Inspector</h3>
-  <p class="section-intro">After the vehicle is checked in, a QC Inspector performs a full physical inspection of the vehicle before any work begins. This protects the workshop and the customer by recording the vehicle's condition on arrival.</p>
+  <!-- 3.3 QC Inspection -->
+  <h3 class="sub-title" id="w3">3.3 — QC Inspection (QC-In) <span style="font-weight:400;color:var(--muted);font-size:14px">(QC Inspector)</span></h3>
+  <p class="section-intro">Before any work is quoted, the QC Inspector performs a full pre-service inspection — establishing the vehicle's condition on arrival and surfacing problems for the Service Advisor.</p>
 
   <div class="flow-wrap">
     <div class="flow">
-      <div class="flow-box dark">Vehicle Status: VEHICLE IN</div>
+      <div class="flow-box dark">RO Status: ARRIVED</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box blue">🔍 QC Inspector Opens Inspection Form</div>
+      <div class="flow-box blue">🔍 Open Inspection (Draft)</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">Section 1: Exterior Check<sub>Body, Tyres, Lights, Wipers, Mirrors, Glass</sub></div>
+      <div class="flow-box primary">Walk-Around Checklist<sub>Exterior · Interior · Brake — each item PASS / FAIL / NA</sub></div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">Section 2: Interior Check<sub>Dashboard, AC, Seatbelts, Horn, Steering</sub></div>
+      <div class="flow-box amber">📝 Comments &amp; Photos (mandatory on FAIL) + Customer Complaints</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">Section 3: Brake Test<sub>Performance, Noise, Vibration</sub></div>
+      <div class="flow-box green">✅ Record Findings + Signature → Submit</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box amber">📝 Enter Customer Complaints &amp; Upload Photos</div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box green">✅ Submit Inspection Report</div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box green">Vehicle Status: INSPECTION DONE<sub>Failed items appear as Suggested Jobs for SA</sub></div>
-    </div>
-  </div>
-
-  <ul class="steps">
-    <li><div class="step-num">1</div><div class="step-body"><h5>Open Inspection Form</h5><p>QC Inspector finds the vehicle on the dashboard and opens the inspection form. Vehicle and customer details are already pre-filled.</p><p class="note">→ Vehicle status automatically changes to "Inspection (Draft)" the moment the form is opened.</p></div></li>
-    <li><div class="step-num">2</div><div class="step-body"><h5>Exterior Inspection (8 items)</h5><p>Inspector walks around the vehicle and marks each item as <strong>Pass ✅</strong>, <strong>Fail ❌</strong> or <strong>NA</strong> — Body condition, Tyres, Headlights, Wipers, Side mirrors, Windshield, Indicators, Bumpers.</p><p class="note">→ Example: Wiper blades marked as NA (item not applicable for this vehicle type)</p></div></li>
-    <li><div class="step-num">3</div><div class="step-body"><h5>Interior Inspection (8 items)</h5><p>Checks inside the vehicle — Dashboard warning lights, Air conditioning, Seat condition, Seatbelts, Horn, Steering play, Interior cleanliness.</p></div></li>
-    <li><div class="step-num">4</div><div class="step-body"><h5>Brake Test (3 items)</h5><p>Inspector or technician performs a brake test and records Brake Performance, Brake Noise, and Brake Vibration results.</p><p class="note">→ Example: Brake fluid marked ❌ Fail with comment "level critically low"</p></div></li>
-    <li><div class="step-num">5</div><div class="step-body"><h5>Record Customer Complaints</h5><p>Inspector asks the customer: "Is there anything specific you want us to look at?" Complaints are typed into the system in plain text.</p><p class="note">→ Example: "Engine makes a rattling noise when starting in cold weather"</p></div></li>
-    <li><div class="step-num">6</div><div class="step-body"><h5>Upload Vehicle Photos (Optional)</h5><p>Photos of damage, scratches, dents, or the odometer reading are uploaded directly from a phone or tablet. Stored securely in cloud — never lost.</p></div></li>
-    <li><div class="step-num">7</div><div class="step-body"><h5>Submit Inspection Report</h5><p>Inspector reviews the full checklist and clicks "Submit." The report is permanently saved. All <strong>Failed</strong> items automatically appear as <em>Suggested Jobs</em> on the Service Advisor's screen — ready to be added to the job card. Items marked <strong>NA</strong> are skipped.</p><p class="note">→ Vehicle status changes to: INSPECTION DONE</p></div></li>
-  </ul>
-
-  <div class="info-box amber">
-    <div class="icon">💡</div>
-    <div>
-      <strong>What Are Suggested Jobs?</strong>
-      <p>After inspection, any item marked as FAIL is automatically shown to the Service Advisor as a recommended job. For example, if brake fluid fails, the SA sees "Replace Brake Fluid" as a suggestion when building the estimate. Items marked NA are not applicable and are ignored. The SA can accept or skip any suggestion.</p>
+      <div class="flow-box green">Vehicle Status: INSPECTION DONE<sub>Failed items feed the Service Advisor</sub></div>
     </div>
   </div>
 
   <div class="tbl-wrap">
     <table>
-      <thead><tr><th>Inspection Result</th><th>What It Means</th><th>What Happens Next</th></tr></thead>
+      <thead><tr><th>Item Result</th><th>What It Means</th><th>What Happens Next</th></tr></thead>
       <tbody>
         <tr><td><span class="tag tag-green">✅ Pass</span></td><td>Item is in good condition</td><td>No action needed</td></tr>
-        <tr><td><span class="tag tag-red">❌ Fail</span></td><td>Item has a problem that needs immediate attention</td><td>Appears as Suggested Job for SA</td></tr>
-        <tr><td><span class="tag tag-gray">— NA</span></td><td>Item is not applicable for this vehicle type or check</td><td>Skipped — no action taken</td></tr>
+        <tr><td><span class="tag tag-red">❌ Fail</span></td><td>Item has a problem (comment + photo required)</td><td>Surfaced to the Service Advisor for the job card</td></tr>
+        <tr><td><span class="tag tag-gray">— NA</span></td><td>Not applicable for this vehicle/check</td><td>Skipped</td></tr>
       </tbody>
     </table>
   </div>
 
+  <div class="info-box purple">
+    <div class="icon">🔁</div>
+    <div>
+      <strong>QC-In vs QC-Out</strong>
+      <p>This is the <strong>QC-In</strong> (entry) inspection — it records the baseline condition. Later, after repairs, the same inspector performs <strong>QC-Out</strong> (Section 3.9) to verify the work was done correctly before the vehicle is washed and released.</p>
+    </div>
+  </div>
 
-  <!-- 4.4 Job Card Creation -->
-  <h3 class="sub-title" id="w4_jc">2.4 — Job Card Creation</h3>
-  <p class="section-intro">A Job Card is the official work order for every vehicle. It lists all jobs, parts, costs, and approvals in one place.</p>
+
+  <!-- 3.4 Job Card -->
+  <h3 class="sub-title" id="w4">3.4 — Job Card Creation <span style="font-weight:400;color:var(--muted);font-size:14px">(Service Advisor)</span></h3>
+  <p class="section-intro">The Service Advisor turns the inspection findings and customer complaints into a Job Card — the official work order listing all jobs, parts and costs.</p>
 
   <div class="flow-wrap">
     <div class="flow">
-      <div class="flow-box blue">🧑‍💼 Service Advisor Opens Vehicle</div>
+      <div class="flow-box blue">🧑‍💼 Open Vehicle — Review Inspection + Complaints</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">📋 Reviews Inspection Report<sub>Suggested jobs appear automatically</sub></div>
+      <div class="flow-box primary">🔧 Select Service Type + Service Category</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box blue">🔧 Selects Service Type + Category</div>
+      <div class="flow-box green">⚡ Standard Parts Auto-Loaded (Model × Category)</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box green">⚡ System Loads Parts List Automatically</div>
+      <div class="flow-box blue">💰 Add Labour + Adjust Line Items</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box blue">💰 SA Reviews + Adds Labour Charges</div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box amber">💾 Save as Draft → Share with Customer</div>
+      <div class="flow-box amber">💾 Save — Job Card Status: DRAFT</div>
     </div>
   </div>
 
   <ul class="steps">
-    <li><div class="step-num">1</div><div class="step-body"><h5>Open Vehicle Record</h5><p>Service Advisor clicks on the vehicle from their dashboard. The inspection report is already there — failed items appear as suggested jobs.</p></div></li>
-    <li><div class="step-num">2</div><div class="step-body"><h5>Select Service Type & Category</h5><p>SA picks the type of service (AMC, Paid, Warranty, Scheduled) and category (B, C, or D Service). This is the most important step — it tells the system what to do next.</p></div></li>
-    <li><div class="step-num">3</div><div class="step-body"><h5>Auto Parts Load</h5><p>Based on the service selection and vehicle model, the system automatically fills in the required parts with quantities and prices. No manual searching.</p></div></li>
-    <li><div class="step-num">4</div><div class="step-body"><h5>Add / Edit Items</h5><p>SA can add extra jobs, remove items, search parts from the master catalogue, and adjust quantities.</p></div></li>
-    <li><div class="step-num">5</div><div class="step-body"><h5>Apply Tax & Calculate Total</h5><p>SA selects the tax type (e.g., VAT 5%). System calculates Subtotal + Tax = Total Estimate automatically.</p></div></li>
-    <li><div class="step-num">6</div><div class="step-body"><h5>Save Job Card</h5><p>Job Card is saved as a DRAFT. A unique Job Card Number is generated. Status becomes <strong>JOB CARD DRAFT</strong>.</p></div></li>
+    <li><div class="step-num">1</div><div class="step-body"><h5>Review Findings</h5><p>The SA opens the vehicle and sees the QC-In failed items and the customer's complaints together.</p></div></li>
+    <li><div class="step-num">2</div><div class="step-body"><h5>Select Service Type &amp; Category</h5><p>The SA picks the Service Type (who pays / agreement) and Service Category (the work — e.g. B / C / D Service, Brake, Tyre). The category drives parts auto-loading. See <a href="#types">Section 04</a>.</p></div></li>
+    <li><div class="step-num">3</div><div class="step-body"><h5>Build the Estimate</h5><p>Standard parts auto-load for the vehicle model + category. The SA adds labour, adjusts quantities and adds or removes line items. Tax and totals calculate automatically.</p></div></li>
+    <li><div class="step-num">4</div><div class="step-body"><h5>Save</h5><p>The Job Card is saved as <strong>DRAFT</strong> with a unique Job Card number.</p></div></li>
   </ul>
 
 
-  <!-- 4.5 Service Type -->
-  <h3 class="sub-title" id="w5_st">2.5 — Service Type Selection</h3>
-  <p class="section-intro">The Service Type tells the system <em>who is paying</em> and <em>what kind of agreement</em> covers this service.</p>
+  <!-- 3.5 Parts -->
+  <h3 class="sub-title" id="w5">3.5 — Parts Request &amp; Confirmation <span style="font-weight:400;color:var(--muted);font-size:14px">(Service Advisor → Parts Manager)</span></h3>
+  <p class="section-intro">The SA requests the parts on the job card; the Parts Manager confirms availability and dispatches them to the bay. Stock is tracked end to end.</p>
+
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box blue">🧑‍💼 SA Clicks "Request Parts"<sub>Job Card: PENDING_PARTS</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">📦 Parts Manager Reviews Requests</div>
+      <div class="arrow-down">↓</div>
+      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center">
+        <div>
+          <div class="flow-box green">Available<sub>In stock</sub></div>
+          <div class="arrow-down" style="text-align:center">↓</div>
+          <div class="flow-box green">Dispatched to Bay → Technician Accepts</div>
+        </div>
+        <div>
+          <div class="flow-box primary">Unavailable<sub>Out of stock + ETA</sub></div>
+          <div class="arrow-down" style="text-align:center">↓</div>
+          <div class="flow-box primary">SA Informs Customer of Delay</div>
+        </div>
+      </div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box dark">All Parts Resolved → Job Card: PARTS_CONFIRMED</div>
+    </div>
+  </div>
 
   <div class="tbl-wrap">
     <table>
-      <thead>
-        <tr>
-          <th>Service Type</th>
-          <th>What It Means</th>
-          <th>Who Pays?</th>
-          <th>Example</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Part Status</th><th>Meaning</th></tr></thead>
       <tbody>
-        <tr>
-          <td><span class="tag tag-blue">AMC Service</span></td>
-          <td>Annual Maintenance Contract — vehicle is on a fixed yearly maintenance plan</td>
-          <td>Company / Corporate client pays a fixed annual fee</td>
-          <td>A logistics company has 20 trucks on AMC. Monthly services are pre-agreed and auto-billed.</td>
-        </tr>
-        <tr>
-          <td><span class="tag tag-red">Paid Service</span></td>
-          <td>Customer pays fully for all parts and labour on this visit</td>
-          <td>Customer pays at the time of billing</td>
-          <td>Mr. Ahmed brings his personal car for oil change and filter. He pays the full amount.</td>
-        </tr>
-        <tr>
-          <td><span class="tag tag-green">Scheduled Service</span></td>
-          <td>A manufacturer-recommended periodic service (e.g., every 10,000 KM)</td>
-          <td>Customer pays</td>
-          <td>Vehicle has reached 50,000 KM. The owner brings it for the scheduled full service.</td>
-        </tr>
-        <tr>
-          <td><span class="tag tag-amber">Warranty Service</span></td>
-          <td>Vehicle or part is under warranty — manufacturer covers the cost</td>
-          <td>Manufacturer / Dealer reimburses</td>
-          <td>A gearbox failure occurs within warranty period. Parts replaced at no cost to customer.</td>
-        </tr>
+        <tr><td><span class="tag tag-gray">Pending</span></td><td>Request raised by SA, awaiting Parts Manager</td></tr>
+        <tr><td><span class="tag tag-green">Available</span></td><td>Confirmed in stock</td></tr>
+        <tr><td><span class="tag tag-red">Unavailable</span></td><td>Out of stock — ETA set, SA &amp; customer informed</td></tr>
+        <tr><td><span class="tag tag-blue">Dispatched</span></td><td>Sent to the bay for the technician</td></tr>
+        <tr><td><span class="tag tag-green">Accepted</span></td><td>Technician received and consumed the part</td></tr>
+        <tr><td><span class="tag tag-red">Rejected</span></td><td>Wrong/defective — returned to store</td></tr>
       </tbody>
     </table>
   </div>
 
 
-  <!-- 4.6 Service Category -->
-  <h3 class="sub-title" id="w6_sc">2.6 — Service Category (B / C / D Service)</h3>
-  <p class="section-intro">The Service Category tells the system <em>how much work is being done</em>. Think of it like Small, Medium, Large — but for vehicle service.</p>
+  <!-- 3.6 Estimate + Approval -->
+  <h3 class="sub-title" id="w6">3.6 — Share Estimate &amp; Customer Approval <span style="font-weight:400;color:var(--muted);font-size:14px">(Service Advisor → Customer)</span></h3>
+  <p class="section-intro">The SA shares the estimate with the customer through a secure link. The customer can approve everything, approve only some items, request a change, or reject — all without logging in.</p>
 
-  <div class="card-grid">
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box blue">🧑‍💼 SA Shares Estimate<sub>Secure link · Job Card: SHARED</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">👤 Customer Opens &amp; Reviews Itemised Estimate</div>
+      <div class="arrow-down">↓</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center">
+        <div class="flow-box green" style="min-width:150px">✅ Approve All<sub>APPROVED</sub></div>
+        <div class="flow-box amber" style="min-width:150px">⚠️ Approve Some<sub>PARTIALLY APPROVED</sub></div>
+        <div class="flow-box blue" style="min-width:150px">✏️ Request Change<sub>MODIFICATION REQUESTED → back to DRAFT</sub></div>
+        <div class="flow-box primary" style="min-width:150px">❌ Reject<sub>REJECTED</sub></div>
+      </div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box dark">Approved Items Proceed to Workshop</div>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Customer Action</th><th>Job Card Status</th><th>What Happens Next</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-green">Approve All</span></td><td><span class="tag tag-green">APPROVED</span></td><td>All items proceed to the workshop</td></tr>
+        <tr><td><span class="tag tag-amber">Approve Some</span></td><td><span class="tag tag-amber">PARTIALLY APPROVED</span></td><td>Only approved items are worked on and billed</td></tr>
+        <tr><td><span class="tag tag-blue">Request Change</span></td><td><span class="tag tag-blue">MODIFICATION REQUESTED</span></td><td>Returns to <strong>DRAFT</strong> — SA revises and re-shares</td></tr>
+        <tr><td><span class="tag tag-red">Reject</span></td><td><span class="tag tag-red">REJECTED</span></td><td>Job does not proceed until resolved</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+
+  <!-- 3.7 Workshop + Technician -->
+  <h3 class="sub-title" id="w7">3.7 — Workshop Allocation &amp; Technician Work <span style="font-weight:400;color:var(--muted);font-size:14px">(Foreman → Technician)</span></h3>
+  <p class="section-intro">Once the estimate is approved, the Foreman allocates the vehicle to a bay and technician(s). The technician carries out the work, logs time and uploads photos.</p>
+
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-body"><h5>Foreman Allocates</h5><p>The Foreman assigns the vehicle to a bay and technician. The Job Card moves to <strong>IN PROGRESS</strong>.</p></div></li>
+    <li><div class="step-num">2</div><div class="step-body"><h5>Technician Works the Items</h5><p>The technician picks up each approved item, logs time, uploads diagnosis/repair photos, accepts dispatched parts, and marks items complete. Re-doing an item increments a rework counter.</p></div></li>
+    <li><div class="step-num">3</div><div class="step-body"><h5>Extra Parts (if needed)</h5><p>If the technician discovers extra work, a supplementary part request is raised. If it has a cost, it needs <strong>fresh customer approval</strong> before it is dispatched. See <a href="#warranty">Section 05</a>.</p></div></li>
+  </ul>
+
+
+  <!-- 3.8 Foreman sign-off -->
+  <h3 class="sub-title" id="w8">3.8 — Foreman Sign-Off <span style="font-weight:400;color:var(--muted);font-size:14px">(Foreman)</span></h3>
+  <p class="section-intro">When all items are done, the Foreman reviews and signs off — or rejects work back to the technician.</p>
+
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box blue">All Items Complete → Job Card: FOREMAN_REVIEW</div>
+      <div class="arrow-down">↓</div>
+      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center">
+        <div>
+          <div class="flow-box green">✅ Foreman Signs Off</div>
+          <div class="arrow-down" style="text-align:center">↓</div>
+          <div class="flow-box green">Job Card: COMPLETED → QC-Out</div>
+        </div>
+        <div>
+          <div class="flow-box primary">❌ Rejected</div>
+          <div class="arrow-down" style="text-align:center">↓</div>
+          <div class="flow-box primary">Back to IN PROGRESS (with reason)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 3.9 QC-Out -->
+  <h3 class="sub-title" id="w9">3.9 — QC-Out (Post-Service Quality Check) <span style="font-weight:400;color:var(--muted);font-size:14px">(QC Inspector)</span></h3>
+  <p class="section-intro">Before the vehicle leaves the floor, the QC Inspector verifies the completed work against the original QC-In checklist. This is the workshop's final quality gate.</p>
+
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box dark">Work Complete → RO Status: QC_OUT</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box purple">🛡️ Verify Each Work Item — PASS / FAIL / NA</div>
+      <div class="arrow-down">↓</div>
+      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center">
+        <div>
+          <div class="flow-box green">All Pass</div>
+          <div class="arrow-down" style="text-align:center">↓</div>
+          <div class="flow-box green">RO: QC_PASSED → Auto-move to Washbay</div>
+        </div>
+        <div>
+          <div class="flow-box primary">Any Fail</div>
+          <div class="arrow-down" style="text-align:center">↓</div>
+          <div class="flow-box primary">RO: QC_FAILED → Back to Technician for Rework</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box purple">
+    <div class="icon">🔎</div>
+    <div>
+      <strong>QC-Out is verificatory, not documentary</strong>
+      <p>Where QC-In recorded the arrival baseline, QC-Out checks that each repair was actually done correctly. A failure sends the vehicle back into the workshop loop; only a full pass lets it advance to the washbay.</p>
+    </div>
+  </div>
+
+
+  <!-- 3.10 Washbay -->
+  <h3 class="sub-title" id="w10">3.10 — Washbay <span style="font-weight:400;color:var(--muted);font-size:14px">(Foreman — Washbay queue)</span></h3>
+  <p class="section-intro">After QC-Out passes, the vehicle is queued for cleaning. When done, the operator marks it ready for release.</p>
+
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box blue">RO Status: WASHBAY (auto after QC pass)</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box primary">💧 Vehicle Cleaned</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box green">Operator Marks Ready → RO Status: READY_FOR_RELEASE</div>
+    </div>
+  </div>
+
+
+  <!-- 3.11 Invoicing -->
+  <h3 class="sub-title" id="w11">3.11 — Invoicing &amp; Billing <span style="font-weight:400;color:var(--muted);font-size:14px">(Finance)</span></h3>
+  <p class="section-intro">With the vehicle ready for release, Finance generates the invoice from the approved job-card items, records payment, and unlocks the gate pass.</p>
+
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box amber">🧾 Pick Ready-for-Billing Job Card → Preview</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box blue">Generate Invoice (INV-YYYY-…)<sub>One line per job-card item + tax</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">Record Payment(s)<sub>DRAFT → GENERATED → PARTIALLY PAID → PAID</sub></div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box green">PAID → Gate Pass (GP-…) Created</div>
+    </div>
+  </div>
+
+  <div class="info-box amber">
+    <div class="icon">🔒</div>
+    <div>
+      <strong>Invoiced job cards are protected</strong>
+      <p>Once an invoice is generated, the job card can no longer be deleted. Invoices can be voided (with a reason) if a correction is required.</p>
+    </div>
+  </div>
+
+
+  <!-- 3.12 Gate Release -->
+  <h3 class="sub-title" id="w12">3.12 — Gate Pass &amp; Release <span style="font-weight:400;color:var(--muted);font-size:14px">(Security Gate Keeper)</span></h3>
+  <p class="section-intro">Once paid, a gate pass is issued. Security redeems it at the exit, recording the final details, and the vehicle leaves.</p>
+
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box green">Invoice PAID → Gate Pass ACTIVE (GP-…)</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box primary">🔑 Security Redeems — Exit Odometer + Driver Licence + Signature</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box dark">RO Status: RELEASED → CLOSED — Vehicle Out</div>
+    </div>
+  </div>
+
+  <div class="info-box green">
+    <div class="icon">📂</div>
+    <div>
+      <strong>Full history is saved (Vehicle 360)</strong>
+      <p>Every visit is recorded permanently — entry photos, inspection, job card, parts, work, invoice and gate pass. The next time the same vehicle arrives, the complete history is available in one place under Vehicle 360.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ 4. SERVICE TYPES -->
+<div class="section" id="types">
+  <span class="section-label">Section 04</span>
+  <h2 class="section-title">Service Types, Categories &amp; Parts Auto-Loading</h2>
+  <p class="section-intro">The Job Card uses two separate dropdowns that work together: the <strong>Service Type</strong> (the commercial agreement — who pays) and the <strong>Service Category</strong> (the actual work being done). The Service Category is what drives automatic parts loading.</p>
+
+  <h3 class="sub-title">Service Type — Who Pays / Agreement</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Service Type</th><th>What It Means</th><th>Who Pays</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-blue">AMC Service</span></td><td>Annual Maintenance Contract — vehicle is on a fixed maintenance plan</td><td>Corporate / contract account</td></tr>
+        <tr><td><span class="tag tag-red">Repair</span></td><td>Customer-paid repair work</td><td>Customer pays at billing</td></tr>
+        <tr><td><span class="tag tag-green">Scheduled Service</span></td><td>Manufacturer-recommended periodic service</td><td>Customer pays</td></tr>
+        <tr><td><span class="tag tag-amber">Warranty Service</span></td><td>Vehicle/part under warranty</td><td>Manufacturer / dealer</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub-title">Service Category — The Work Being Done</h3>
+  <p class="section-intro">Service Categories include the periodic-service tiers <strong>B / C / D Service</strong> plus targeted jobs. The parts master is mapped against these categories per vehicle model.</p>
+  <div class="status-grid">
+    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>B Service</div>
+    <div class="status-pill"><div class="dot" style="background:#7c3aed"></div>C Service</div>
+    <div class="status-pill"><div class="dot" style="background:#ff4f31"></div>D Service</div>
+    <div class="status-pill"><div class="dot" style="background:#d97706"></div>Brake Service</div>
+    <div class="status-pill"><div class="dot" style="background:#16a34a"></div>Tyre Service</div>
+    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>Electrical</div>
+    <div class="status-pill"><div class="dot" style="background:#1a1a1a"></div>Body Repair</div>
+    <div class="status-pill"><div class="dot" style="background:#9c27b0"></div>Inspection</div>
+    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>Diagnostics</div>
+    <div class="status-pill"><div class="dot" style="background:#6b7280"></div>Other</div>
+  </div>
+
+  <div class="card-grid" style="margin-top:24px">
     <div class="card" style="border-top:4px solid #0066ff">
       <h4 style="color:var(--blue); font-size:22px; margin-bottom:6px">B Service</h4>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Basic Service — Essential maintenance only</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Basic periodic service — essential maintenance</p>
       <ul class="clean">
         <li>Engine oil change</li>
         <li>Oil filter replacement</li>
         <li>Basic visual checks</li>
-        <li>Tyre pressure check</li>
       </ul>
-      <div class="info-box blue" style="margin-top:14px;padding:10px 14px">
-        <div class="icon" style="font-size:14px">⏱</div>
-        <div><p style="margin:0;font-size:12px">Typical duration: <strong>1–2 hours</strong></p></div>
-      </div>
     </div>
     <div class="card" style="border-top:4px solid #7c3aed">
       <h4 style="color:var(--purple); font-size:22px; margin-bottom:6px">C Service</h4>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Intermediate Service — B Service + more components</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Intermediate — B Service plus more components</p>
       <ul class="clean">
         <li>Everything in B Service</li>
-        <li>Air filter replacement</li>
-        <li>Coolant top-up / change</li>
-        <li>Spark plugs check</li>
+        <li>Air filter, coolant</li>
         <li>Brake fluid inspection</li>
       </ul>
-      <div class="info-box purple" style="margin-top:14px;padding:10px 14px">
-        <div class="icon" style="font-size:14px">⏱</div>
-        <div><p style="margin:0;font-size:12px">Typical duration: <strong>3–4 hours</strong></p></div>
-      </div>
     </div>
     <div class="card" style="border-top:4px solid #ff4f31">
       <h4 style="color:var(--primary); font-size:22px; margin-bottom:6px">D Service</h4>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Full Major Service — Complete vehicle overhaul</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Full major service — complete overhaul</p>
       <ul class="clean">
         <li>Everything in C Service</li>
-        <li>Transmission fluid change</li>
-        <li>Differential oil change</li>
-        <li>Power steering fluid</li>
-        <li>Retarder oil filter</li>
-        <li>Chassis greasing</li>
+        <li>Transmission &amp; differential oil</li>
         <li>12+ parts typically</li>
       </ul>
-      <div class="info-box red" style="margin-top:14px;padding:10px 14px">
-        <div class="icon" style="font-size:14px">⏱</div>
-        <div><p style="margin:0;font-size:12px">Typical duration: <strong>6–8 hours</strong></p></div>
-      </div>
     </div>
   </div>
 
-
-  <!-- 4.5 Parts Auto-Loading -->
-  <h3 class="sub-title" id="w7_pl">2.7 — Parts Auto-Loading Logic</h3>
-  <p class="section-intro">This is one of ELT Group's most powerful features. When the Service Advisor selects the service type and category, the system automatically loads all required parts — no manual entry needed.</p>
-
+  <h3 class="sub-title">Parts Auto-Loading</h3>
   <div class="flow-wrap">
     <div class="flow">
-      <div class="flow-box blue">SA Selects: FAW J6 500 + AMC + D Service</div>
+      <div class="flow-box blue">SA Selects: Vehicle Model + Service Category</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">System Checks Model-Service Assignment Master</div>
+      <div class="flow-box primary">System Looks Up Model → Service Category Parts Assignment</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box green">Loads 12 Parts with Codes, Quantities & Prices</div>
+      <div class="flow-box green">Standard Parts Auto-Loaded with Codes &amp; Quantities</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box blue">SA Reviews → Can Add / Remove / Edit</div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box amber">Total Auto-Calculated in Real Time</div>
+      <div class="flow-box amber">SA Reviews → Add / Remove / Adjust</div>
     </div>
   </div>
 
@@ -775,222 +1068,99 @@
     <div class="icon">💡</div>
     <div>
       <strong>How the Admin Sets This Up</strong>
-      <p>The Admin (or Workshop Manager) creates a master list of parts for each vehicle model + service combination. For example: "For FAW J6 500, D Service always needs these 12 parts." Once set up, the system does it automatically every time — forever.</p>
-    </div>
-  </div>
-
-  <div class="tbl-wrap">
-    <table>
-      <thead>
-        <tr><th>Vehicle</th><th>Service</th><th>Parts Auto-Loaded</th><th>Total Parts</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>FAW J6 500</td><td>D Service — AMC</td><td>Fuel Filter, Retarder Oil Filter, Grease Chassis, AC Dust Filter, Brake Fluid, Diff Oil, Oil Filter Bypass, Transmission Fluid...</td><td>12 parts</td></tr>
-        <tr><td>FAW J6 500</td><td>B Service — Paid</td><td>Engine Oil, Oil Filter, Air Filter</td><td>3 parts</td></tr>
-        <tr><td>Hino 500</td><td>C Service — Scheduled</td><td>Oil Filter, Air Filter, Coolant, Fuel Filter</td><td>4 parts</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-
-  <!-- 4.8 Parts Consumption -->
-  <h3 class="sub-title" id="w8_pc">2.8 — Parts Consumption from Store</h3>
-  <p class="section-intro">When a job is confirmed, the system tells the Store Manager what parts are needed. Parts are confirmed, dispatched, and stock is updated automatically.</p>
-
-  <div class="flow-wrap">
-    <div class="flow">
-      <div class="flow-box blue">SA Clicks "Request Parts"</div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box amber">Parts Request Sent to Store Manager</div>
-      <div class="arrow-down">↓</div>
-      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center">
-        <div>
-          <div class="flow-box green">Parts AVAILABLE<sub>Store confirms stock</sub></div>
-          <div class="arrow-down" style="text-align:center">↓</div>
-          <div class="flow-box green">Dispatched to Bay ✅</div>
-        </div>
-        <div>
-          <div class="flow-box primary">Parts NOT AVAILABLE<sub>Out of stock</sub></div>
-          <div class="arrow-down" style="text-align:center">↓</div>
-          <div class="flow-box primary">Expected Arrival Date Set<br><sub>SA informs customer of delay</sub></div>
-        </div>
-      </div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box dark">Stock Reduces Automatically When Parts Used</div>
-    </div>
-  </div>
-
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr><th>Part Status</th><th>Meaning</th><th>Action Required</th></tr></thead>
-      <tbody>
-        <tr><td><span class="tag tag-gray">Pending</span></td><td>Request sent to store, no response yet</td><td>Store Manager to confirm</td></tr>
-        <tr><td><span class="tag tag-green">Available</span></td><td>Part confirmed in stock</td><td>Dispatch to workshop bay</td></tr>
-        <tr><td><span class="tag tag-red">Unavailable</span></td><td>Not in stock</td><td>Order part, inform SA and customer</td></tr>
-        <tr><td><span class="tag tag-blue">Dispatched</span></td><td>Part sent to bay</td><td>Technician can use it</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-
-  <!-- 4.9 Send Estimate -->
-  <h3 class="sub-title" id="w9_se">2.9 — Send Estimated Job Card (Email / WhatsApp)</h3>
-  <p class="section-intro">Once the job card is built and parts are in hand, the Service Advisor sends the full estimated job card to the customer for review and approval before work begins.</p>
-
-  <div class="flow-wrap">
-    <div class="flow">
-      <div class="flow-box blue">SA Saves Job Card as Draft</div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box primary">Clicks "Share Estimate"</div>
-      <div class="arrow-down">↓</div>
-      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center">
-        <div class="flow-box blue">📧 Email<sub>Full itemised PDF</sub></div>
-        <div class="flow-box green">💬 WhatsApp<sub>Approval link sent</sub></div>
-      </div>
-      <div class="arrow-down">↓</div>
-      <div class="flow-box amber">Customer Opens &amp; Reviews Estimate</div>
-      <div class="arrow-down">↓</div>
-      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center;align-items:flex-start">
-        <!-- Full Approval -->
-        <div style="display:flex;flex-direction:column;align-items:center;gap:0">
-          <div class="flow-box green" style="min-width:200px">✅ Full Approval<sub>Customer approves all items</sub></div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box green">Job Card Status: APPROVED</div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box dark">🔒 Job Card Locked</div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box green">Work Begins</div>
-        </div>
-        <!-- Partial Approval -->
-        <div style="display:flex;flex-direction:column;align-items:center;gap:0">
-          <div class="flow-box amber" style="min-width:200px">⚠️ Partial Approval<sub>Some items rejected</sub></div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box amber">SA Notified on Dashboard</div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box blue">SA Removes Rejected Items<sub>Adjusts total</sub></div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box primary">Re-sends Revised Estimate<sub>Email / WhatsApp</sub></div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box green">Customer Approves Revised</div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box dark">🔒 Job Card Locked</div>
-          <div class="arrow-down">↓</div>
-          <div class="flow-box green">Work Begins</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="two-col" style="margin-top:24px">
-    <div class="card" style="border-top:4px solid #22c55e">
-      <h4 style="color:var(--green);margin-bottom:14px">✅ Full Approval Flow</h4>
-      <ul class="steps" style="margin:0">
-        <li><div class="step-num" style="background:var(--green)">1</div><div class="step-body"><h5>Customer Reviews All Items</h5><p>Customer opens the estimate link and sees every part, labour charge, quantity, price and total — all itemised clearly.</p></div></li>
-        <li><div class="step-num" style="background:var(--green)">2</div><div class="step-body"><h5>Taps "Approve All"</h5><p>Customer taps Approve All from their phone — no login required. System records the approval with timestamp.</p></div></li>
-        <li><div class="step-num" style="background:var(--green)">3</div><div class="step-body"><h5>SA Dashboard Updates Instantly</h5><p>SA sees job card status change to <strong>APPROVED</strong>. Job card is locked — no further edits allowed. Work can now begin.</p></div></li>
-      </ul>
-    </div>
-    <div class="card" style="border-top:4px solid #f59e0b">
-      <h4 style="color:var(--amber);margin-bottom:14px">⚠️ Partial Approval Flow</h4>
-      <ul class="steps" style="margin:0">
-        <li><div class="step-num" style="background:var(--amber)">1</div><div class="step-body"><h5>Customer Rejects Some Items</h5><p>Customer approves certain jobs but rejects others (e.g., approves oil change, rejects brake pad replacement). Partial approval submitted.</p><p class="note">→ Example: Total AED 1,850 → Customer approves AED 750, rejects AED 1,100</p></div></li>
-        <li><div class="step-num" style="background:var(--amber)">2</div><div class="step-body"><h5>SA Notified on Dashboard</h5><p>SA receives a notification. Dashboard shows which items were rejected. SA reviews the rejection and contacts the customer if needed.</p></div></li>
-        <li><div class="step-num" style="background:var(--amber)">3</div><div class="step-body"><h5>SA Revises Job Card</h5><p>SA removes the rejected line items from the job card. Total recalculates automatically. SA clicks "Re-share Estimate."</p></div></li>
-        <li><div class="step-num" style="background:var(--amber)">4</div><div class="step-body"><h5>Customer Approves Revised Estimate</h5><p>Customer receives the updated estimate and approves. Job card is now locked at the revised amount. Work begins on only the approved items.</p><p class="note">→ Rejected items are noted in job history for future reference</p></div></li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="tbl-wrap" style="margin-top:24px">
-    <table>
-      <thead><tr><th>Customer Action</th><th>Job Card Status</th><th>What Happens Next</th></tr></thead>
-      <tbody>
-        <tr><td><span class="tag tag-green">Approve All</span></td><td><span class="tag tag-green">APPROVED</span></td><td>Job card locked immediately — work begins</td></tr>
-        <tr><td><span class="tag tag-amber">Partial Approval</span></td><td><span class="tag tag-amber">PARTIALLY APPROVED</span></td><td>SA removes rejected items, recalculates, re-sends for final approval</td></tr>
-        <tr><td><span class="tag tag-red">Reject All</span></td><td><span class="tag tag-gray">DRAFT</span></td><td>SA contacts customer — job card stays in draft until resolved</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-
-  <!-- 4.10 Job History -->
-  <h3 class="sub-title" id="w10_jh">2.10 — Job History Tracking</h3>
-  <div class="info-box green">
-    <div class="icon">📂</div>
-    <div>
-      <strong>Every job is saved permanently</strong>
-      <p>Every vehicle visit creates a permanent history record — date, service type, parts used, technician, cost and photos. The next time the same vehicle arrives, the Service Advisor can see the full history instantly. This helps plan future services and identify recurring issues.</p>
+      <p>Under <em>Model Service Types</em>, the Admin maps each vehicle model + service category to its standard parts list. Once mapped, the Service Advisor gets those parts auto-loaded every time.</p>
     </div>
   </div>
 </div>
 
+
+<!-- ═══════════════════════════════════════════════════ 5. WARRANTY -->
+<div class="section" id="warranty">
+  <span class="section-label">Section 05</span>
+  <h2 class="section-title">Warranty &amp; Supplementary Parts</h2>
+
+  <h3 class="sub-title">Supplementary Parts (Extra Work Found Mid-Service)</h3>
+  <p class="section-intro">If a technician finds extra work while the vehicle is on the ramp, a supplementary part/item is added to the job card. If it has a cost, the customer must approve it through the same secure link before the part is dispatched and the work proceeds.</p>
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box blue">🔧 Technician Raises Extra Part</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">Priced Item → Supplementary Approval Link Sent</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box green">Customer Approves → Parts Manager Dispatches → Work Continues</div>
+    </div>
+  </div>
+
+  <h3 class="sub-title">Warranty Parts Lifecycle</h3>
+  <p class="section-intro">When a part removed under warranty must be retained for the claim, it is tagged and tracked by the Parts Manager (acting as Warranty Clerk) through its own lifecycle.</p>
+  <div class="flow-wrap">
+    <div class="flow">
+      <div class="flow-box dark">Warranty Part Removed → Tagged (WT-…) → HELD</div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box amber">PENDING_APPROVAL</div>
+      <div class="arrow-down">↓</div>
+      <div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center">
+        <div class="flow-box green">APPROVED → included in claim</div>
+        <div class="flow-box primary">REJECTED</div>
+      </div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box dark">SCRAPPED (physically destroyed)</div>
+    </div>
+  </div>
+
+  <div class="clarify">
+    <strong>NEEDS CLARIFICATION: Complaints follow-up &amp; external sync.</strong>
+    Two areas are present in the system but their business rules are not fully settled: (1) post-service <em>complaints</em> tracking — complaints are captured at booking and gate entry and feed the job card, but there is no dedicated post-service complaint-resolution workflow; and (2) the <em>Evolve / IRM</em> external integration (customer/RO sync) exists but is feature-flagged and not active in normal operation. Please confirm the intended scope of both before they are documented as live behaviour.
+  </div>
+</div>
 
 
 <!-- ═══════════════════════════════════════════════════ 6. SCENARIO -->
 <div class="section" id="scenario">
-  <span class="section-label">Section 03</span>
+  <span class="section-label">Section 06</span>
   <h2 class="section-title">Real Example — Complete End to End</h2>
 
-  <!-- Scenario 1 -->
   <div class="scenario-box">
-    <div class="scenario-label">Example Scenario 01</div>
-    <h3>Mr. Ramesh — FAW J6 500 Truck — D Service (AMC)</h3>
-    <p>Ramesh owns a fleet of trucks on Annual Maintenance Contract. One truck comes in for a Full D Service.</p>
+    <div class="scenario-label">Example Scenario</div>
+    <h3>Mr. Ramesh — FAW J6 500 Truck — D Service</h3>
+    <p>A full journey from booking to gate release, touching every stage and role.</p>
     <div class="scenario-steps">
-      <div class="scenario-step"><div class="snum">1</div><div class="sbody"><h5>2.1 — Appointment Booking (Receptionist)</h5><p>Sunday afternoon — Ramesh calls the workshop. Receptionist Kezia opens the Appointment Booking screen. Enters customer details (existing profile loads automatically), vehicle plate FAW-TRK-4821 (auto-fills as FAW J6 500, 2022), selects D Service + AMC, and books Monday 9:00 AM slot. Appointment confirmation sent to Ramesh via WhatsApp.</p></div></div>
-      <div class="scenario-step"><div class="snum">2</div><div class="sbody"><h5>2.2 — Vehicle Walk-In / Entry</h5><p>Monday 8:50 AM — Truck arrives at the gate. Gate Keeper types plate number FAW-TRK-4821 → system finds the appointment and auto-fills all customer and vehicle details. Entry photos taken (front, back, both sides). Odometer: 87,450 KM recorded. Vehicle status: <strong>VEHICLE IN</strong>.</p></div></div>
-      <div class="scenario-step"><div class="snum">3</div><div class="sbody"><h5>2.3 — QC Inspection</h5><p>9:00 AM — QC Inspector opens the inspection form. Performs 24-point check. 2 items FAIL: brake fluid critically low ❌, air filter clogged ❌. Several items marked NA (not applicable for this truck model). Customer complaint recorded: "Engine knock on cold startup." Inspection submitted. Status: <strong>INSPECTION DONE</strong>. Both failed items automatically appear as Suggested Jobs on Maria's screen.</p></div></div>
-      <div class="scenario-step"><div class="snum">4</div><div class="sbody"><h5>2.4 — Job Card Creation</h5><p>9:20 AM — Service Advisor Maria opens the vehicle on her dashboard. Reviews inspection report. Adds the 2 suggested failed items to the job card. Adds labour charges. Subtotal: AED 9,200. VAT 5%: AED 460. Total: AED 9,660. Saves as draft and shares estimate with Ramesh. Ramesh approves via WhatsApp link at 9:42 AM. Status: <strong>JOB CARD DRAFT → APPROVED</strong>.</p></div></div>
-      <div class="scenario-step"><div class="snum">5</div><div class="sbody"><h5>2.5 — Service Type Selection</h5><p>Maria selects Service Type: <strong>AMC Service</strong>. The job is linked to Ramesh's company Annual Maintenance Contract. Billing goes to the company account — no direct payment required from Ramesh at the time of service.</p></div></div>
-      <div class="scenario-step"><div class="snum">6</div><div class="sbody"><h5>2.6 — Service Category (D Service)</h5><p>Maria selects Service Category: <strong>D Service</strong> — Full Major Service. The system now knows the combination: FAW J6 500 + AMC + D Service and looks up the pre-configured parts master.</p></div></div>
-      <div class="scenario-step"><div class="snum">7</div><div class="sbody"><h5>2.7 — Parts Auto-Loading</h5><p>System auto-loads <strong>12 parts in 2 seconds</strong>: Fuel Filter, Retarder Oil Filter, Grease Chassis, AC Dust Filter, Brake Fluid, Diff Oil, Oil Filter Bypass, Transmission Fluid and 4 more — all with part codes, quantities and prices pre-filled. Maria reviews and confirms. No manual searching required.</p></div></div>
-      <div class="scenario-step"><div class="snum">8</div><div class="sbody"><h5>2.8 — Parts Consumption from Store</h5><p>9:45 AM — Maria clicks "Request Parts." Store Manager receives all 12 parts on the dashboard. Confirms 11 available and dispatches to Bay 3. 1 part (Retarder Oil Filter) marked unavailable — expected same-day delivery. Maria informs Ramesh of the minor delay. Parts dispatched. Work begins at 10:00 AM. Technician marks each part as used — stock reduces automatically in real time.</p></div></div>
-      <div class="scenario-step"><div class="snum">9</div><div class="sbody"><h5>2.9 — Send Estimated Job Card (Email / WhatsApp)</h5><p>9:35 AM — Maria clicks "Share Estimate." Ramesh receives a WhatsApp message: "Your estimate of AED 9,660 is ready. Tap to approve." He also receives a full itemised PDF by email. At 9:42 AM Ramesh taps "Approve All" from his phone. Maria's dashboard instantly shows: <strong>APPROVED</strong>. Job card is locked — work proceeds on exactly what was agreed.</p></div></div>
-      <div class="scenario-step"><div class="snum">10</div><div class="sbody"><h5>2.10 — Job History Tracking</h5><p>4:00 PM — Work complete. Vehicle status: <strong>COMPLETED</strong>. Full service record saved permanently: Monday 14-Apr-2026, FAW J6 500, D Service AMC, 12 parts used, AED 9,660, Odometer 87,450 KM. Next time this truck arrives, the entire history is visible to the SA in one click.</p></div></div>
-    </div>
-  </div>
-
-  <!-- Scenario 2 -->
-  <div class="scenario-box" style="background: linear-gradient(135deg, #1a3a2a, #0f5132)">
-    <div class="scenario-label" style="color:#6ee7b7">Example Scenario 02</div>
-    <h3>Walk-In Customer — Paid Service — Partial Approval</h3>
-    <p>Mr. Ahmed arrives without an appointment for a C Service. He finds the estimate too high and negotiates.</p>
-    <div class="scenario-steps">
-      <div class="scenario-step"><div class="snum">1</div><div class="sbody"><h5>2.1 — Appointment Booking — Skipped</h5><p>Ahmed did not book in advance. He is a walk-in customer. Step 2.1 is skipped — the journey begins directly at Vehicle Entry.</p></div></div>
-      <div class="scenario-step"><div class="snum">2</div><div class="sbody"><h5>2.2 — Vehicle Walk-In / Entry</h5><p>11:00 AM — Ahmed arrives at the gate. Gate Keeper clicks "Add New Vehicle." Enters plate number → VIN lookup finds Toyota Hilux 2020. Customer details entered manually (no prior profile). Entry photos taken. Odometer recorded. Status: <strong>VEHICLE IN</strong>.</p></div></div>
-      <div class="scenario-step"><div class="snum">3</div><div class="sbody"><h5>2.3 — QC Inspection</h5><p>Inspector performs check. 1 item FAIL: brake pads worn ❌. Several items marked NA. Ahmed's complaint recorded: "Car pulls to the left when braking." Inspection submitted. Status: <strong>INSPECTION DONE</strong>. Brake pad replacement appears as Suggested Job on Maria's screen.</p></div></div>
-      <div class="scenario-step"><div class="snum">4</div><div class="sbody"><h5>2.4 — Job Card Creation</h5><p>Maria opens the job card. Reviews inspection — sees the brake pad suggestion. Creates job card with all standard C Service jobs plus brake pad check. Adds labour. Total estimate: AED 1,850. Shares with Ahmed. Ahmed approves oil change and filters (AED 750) but rejects brake pad work (AED 1,100). Maria removes brake pad line item. Revised total: AED 750. Re-shares — Ahmed approves immediately. Status: <strong>APPROVED</strong>.</p></div></div>
-      <div class="scenario-step"><div class="snum">5</div><div class="sbody"><h5>2.5 — Service Type Selection</h5><p>Maria selects Service Type: <strong>Paid Service</strong>. Ahmed pays directly — no contract or AMC. Full amount due at time of billing.</p></div></div>
-      <div class="scenario-step"><div class="snum">6</div><div class="sbody"><h5>2.6 — Service Category (C Service)</h5><p>Maria selects Service Category: <strong>C Service</strong> — Intermediate Service. System now knows: Toyota Hilux + Paid + C Service and looks up the parts master.</p></div></div>
-      <div class="scenario-step"><div class="snum">7</div><div class="sbody"><h5>2.7 — Parts Auto-Loading</h5><p>System auto-loads <strong>4 parts</strong> for Toyota Hilux C Service: Engine Oil, Oil Filter, Air Filter, Fuel Filter — all pre-filled with quantities and prices. No manual entry needed.</p></div></div>
-      <div class="scenario-step"><div class="snum">8</div><div class="sbody"><h5>2.8 — Parts Consumption from Store</h5><p>Maria requests 4 parts from the store. Store confirms all 4 available. Parts dispatched to bay. Work completed in 2 hours — all 4 parts marked as used. Stock reduced automatically in real time.</p></div></div>
-      <div class="scenario-step"><div class="snum">9</div><div class="sbody"><h5>2.9 — Send Estimated Job Card (Email / WhatsApp)</h5><p>Maria shares the estimate with Ahmed via WhatsApp. Ahmed sees AED 1,850 and rejects the brake pad work (AED 1,100) — approves only oil change and filters (AED 750). Maria removes the brake pad item, revises total to AED 750, and re-sends. Ahmed approves the revised estimate immediately. Job card locked at AED 750. Status: <strong>APPROVED</strong>.</p></div></div>
-      <div class="scenario-step"><div class="snum">10</div><div class="sbody"><h5>2.10 — Job History Tracking</h5><p>1:45 PM — Ahmed pays AED 750. Vehicle status: <strong>COMPLETED</strong>. Full service record saved: Toyota Hilux, C Service Paid, 4 parts, AED 750. Brake pad recommendation saved in history — SA will see it flagged the next time Ahmed visits.</p></div></div>
+      <div class="scenario-step"><div class="snum">1</div><div class="sbody"><h5>Appointment Booking (Front Desk)</h5><p>Front-desk staff search Ramesh by phone, select truck FAW-TRK-4821, choose Scheduled Service, record the complaint "engine knock on cold start", and book Monday 09:00. Booking reference generated; status <strong>CONFIRMED</strong>.</p></div></div>
+      <div class="scenario-step"><div class="snum">2</div><div class="sbody"><h5>Gate Entry (Security Gate Keeper)</h5><p>Monday 08:50 — truck arrives. Plate search links the appointment and pre-fills everything. Gate Keeper captures 4 entry photos, odometer 87,450 KM and fuel level, then confirms. Receiving No RCV-… generated. RO status: <strong>ARRIVED</strong>.</p></div></div>
+      <div class="scenario-step"><div class="snum">3</div><div class="sbody"><h5>QC Inspection / QC-In (QC Inspector)</h5><p>Walk-around checklist. 2 items FAIL: brake fluid low ❌ (photo), air filter clogged ❌ (photo). Findings recorded and signed. Vehicle status: <strong>INSPECTION DONE</strong>; failed items surface to the SA.</p></div></div>
+      <div class="scenario-step"><div class="snum">4</div><div class="sbody"><h5>Job Card Creation (Service Advisor)</h5><p>SA reviews findings, sets Service Type = Scheduled Service and Service Category = D Service. Standard D-Service parts auto-load for the FAW J6 500. SA adds labour. Job Card saved as <strong>DRAFT</strong>.</p></div></div>
+      <div class="scenario-step"><div class="snum">5</div><div class="sbody"><h5>Parts Request &amp; Confirmation (SA → Parts Manager)</h5><p>SA requests parts (<strong>PENDING_PARTS</strong>). Parts Manager confirms 11 of 12 available and dispatches to Bay 3; 1 part marked unavailable with same-day ETA. Job Card: <strong>PARTS_CONFIRMED</strong>.</p></div></div>
+      <div class="scenario-step"><div class="snum">6</div><div class="sbody"><h5>Share Estimate &amp; Approval (SA → Customer)</h5><p>SA shares the estimate (<strong>SHARED</strong>). Ramesh opens the link and taps Approve All. Job Card: <strong>APPROVED</strong>.</p></div></div>
+      <div class="scenario-step"><div class="snum">7</div><div class="sbody"><h5>Workshop Allocation &amp; Technician Work (Foreman → Technician)</h5><p>Foreman allocates Bay 3 and a technician (<strong>IN PROGRESS</strong>). Technician accepts dispatched parts, logs time, uploads repair photos, and completes each item.</p></div></div>
+      <div class="scenario-step"><div class="snum">8</div><div class="sbody"><h5>Foreman Sign-Off (Foreman)</h5><p>All items done → <strong>FOREMAN_REVIEW</strong>. Foreman reviews and signs off. Job Card: <strong>COMPLETED</strong>.</p></div></div>
+      <div class="scenario-step"><div class="snum">9</div><div class="sbody"><h5>QC-Out (QC Inspector)</h5><p>RO status: <strong>QC_OUT</strong>. Inspector verifies each repair — all PASS. RO status: <strong>QC_PASSED</strong>, auto-moved to washbay.</p></div></div>
+      <div class="scenario-step"><div class="snum">10</div><div class="sbody"><h5>Washbay (Foreman)</h5><p>Truck cleaned and marked ready. RO status: <strong>READY_FOR_RELEASE</strong>.</p></div></div>
+      <div class="scenario-step"><div class="snum">11</div><div class="sbody"><h5>Invoicing &amp; Billing (Finance)</h5><p>Finance generates invoice INV-2026-… from the approved items, records full payment. Invoice: <strong>PAID</strong> → gate pass GP-… created.</p></div></div>
+      <div class="scenario-step"><div class="snum">12</div><div class="sbody"><h5>Gate Pass &amp; Release (Security)</h5><p>Security redeems the gate pass — exit odometer, driver licence and signature captured. RO status: <strong>RELEASED → CLOSED</strong>. The full visit is saved in Vehicle 360.</p></div></div>
     </div>
   </div>
 </div>
 
 
-
-
-<!-- ═══════════════════════════════════════════════════ 11. ADMIN -->
+<!-- ═══════════════════════════════════════════════════ 7. ADMIN -->
 <div class="section" id="admin">
-  <span class="section-label">Section 04</span>
+  <span class="section-label">Section 07</span>
   <h2 class="section-title">Admin Controls</h2>
-  <p class="section-intro">The Admin or Workshop Owner configures ELT Group to match their workshop's exact operations. This is the master setup that makes everything else work automatically.</p>
+  <p class="section-intro">The Super Admin configures the system so everything downstream runs automatically.</p>
 
   <div class="two-col">
     <div>
-      <h3 class="sub-title" style="margin-top:0">Master Data Setup</h3>
+      <h3 class="sub-title" style="margin-top:0">Master Data &amp; Access Setup</h3>
       <ul class="steps">
-        <li><div class="step-num" style="background:var(--dark)">A</div><div class="step-body"><h5>Vehicle Makes & Models</h5><p>Add all vehicle brands and models the workshop services. E.g., FAW, Hino, Toyota — with all variants.</p></div></li>
-        <li><div class="step-num" style="background:var(--dark)">B</div><div class="step-body"><h5>Parts Master Catalogue</h5><p>Add all parts with part codes and default prices. This powers the search and auto-fill features.</p></div></li>
-        <li><div class="step-num" style="background:var(--dark)">C</div><div class="step-body"><h5>Service Type Assignment</h5><p>For each vehicle model + service combination, pre-assign the parts list. This is what makes parts auto-load work.</p></div></li>
-        <li><div class="step-num" style="background:var(--dark)">D</div><div class="step-body"><h5>User Accounts</h5><p>Create accounts for all staff. Assign roles and permissions. Deactivate accounts when staff leave.</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">A</div><div class="step-body"><h5>Roles &amp; Permissions</h5><p>Create roles and switch modules on/off per role (User Management). Build the operational roles for the newer modules (Technician, Workshop, QC Out, Washbay, Warranty, Billing, Gate Release).</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">B</div><div class="step-body"><h5>User Accounts</h5><p>Create staff accounts, assign a role, and optionally set shop scope or warranty-only restrictions. Deactivate when staff leave.</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">C</div><div class="step-body"><h5>Service Types &amp; Categories</h5><p>Maintain the Service Type and Service Category lists used on the job card.</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">D</div><div class="step-body"><h5>Model → Parts Assignments</h5><p>Map each vehicle model + service category to its standard parts (Model Service Types). This powers parts auto-loading.</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">E</div><div class="step-body"><h5>Slot Configuration</h5><p>Set time-slot capacity for appointment booking.</p></div></li>
       </ul>
     </div>
     <div>
-      <h3 class="sub-title" style="margin-top:0">System Configuration</h3>
+      <h3 class="sub-title" style="margin-top:0">Typical System Configuration</h3>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>Setting</th><th>Example Value</th></tr></thead>
@@ -998,10 +1168,11 @@
             <tr><td>Workshop Name</td><td>ELT Group Auto Workshop</td></tr>
             <tr><td>Default Currency</td><td>AED</td></tr>
             <tr><td>Default Tax Label</td><td>VAT</td></tr>
-            <tr><td>Default Tax %</td><td>5%</td></tr>
-            <tr><td>Max Photo Upload Size</td><td>10 MB</td></tr>
-            <tr><td>Invoice Prefix</td><td>TG-2026-</td></tr>
-            <tr><td>Min Stock Alert Level</td><td>Per part (configurable)</td></tr>
+            <tr><td>Min Entry Photos</td><td>4</td></tr>
+            <tr><td>Receiving No Prefix</td><td>RCV-</td></tr>
+            <tr><td>Invoice No Format</td><td>INV-YYYY-NNNNN</td></tr>
+            <tr><td>Gate Pass Prefix</td><td>GP-</td></tr>
+            <tr><td>Warranty Tag Prefix</td><td>WT-</td></tr>
           </tbody>
         </table>
       </div>
@@ -1010,51 +1181,66 @@
 </div>
 
 
-<!-- ═══════════════════════════════════════════════════ 12. STATUSES -->
+<!-- ═══════════════════════════════════════════════════ 8. STATUSES -->
 <div class="section" id="statuses">
-  <span class="section-label">Section 05</span>
+  <span class="section-label">Section 08</span>
   <h2 class="section-title">All System Statuses — Quick Reference</h2>
 
-  <h3 class="sub-title">Vehicle Statuses (in order)</h3>
+  <h3 class="sub-title">RO (Repair Order) Status — Vehicle Position in the Workshop</h3>
   <div class="status-grid">
-    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>Entry (Draft)</div>
-    <div class="status-pill"><div class="dot" style="background:#ff8800"></div>Vehicle IN</div>
-    <div class="status-pill"><div class="dot" style="background:#9c27b0"></div>Inspection (Draft)</div>
-    <div class="status-pill"><div class="dot" style="background:#00bf06"></div>Inspection Done</div>
-    <div class="status-pill"><div class="dot" style="background:#607d8b"></div>Job Card (Draft)</div>
-    <div class="status-pill"><div class="dot" style="background:#da5a00"></div>Pending Approval</div>
-    <div class="status-pill"><div class="dot" style="background:#e91e63"></div>Partial Approval</div>
-    <div class="status-pill"><div class="dot" style="background:#4caf50"></div>Full Approval</div>
-    <div class="status-pill"><div class="dot" style="background:#0061ff"></div>In Service</div>
-    <div class="status-pill"><div class="dot" style="background:#fe306c"></div>Ready for Billing</div>
-    <div class="status-pill"><div class="dot" style="background:#00c853"></div>Completed</div>
+    <div class="status-pill"><div class="dot" style="background:#ff8800"></div>ARRIVED</div>
+    <div class="status-pill"><div class="dot" style="background:#9c27b0"></div>QC_OUT</div>
+    <div class="status-pill"><div class="dot" style="background:#16a34a"></div>QC_PASSED</div>
+    <div class="status-pill"><div class="dot" style="background:#ff4f31"></div>QC_FAILED</div>
+    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>WASHBAY</div>
+    <div class="status-pill"><div class="dot" style="background:#fe306c"></div>READY_FOR_RELEASE</div>
+    <div class="status-pill"><div class="dot" style="background:#00bf06"></div>RELEASED</div>
+    <div class="status-pill"><div class="dot" style="background:#1a1a1a"></div>CLOSED</div>
+  </div>
+  <div class="clarify">
+    <strong>NEEDS CLARIFICATION: Intermediate RO statuses.</strong>
+    The RO status list also defines <em>QC_CHECK_IN, IN_WORKSHOP, DIAGNOSING, AWAITING_APPROVAL, WAITING_FOR_PARTS</em> and <em>REPAIRS_STARTED</em>, but the current flow does not set these — the RO status moves from <strong>ARRIVED</strong> straight to <strong>QC_OUT</strong>. Please confirm whether these intermediate states are planned (and should be wired into the flow) or should be removed from the list. The labels above reflect only the statuses actually used today.
   </div>
 
-  <h3 class="sub-title">Job Card Statuses</h3>
+  <h3 class="sub-title">Job Card Status</h3>
   <div class="tbl-wrap">
     <table>
-      <thead><tr><th>Status</th><th>What It Means</th><th>Who Can See</th></tr></thead>
+      <thead><tr><th>Status</th><th>What It Means</th></tr></thead>
       <tbody>
-        <tr><td><span class="tag tag-gray">DRAFT</span></td><td>Job card created, estimate not yet shared</td><td>SA, Admin</td></tr>
-        <tr><td><span class="tag tag-blue">SHARED</span></td><td>Estimate sent to customer, waiting for response</td><td>SA, Admin, Customer</td></tr>
-        <tr><td><span class="tag tag-green">APPROVED</span></td><td>Customer fully approved the estimate</td><td>All</td></tr>
-        <tr><td><span class="tag tag-amber">PARTIALLY APPROVED</span></td><td>Customer approved some items only</td><td>All</td></tr>
-        <tr><td><span class="tag tag-blue">IN PROGRESS</span></td><td>Work is actively happening</td><td>All</td></tr>
-        <tr><td><span class="tag tag-purple">READY FOR BILLING</span></td><td>Work complete, awaiting invoice</td><td>Billing, SA, Admin</td></tr>
-        <tr><td><span class="tag tag-green">BILLED</span></td><td>Invoice generated and sent</td><td>All</td></tr>
-        <tr><td><span class="tag tag-red">CANCELLED</span></td><td>Job card cancelled</td><td>SA, Admin</td></tr>
+        <tr><td><span class="tag tag-gray">DRAFT</span></td><td>Job card created, estimate not yet shared</td></tr>
+        <tr><td><span class="tag tag-amber">PENDING_PARTS</span></td><td>Parts requested, awaiting Parts Manager</td></tr>
+        <tr><td><span class="tag tag-blue">PARTS_CONFIRMED</span></td><td>All parts resolved by the Parts Manager</td></tr>
+        <tr><td><span class="tag tag-blue">SHARED</span></td><td>Estimate sent to the customer for approval</td></tr>
+        <tr><td><span class="tag tag-green">APPROVED</span></td><td>Customer approved all items</td></tr>
+        <tr><td><span class="tag tag-amber">PARTIALLY_APPROVED</span></td><td>Customer approved only some items</td></tr>
+        <tr><td><span class="tag tag-blue">MODIFICATION_REQUESTED</span></td><td>Customer asked for a change — returns to DRAFT</td></tr>
+        <tr><td><span class="tag tag-red">REJECTED</span></td><td>Customer rejected the estimate</td></tr>
+        <tr><td><span class="tag tag-blue">IN_PROGRESS</span></td><td>Allocated — technician work underway</td></tr>
+        <tr><td><span class="tag tag-amber">FOREMAN_REVIEW</span></td><td>Work done, awaiting Foreman sign-off</td></tr>
+        <tr><td><span class="tag tag-red">FOREMAN_REJECTED</span></td><td>Foreman sent work back for rework</td></tr>
+        <tr><td><span class="tag tag-green">COMPLETED</span></td><td>Signed off — ready for QC-Out / billing</td></tr>
       </tbody>
     </table>
   </div>
 
-  <h3 class="sub-title">Appointment Statuses</h3>
+  <h3 class="sub-title">Appointment Status</h3>
   <div class="status-grid">
-    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>Scheduled</div>
-    <div class="status-pill"><div class="dot" style="background:#00bf06"></div>Confirmed</div>
-    <div class="status-pill"><div class="dot" style="background:#ff8800"></div>Arrived</div>
-    <div class="status-pill"><div class="dot" style="background:#00c853"></div>Completed</div>
-    <div class="status-pill"><div class="dot" style="background:#ff4f31"></div>Cancelled</div>
-    <div class="status-pill"><div class="dot" style="background:#6b7280"></div>No Show</div>
+    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>BOOKED</div>
+    <div class="status-pill"><div class="dot" style="background:#00bf06"></div>CONFIRMED</div>
+    <div class="status-pill"><div class="dot" style="background:#ff8800"></div>CHECKED_IN</div>
+    <div class="status-pill"><div class="dot" style="background:#0061ff"></div>IN_SERVICE</div>
+    <div class="status-pill"><div class="dot" style="background:#00c853"></div>COMPLETED</div>
+    <div class="status-pill"><div class="dot" style="background:#ff4f31"></div>CANCELLED</div>
+    <div class="status-pill"><div class="dot" style="background:#6b7280"></div>NO_SHOW</div>
+  </div>
+
+  <h3 class="sub-title">Invoice Status</h3>
+  <div class="status-grid">
+    <div class="status-pill"><div class="dot" style="background:#6b7280"></div>DRAFT</div>
+    <div class="status-pill"><div class="dot" style="background:#0066ff"></div>GENERATED</div>
+    <div class="status-pill"><div class="dot" style="background:#d97706"></div>PARTIALLY_PAID</div>
+    <div class="status-pill"><div class="dot" style="background:#16a34a"></div>PAID</div>
+    <div class="status-pill"><div class="dot" style="background:#ff4f31"></div>VOID</div>
   </div>
 </div>
 
@@ -1064,7 +1250,7 @@
   <div class="icon">✅</div>
   <div>
     <strong>You're All Set!</strong>
-    <p>This document covers the complete ELT Group Workshop Management System. For questions about specific features or training for new staff, contact your Workshop Manager or System Administrator. Every person in the workshop plays a part — and ELT Group connects all those parts together seamlessly.</p>
+    <p>This document covers the complete ELT Group Workshop Management System — the full vehicle lifecycle from booking to gate release, the module-based role system, and every status. Items flagged <em>NEEDS CLARIFICATION</em> should be confirmed with the product owner before being treated as final. For training or feature questions, contact your Workshop Manager or System Administrator.</p>
   </div>
 </div>
 
@@ -1072,8 +1258,8 @@
 
 <footer>
   <strong>ELT Group Workshop Management System</strong> &nbsp;·&nbsp;
-  System Overview Document v2.0 &nbsp;·&nbsp;
-  April 2026 &nbsp;·&nbsp;
+  System Overview Document v3.0 &nbsp;·&nbsp;
+  June 2026 &nbsp;·&nbsp;
   Internal Use Only &nbsp;·&nbsp;
   All rights reserved.
 </footer>

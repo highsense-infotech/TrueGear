@@ -320,6 +320,13 @@ const AddCustomer: React.FC = () => {
         const res = await listModelCodes(selectedModelId);
         if (res.success && res.data) {
           setModelCodes(res.data);
+          // Auto-select when the series resolves to exactly one code, so the
+          // user isn't forced to pick from a single option.
+          if (res.data.length === 1) {
+            const only = res.data[0].code;
+            setFormData((prev) => ({ ...prev, modelCode: only }));
+            setErrors((prev) => ({ ...prev, modelCode: "" }));
+          }
         }
       } catch (err) {
         console.error("Failed to fetch model codes:", err);
@@ -358,6 +365,7 @@ const AddCustomer: React.FC = () => {
 
   const handleModelCodeChange = (code: string) => {
     setFormData((prev) => ({ ...prev, modelCode: code }));
+    if (errors.modelCode) setErrors((prev) => ({ ...prev, modelCode: "" }));
   };
 
   // Close dropdown when clicking outside
@@ -470,6 +478,11 @@ const AddCustomer: React.FC = () => {
     }
     if (!formData.serviceType.trim()) {
       newErrors.serviceType = "Service type is required";
+    }
+    // Require a ModelCode whenever Evolve returns codes for the chosen series.
+    // (When no codes exist for the series the picker is empty — allow skipping.)
+    if (modelCodes.length > 0 && !formData.modelCode.trim()) {
+      newErrors.modelCode = "Model code is required";
     }
 
     setErrors(newErrors);
@@ -1163,6 +1176,7 @@ const AddCustomer: React.FC = () => {
               <div>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
                   Model Code
+                  {modelCodes.length > 0 && <span className="text-red-500"> *</span>}
                 </label>
                 <SearchableDropdown
                   options={Array.from(
@@ -1184,7 +1198,11 @@ const AddCustomer: React.FC = () => {
                   }
                   disabled={!selectedModelId || loadingModelCodes || modelCodes.length === 0}
                   loading={loadingModelCodes}
+                  hasError={!!errors.modelCode}
                 />
+                {errors.modelCode && (
+                  <p className="text-red-500 text-xs mt-1">{errors.modelCode}</p>
+                )}
               </div>
 
               {/* Manufacturing Year */}

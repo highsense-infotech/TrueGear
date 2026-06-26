@@ -212,7 +212,12 @@ const AppointmentVehicleDetails: React.FC = () => {
     if (!modelId) { setModelCodes([]); return; }
     setLoadingModelCodes(true);
     listModelCodes(modelId)
-      .then((res) => setModelCodes(res.data ?? []))
+      .then((res) => {
+        const list = res.data ?? [];
+        setModelCodes(list);
+        // Auto-select when the series resolves to exactly one code.
+        if (list.length === 1) setModelCodeValue(list[0].code);
+      })
       .catch(() => setModelCodes([]))
       .finally(() => setLoadingModelCodes(false));
   }, [modelId]);
@@ -244,7 +249,10 @@ const AppointmentVehicleDetails: React.FC = () => {
   const distinctModelCodes = Array.from(
     new Map(modelCodes.map((c) => [c.code, c])).values(),
   );
-  const isNewFormValid  = showNewForm && regNumber.trim() && vin.trim() && makeId && modelId && fuelType && transmission && year;
+  // ModelCode is required only when Evolve returns codes for the chosen series;
+  // series with no codes (empty picker) may be left blank.
+  const modelCodeSatisfied = modelCodes.length === 0 || !!modelCodeValue;
+  const isNewFormValid  = showNewForm && regNumber.trim() && vin.trim() && makeId && modelId && fuelType && transmission && year && modelCodeSatisfied;
   const canProceed      = selectedVehicleId === "__irm__" || selectedVehicleId || isNewFormValid;
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
@@ -765,7 +773,10 @@ const AppointmentVehicleDetails: React.FC = () => {
 
                 {/* Model Code combobox (Make → Series → ModelCode) */}
                 <div>
-                  <label className="text-sm font-medium text-[#333]">Model Code</label>
+                  <label className="text-sm font-medium text-[#333]">
+                    Model Code
+                    {modelCodes.length > 0 && <span className="text-red-500"> *</span>}
+                  </label>
                   <div ref={modelCodeRef} className="relative mt-1">
                     <input
                       type="text"
@@ -880,7 +891,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveEdit}
-                    disabled={isSavingEdit || !regNumber.trim() || !vin.trim() || !makeId || !modelId || !fuelType || !transmission || !year}
+                    disabled={isSavingEdit || !regNumber.trim() || !vin.trim() || !makeId || !modelId || !fuelType || !transmission || !year || !modelCodeSatisfied}
                     className="px-4 py-2 rounded-lg text-sm font-medium bg-linear-to-b from-[#ff4f31] to-[#fe2b73] text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isSavingEdit && <Loader2 size={14} className="animate-spin" />}
