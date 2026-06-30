@@ -249,9 +249,11 @@ const AppointmentVehicleDetails: React.FC = () => {
   const distinctModelCodes = Array.from(
     new Map(modelCodes.map((c) => [c.code, c])).values(),
   );
-  // ModelCode is required only when Evolve returns codes for the chosen series;
-  // series with no codes (empty picker) may be left blank.
-  const modelCodeSatisfied = modelCodes.length === 0 || !!modelCodeValue;
+  // ModelCode is required whenever Evolve returns codes for the chosen series.
+  // Gate on !loadingModelCodes so the user can't proceed with a blank code in the
+  // window before the picker resolves — that race let vehicles reach Evolve with no
+  // ModelCode (created bare). Series that genuinely have no codes may be left blank.
+  const modelCodeSatisfied = !loadingModelCodes && (distinctModelCodes.length === 0 || !!modelCodeValue);
   const isNewFormValid  = showNewForm && regNumber.trim() && vin.trim() && makeId && modelId && fuelType && transmission && year && modelCodeSatisfied;
   const canProceed      = selectedVehicleId === "__irm__" || selectedVehicleId || isNewFormValid;
 
@@ -832,6 +834,11 @@ const AppointmentVehicleDetails: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  {modelId && !loadingModelCodes && distinctModelCodes.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      No Evolve model code is available for this model. You can continue, but this vehicle won't fully sync to Evolve until a model code is assigned.
+                    </p>
+                  )}
                 </div>
 
                 {/* Fuel + Year */}

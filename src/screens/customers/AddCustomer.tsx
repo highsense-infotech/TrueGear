@@ -480,8 +480,12 @@ const AddCustomer: React.FC = () => {
       newErrors.serviceType = "Service type is required";
     }
     // Require a ModelCode whenever Evolve returns codes for the chosen series.
+    // Block while codes are still loading so a blank code can't slip through the
+    // race before the picker resolves (that path created bare vehicles in Evolve).
     // (When no codes exist for the series the picker is empty — allow skipping.)
-    if (modelCodes.length > 0 && !formData.modelCode.trim()) {
+    if (loadingModelCodes) {
+      newErrors.modelCode = "Please wait for model codes to finish loading";
+    } else if (modelCodes.length > 0 && !formData.modelCode.trim()) {
       newErrors.modelCode = "Model code is required";
     }
 
