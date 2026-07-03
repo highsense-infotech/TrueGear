@@ -31,6 +31,8 @@ import { ROUTES } from '../constants/routes';
 import { MODULES, ACTIONS } from '../constants/permissions';
 import { SendEstimate } from '../screens/vehicles/SendEstimate.tsx';
 import UserManagement from '../screens/admin/UserManagement.tsx';
+import TechnicianMapping from '../screens/admin/TechnicianMapping.tsx';
+import DesignationManagement from '../screens/admin/DesignationManagement.tsx';
 import ModelServiceTypeAssignment from '../screens/admin/ModelServiceTypeAssignment.tsx';
 import ForemanDashboard from '../screens/dashboard/ForemanDashboard.tsx';
 import WorkshopBays from '../screens/admin/WorkshopBays.tsx';
@@ -157,6 +159,26 @@ const AppRoutes: React.FC = () => (
           element={
             <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
               <UserManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Evolve Technician Mapping (admin-only) — USER_MANAGEMENT:edit required */}
+        <Route
+          path={ROUTES.TECHNICIAN_MAPPING.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.USER_MANAGEMENT, action: ACTIONS.EDIT }}>
+              <TechnicianMapping />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Designation master (admin) — ROLE_MANAGEMENT:view required */}
+        <Route
+          path={ROUTES.DESIGNATIONS.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
+              <DesignationManagement />
             </ProtectedRoute>
           }
         />

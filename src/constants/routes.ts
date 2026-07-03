@@ -23,6 +23,8 @@ export const ROUTES = {
   SETTINGS: '/settings',
   CUSTOMER_APPROVAL: '/customer-approval/:token',
   USER_MANAGEMENT: '/user-management',
+  TECHNICIAN_MAPPING: '/technician-mapping',
+  DESIGNATIONS: '/designations',
   QC_OUT_DASHBOARD: '/qc-out-dashboard',
   QC_OUT_INSPECTION: '/qc-out-dashboard/inspection/:vehicleId',
   APPOINTMENT_DASHBOARD: '/appointment-dashboard',

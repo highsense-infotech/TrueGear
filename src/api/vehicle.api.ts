@@ -233,6 +233,10 @@ export interface VehicleDetailData {
     odometerReading: number | null;
     checkInTime?: string | null;
   } | null;
+  // Customer complaint from the open booking (BOOKED/CONFIRMED), so the
+  // gate-entry form can auto-fill it. Null when there's no open appointment
+  // or it has no complaints.
+  appointmentComplaint: string | null;
 }
 
 export const getVehicleDetails = async (vehicleId: string): Promise<ApiResponse<VehicleDetailData>> => {

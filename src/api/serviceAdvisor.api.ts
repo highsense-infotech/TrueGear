@@ -407,6 +407,10 @@ export interface AssignTechnicianItem {
   itemId: string;
   technicianId: string;
   estimatedHours: number;
+  // Evolve labour hours (decimal). Optional: when omitted the backend defaults
+  // hoursWorked ← estimatedHours and hoursSold ← hoursWorked.
+  hoursWorked?: number;
+  hoursSold?: number;
   priority: AssignTechnicianPriority;
 }
 

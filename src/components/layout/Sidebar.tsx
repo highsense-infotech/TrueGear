@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users, CalendarDays, Globe, Wrench, CarFront, ShieldCheck, Droplets, BadgeAlert, Receipt, KeyRound } from "lucide-react";
+import { Menu, X, CheckCircle, ShieldUser, ClipboardList, Settings, Package, Users, Tag, CalendarDays, Globe, Wrench, CarFront, ShieldCheck, Droplets, BadgeAlert, Receipt, KeyRound } from "lucide-react";
 // import { BadgeCheck, User, Receipt } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../context/AuthContext";
@@ -26,6 +26,11 @@ const NAV_ITEMS: NavItem[] = [
   { route: ROUTES.SERVICE_ADVISOR_DASHBOARD, icon: ClipboardList, label: "Job Cards", resource: MODULES.JOB_CARD, action: ACTIONS.VIEW },
   { route: ROUTES.SPARE_PARTS_DASHBOARD, icon: Package, label: "Spare Parts", resource: MODULES.PARTS_MANAGER, action: ACTIONS.VIEW },
   { route: ROUTES.USER_MANAGEMENT, icon: Users, label: "User Management", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
+  { route: ROUTES.DESIGNATIONS, icon: Tag, label: "Designations", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
+  // Technician Mapping is now integrated into the Add/Edit User flow under User
+  // Management. The standalone screen/route/APIs remain intact for reuse, but the
+  // sidebar entry is hidden. (Route: ROUTES.TECHNICIAN_MAPPING)
+  // { route: ROUTES.TECHNICIAN_MAPPING, icon: UserCog, label: "Technician Mapping", resource: MODULES.USER_MANAGEMENT, action: ACTIONS.EDIT },
   { route: ROUTES.VEHICLE_OUT_DASHBOARD, icon: CarFront, label: "Vehicle Out", resource: MODULES.VEHICLE_OUT, action: ACTIONS.VIEW },
   { route: ROUTES.VEHICLE_360_DASHBOARD, icon: Globe, label: "Vehicle 360", resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW },
   { route: ROUTES.MODEL_SERVICE_TYPE, icon: Wrench, label: "Model Service Types", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },

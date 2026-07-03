@@ -561,7 +561,7 @@ const AddCustomer: React.FC = () => {
         if (phone) {
           contacts.push({
             contactType: "MOBILE",
-            countryCode: "+91",
+            countryCode: "+27",
             contactNumber: phone,
           });
         } else if (cd.CellphoneNumber) {

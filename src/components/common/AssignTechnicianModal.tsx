@@ -101,6 +101,9 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
         setError(`Enter valid estimated hours for "${item.jobDescription}"`);
         return;
       }
+      // Estimated Hours = the billed (Hours Sold) value in Evolve. Hours Worked
+      // is captured automatically from the technician's time logs at completion,
+      // so it is not entered here.
       assignments.push({
         itemId: item.id,
         technicianId: r.technicianId,

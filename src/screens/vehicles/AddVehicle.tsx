@@ -104,7 +104,7 @@ const AddVehicle: React.FC = () => {
       getVehicleDetails(vehicleIdFromUrl)
         .then((res) => {
           if (res.success && res.data) {
-            const { vehicle, customer, images, activeCheckIn } = res.data;
+            const { vehicle, customer, images, activeCheckIn, appointmentComplaint } = res.data;
 
             // Pre-fill Phase 1 capture fields from the active check-in.
             // On a fresh re-entry visit there's no active check-in yet, so the
@@ -117,6 +117,16 @@ const AddVehicle: React.FC = () => {
               setDamagesNotes(activeCheckIn.damagesNotes ?? "");
               setComplaintText(activeCheckIn.complaintText ?? "");
               setReceivingNo(activeCheckIn.receivingNo ?? null);
+            }
+
+            // Auto-fill the complaint from the open booking when the check-in
+            // doesn't already carry one. Applies to first entry AND re-entry: a
+            // returning vehicle still has a current booking whose complaint is
+            // relevant (unlike odometer/photos, which are reset per visit). The
+            // gate keeper can still override. Mirrors the backend on-submit
+            // auto-fill so the shown value matches what gets persisted.
+            if (!activeCheckIn?.complaintText && appointmentComplaint) {
+              setComplaintText(appointmentComplaint);
             }
             setCustomerData({
               firstName: customer.firstName,
@@ -608,7 +618,7 @@ const AddVehicle: React.FC = () => {
               type="tel"
               value={driverPhone}
               onChange={(e) => setDriverPhone(e.target.value)}
-              placeholder="+91 …"
+              placeholder="+27 …"
               className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31]"
             />
           </div>

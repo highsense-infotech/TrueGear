@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Modal from "../../components/common/Modal.tsx";
 import Button from "../../components/common/Button.tsx";
+import SearchableDropdown from "../../components/common/SearchableDropdown.tsx";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { Pagination } from "../../components/common/Pagination.tsx";
 import {
@@ -27,11 +28,14 @@ import {
   deleteUser,
   getRolePermissions,
   updateRolePermissions,
+  listEvolveTechnicians,
   type ManagedRole,
   type ManagedUser,
   type RolePermission,
   type ShopScope,
+  type EvolveTechnician,
 } from "../../api/userManagement.api.ts";
+import { listActiveDesignations, type Designation } from "../../api/designation.api.ts";
 import { MODULES, ACTIONS } from "../../constants/permissions.ts";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -755,6 +759,9 @@ function UsersTab() {
     roleSlug: "",
     shopScope: "ALL" as ShopScope,
     warrantyOnly: false,
+    evolveTechnicianNo: null as number | null,
+    ability: "",
+    designationId: "",
   });
   const [createUsernameError, setCreateUsernameError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -768,9 +775,25 @@ function UsersTab() {
     roleSlug: "",
     shopScope: "ALL" as ShopScope,
     warrantyOnly: false,
+    evolveTechnicianNo: null as number | null,
+    ability: "",
+    designationId: "",
   });
   const [editUsernameError, setEditUsernameError] = useState("");
   const [editing, setEditing] = useState(false);
+
+  // Evolve technicians — lazy-loaded when a technician role is selected in the
+  // Add/Edit forms. Reuses the existing Technician Mapping API (no new endpoint).
+  const [evolveTechs, setEvolveTechs] = useState<EvolveTechnician[]>([]);
+  const [evolveTechsLoading, setEvolveTechsLoading] = useState(false);
+  const [evolveTechsLoaded, setEvolveTechsLoaded] = useState(false);
+
+  // Active designations — lazy-loaded when a technician role is selected. The
+  // dropdown lists only active designations; an existing user's inactive
+  // designation is injected in Edit mode so it still displays (see below).
+  const [designationList, setDesignationList] = useState<Designation[]>([]);
+  const [designationsLoading, setDesignationsLoading] = useState(false);
+  const [designationsLoaded, setDesignationsLoaded] = useState(false);
 
   // Delete state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -844,17 +867,64 @@ function UsersTab() {
   // one admin). The backend places no limit on the number of super-admin users.
   const assignableRoles = roles;
 
+  // Lazy-load the active Evolve technicians (reuses the existing Technician
+  // Mapping API). Only fetched when a technician role is selected, so the
+  // Add/Edit forms never block on Evolve for non-technician users.
+  const loadEvolveTechnicians = async () => {
+    if (evolveTechsLoaded || evolveTechsLoading) return;
+    setEvolveTechsLoading(true);
+    try {
+      const res = await listEvolveTechnicians();
+      setEvolveTechs(res.data ?? []);
+      setEvolveTechsLoaded(true);
+    } catch {
+      toast.error("Failed to load Evolve technicians");
+    } finally {
+      setEvolveTechsLoading(false);
+    }
+  };
+
+  const techOptions = evolveTechs.map((t) => ({
+    id: String(t.technicianNo),
+    name: `${t.displayName} · #${t.technicianNo}`,
+  }));
+
+  const loadDesignations = async () => {
+    if (designationsLoaded || designationsLoading) return;
+    setDesignationsLoading(true);
+    try {
+      const res = await listActiveDesignations();
+      setDesignationList(res.data ?? []);
+      setDesignationsLoaded(true);
+    } catch {
+      toast.error("Failed to load designations");
+    } finally {
+      setDesignationsLoading(false);
+    }
+  };
+
+  // Load both technician lookups when a technician role is selected.
+  const loadTechnicianLookups = () => {
+    void loadEvolveTechnicians();
+    void loadDesignations();
+  };
+
   const openCreate = () => {
+    const initialRole = assignableRoles[0]?.slug || "";
     setCreateForm({
       username: "",
       email: "",
       password: "",
-      roleSlug: assignableRoles[0]?.slug || "",
+      roleSlug: initialRole,
       shopScope: "ALL",
       warrantyOnly: false,
+      evolveTechnicianNo: null,
+      ability: "",
+      designationId: "",
     });
     setCreateUsernameError("");
     setCreateModalOpen(true);
+    if (initialRole === "technician") loadTechnicianLookups();
   };
 
   const handleCreate = async () => {
@@ -868,9 +938,24 @@ function UsersTab() {
       setCreateUsernameError(usernameErr);
       return;
     }
+    if (roleSlug === "technician" && createForm.evolveTechnicianNo == null) {
+      toast.error("Please select an Evolve Technician");
+      return;
+    }
+    if (createForm.ability !== "") {
+      const a = Number(createForm.ability);
+      if (isNaN(a) || a < 0 || a > 1) {
+        toast.error("Ability must be between 0 and 1");
+        return;
+      }
+    }
     setCreating(true);
     try {
-      await createUser(createForm);
+      await createUser({
+        ...createForm,
+        ability: createForm.ability === "" ? null : Number(createForm.ability),
+        designationId: createForm.designationId || null,
+      });
       toast.success("User created");
       setCreateModalOpen(false);
       await fetchUsers();
@@ -890,9 +975,13 @@ function UsersTab() {
       roleSlug: user.role.slug,
       shopScope: user.shopScope ?? "ALL",
       warrantyOnly: user.warrantyOnly ?? false,
+      evolveTechnicianNo: user.evolveTechnicianNo ?? null,
+      ability: user.ability != null ? String(user.ability) : "",
+      designationId: user.designationId ?? "",
     });
     setEditUsernameError("");
     setEditModalOpen(true);
+    if (user.role.slug === "technician") loadTechnicianLookups();
   };
 
   const handleEdit = async () => {
@@ -902,9 +991,24 @@ function UsersTab() {
       setEditUsernameError(usernameErr);
       return;
     }
+    if (editForm.roleSlug === "technician" && editForm.evolveTechnicianNo == null) {
+      toast.error("Please select an Evolve Technician");
+      return;
+    }
+    if (editForm.ability !== "") {
+      const a = Number(editForm.ability);
+      if (isNaN(a) || a < 0 || a > 1) {
+        toast.error("Ability must be between 0 and 1");
+        return;
+      }
+    }
     setEditing(true);
     try {
-      await updateUser(editTarget.id, editForm);
+      await updateUser(editTarget.id, {
+        ...editForm,
+        ability: editForm.ability === "" ? null : Number(editForm.ability),
+        designationId: editForm.designationId || null,
+      });
       toast.success("User updated");
       setEditModalOpen(false);
       await fetchUsers();
@@ -1267,7 +1371,18 @@ function UsersTab() {
             <label className={labelClass}>Role</label>
             <select
               value={createForm.roleSlug}
-              onChange={(e) => setCreateForm((f) => ({ ...f, roleSlug: e.target.value }))}
+              onChange={(e) => {
+                const roleSlug = e.target.value;
+                const isTech = roleSlug === "technician";
+                setCreateForm((f) => ({
+                  ...f,
+                  roleSlug,
+                  evolveTechnicianNo: isTech ? f.evolveTechnicianNo : null,
+                  ability: isTech ? f.ability : "",
+                  designationId: isTech ? f.designationId : "",
+                }));
+                if (isTech) loadTechnicianLookups();
+              }}
               className={inputClass}
             >
               {assignableRoles.map((r) => (
@@ -1277,6 +1392,50 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          {createForm.roleSlug === "technician" && (
+            <>
+              <div>
+                <label className={labelClass}>Evolve Technician</label>
+                <SearchableDropdown
+                  options={techOptions}
+                  value={createForm.evolveTechnicianNo != null ? String(createForm.evolveTechnicianNo) : ""}
+                  onChange={(id) => setCreateForm((f) => ({ ...f, evolveTechnicianNo: id ? Number(id) : null }))}
+                  placeholder="Select Evolve technician"
+                  loading={evolveTechsLoading}
+                />
+                <p className="text-[11px] text-[#999] mt-1">
+                  Required for technicians — maps to the Evolve TechnicianNo.
+                </p>
+              </div>
+              <div>
+                <label className={labelClass}>Ability</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  placeholder="0.00 – 1.00 (optional)"
+                  value={createForm.ability}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, ability: e.target.value }))}
+                  className={inputClass}
+                />
+                <p className="text-[11px] text-[#999] mt-1">Informational productivity factor (0–1).</p>
+              </div>
+              <div>
+                <label className={labelClass}>Designation</label>
+                <select
+                  value={createForm.designationId}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, designationId: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="">{designationsLoading ? "Loading…" : "— Select (optional) —"}</option>
+                  {designationList.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
           <div>
             <label className={labelClass}>Shop Scope</label>
             <select
@@ -1312,7 +1471,8 @@ function UsersTab() {
                 !createForm.username ||
                 !createForm.email ||
                 !createForm.password ||
-                !createForm.roleSlug
+                !createForm.roleSlug ||
+                (createForm.roleSlug === "technician" && createForm.evolveTechnicianNo == null)
               }
               className="flex-1"
             >
@@ -1360,7 +1520,18 @@ function UsersTab() {
             <label className={labelClass}>Role</label>
             <select
               value={editForm.roleSlug}
-              onChange={(e) => setEditForm((f) => ({ ...f, roleSlug: e.target.value }))}
+              onChange={(e) => {
+                const roleSlug = e.target.value;
+                const isTech = roleSlug === "technician";
+                setEditForm((f) => ({
+                  ...f,
+                  roleSlug,
+                  evolveTechnicianNo: isTech ? f.evolveTechnicianNo : null,
+                  ability: isTech ? f.ability : "",
+                  designationId: isTech ? f.designationId : "",
+                }));
+                if (isTech) loadTechnicianLookups();
+              }}
               className={inputClass}
             >
               {roles.map((r) => (
@@ -1370,6 +1541,58 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          {editForm.roleSlug === "technician" && (
+            <>
+              <div>
+                <label className={labelClass}>Evolve Technician</label>
+                <SearchableDropdown
+                  options={techOptions}
+                  value={editForm.evolveTechnicianNo != null ? String(editForm.evolveTechnicianNo) : ""}
+                  onChange={(id) => setEditForm((f) => ({ ...f, evolveTechnicianNo: id ? Number(id) : null }))}
+                  placeholder="Select Evolve technician"
+                  loading={evolveTechsLoading}
+                />
+                <p className="text-[11px] text-[#999] mt-1">
+                  Required for technicians — maps to the Evolve TechnicianNo.
+                </p>
+              </div>
+              <div>
+                <label className={labelClass}>Ability</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  placeholder="0.00 – 1.00 (optional)"
+                  value={editForm.ability}
+                  onChange={(e) => setEditForm((f) => ({ ...f, ability: e.target.value }))}
+                  className={inputClass}
+                />
+                <p className="text-[11px] text-[#999] mt-1">Informational productivity factor (0–1).</p>
+              </div>
+              <div>
+                <label className={labelClass}>Designation</label>
+                <select
+                  value={editForm.designationId}
+                  onChange={(e) => setEditForm((f) => ({ ...f, designationId: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="">{designationsLoading ? "Loading…" : "— Select (optional) —"}</option>
+                  {/* Existing (possibly inactive) designation isn't in the active
+                      list — inject it so it still displays and can be kept. */}
+                  {editForm.designationId &&
+                    !designationList.some((d) => d.id === editForm.designationId) && (
+                      <option value={editForm.designationId}>
+                        {(editTarget?.designationName ?? "Current")} (inactive)
+                      </option>
+                    )}
+                  {designationList.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
           <div>
             <label className={labelClass}>Shop Scope</label>
             <select
