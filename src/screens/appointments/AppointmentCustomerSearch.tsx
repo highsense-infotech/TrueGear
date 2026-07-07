@@ -36,6 +36,12 @@ const STEPS = [
   { label: "Review", icon: CheckSquare },
 ];
 
+// Company selector → the Evolve InterfaceCode used for the CRM search.
+const COMPANY_OPTIONS = [
+  { label: "10EC", value: "95112-AGLT-10EC" },
+  { label: "20EC", value: "95112-AGLT-20EC" },
+];
+
 // Display name: company name takes priority, then first/last name.
 const customerDisplayName = (c: {
   companyName?: string | null;
@@ -92,6 +98,7 @@ const AppointmentCustomerSearch: React.FC = () => {
 
   const [phoneSearch, setPhoneSearch] = useState("");
   const [regSearch, setRegSearch] = useState("");
+  const [companyCode, setCompanyCode] = useState(COMPANY_OPTIONS[0].value);
   const [showResults, setShowResults] = useState(!!restoredSelected);
   const [results, setResults] = useState<IrmCustomerResult[]>(
     restoredSelected ? [restoredSelected] : [],
@@ -162,6 +169,7 @@ const AppointmentCustomerSearch: React.FC = () => {
         phone: phone || undefined,
         vin:   term && isVin  ? term : undefined,
         reg:   term && !isVin ? term : undefined,
+        interfaceCode: companyCode,
       });
       const irmData = irmRes.data ?? [];
 
@@ -408,6 +416,25 @@ const AppointmentCustomerSearch: React.FC = () => {
               </p>
 
               <div className="flex flex-col gap-4">
+                <div>
+                  <label className="text-sm font-medium text-[#333]">
+                    Company
+                  </label>
+                  <div className="relative mt-1">
+                    <select
+                      value={companyCode}
+                      onChange={(e) => setCompanyCode(e.target.value)}
+                      className="w-full pl-3 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] bg-white"
+                    >
+                      {COMPANY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-sm font-medium text-[#333]">
                     VIN or Vehicle Registration

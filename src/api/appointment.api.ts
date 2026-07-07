@@ -286,6 +286,7 @@ export const irmCustomerSearch = async (params: {
   phone?: string;
   reg?:   string;
   vin?:   string;
+  interfaceCode?: string;
 }): Promise<ApiResponse<IrmCustomerResult[]>> => {
   const { data } = await api.get('/appointments/irm-search', { params });
   return data;
