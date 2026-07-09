@@ -1,8 +1,9 @@
 
 import { Camera, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Button from '../common/Button';
+import LiveCameraCapture from '../common/LiveCameraCapture';
 import { stampImage, requestGeolocation } from '../../utils/stampImage';
 
 interface Photo {
@@ -27,7 +28,7 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   // Request geolocation early for photo stamping
   useEffect(() => { requestGeolocation(); }, []);
@@ -52,32 +53,24 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
   };
 
   const handleCameraClick = () => {
-    fileInputRef.current?.click();
+    setCameraOpen(true);
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !onPhotoUpload) return;
-
-    const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!allowedExtensions.includes(ext)) {
-      toast.error("Only JPG, JPEG, PNG, and WEBP files are allowed.");
-      e.target.value = "";
-      return;
-    }
-
+  // Live-camera capture only (QC photo compliance — gallery is blocked).
+  // Receives a JPEG File from LiveCameraCapture and runs the SAME stamp +
+  // upload path as before, so validation/error handling/preview are unchanged.
+  const handleCameraCapture = async (file: File) => {
+    setCameraOpen(false);
+    if (!onPhotoUpload) return;
     setUploading(true);
     try {
       const stampedFile = await stampImage(file);
       await onPhotoUpload(stampedFile);
     } catch (err) {
       console.error("Failed to upload photo:", err);
+      toast.error("Failed to upload photo.");
     } finally {
       setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
   };
 
@@ -149,14 +142,12 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
             </Button>
           </div>
 
-          {/* Photos */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".jpg,.jpeg,.png,.webp"
-            capture="environment"
-            className="hidden"
-            onChange={handleFileChange}
+          {/* Photos — live camera capture only (gallery blocked for QC compliance) */}
+          <LiveCameraCapture
+            isOpen={cameraOpen}
+            title="Capture Inspection Photo"
+            onClose={() => setCameraOpen(false)}
+            onCapture={handleCameraCapture}
           />
           <div className="flex items-center gap-1.5 pt-2 pb-1 -mt-2 -mb-1 pr-1">
             {/* Visible photo thumbnails (max 4) */}

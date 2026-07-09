@@ -38,6 +38,7 @@ export interface SAVehicle {
   waitingTime: string;
   status: string;
   hasJobCard: boolean;
+  jobCardReference: string | null;
   frontImage: string | null;
 }
 
@@ -217,6 +218,7 @@ export interface SAJobCard {
   createdAt: string;
   updatedAt: string;
   serviceType: string | null;
+  jobType: string | null;
   description: string | null;
 }
 
@@ -270,6 +272,9 @@ export interface CreateJobCardPayload {
   taxLabel?: string;
   taxPercentage?: number;
   currencyCode?: string;
+  // Evolve RO Job Type code (AI-1). Optional — omitted → backend stores NULL →
+  // 'INT' default at RO push. Value comes from the job-types lookup.
+  jobType?: string | null;
 }
 
 export const createJobCard = async (
@@ -334,6 +339,8 @@ export interface UpdateJobCardPayload {
   taxLabel?: string;
   taxPercentage?: number;
   currencyCode?: string;
+  // Evolve RO Job Type code (AI-1). Optional; omitted → existing value preserved.
+  jobType?: string | null;
 }
 
 export const updateJobCard = async (

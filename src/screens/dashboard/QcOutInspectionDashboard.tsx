@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { Loader2, Camera, X, Check, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import Button from "../../components/common/Button";
 import SignaturePad from "../../components/common/SignaturePad";
+import LiveCameraCapture from "../../components/common/LiveCameraCapture";
 import {
   getQcOutDashboard,
   getQcInItemsForCheckIn,
@@ -156,6 +157,16 @@ export default function QcOutInspectionDashboard() {
       updateRow(id, { uploading: false });
       toast.error("Upload failed");
     }
+  };
+
+  // Live-camera capture for QC-out photos (gallery blocked for compliance).
+  // Tracks which checklist row opened the camera; capture runs the same
+  // addPhoto upload path as before.
+  const [cameraForId, setCameraForId] = useState<string | null>(null);
+  const handleQcOutCapture = async (file: File) => {
+    const id = cameraForId;
+    setCameraForId(null);
+    if (id) await addPhoto(id, file);
   };
 
   const removePhoto = (id: string, url: string) => {
@@ -470,21 +481,15 @@ export default function QcOutInspectionDashboard() {
                           </button>
                         </div>
                       ))}
-                      <label className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1">
+                      <button
+                        type="button"
+                        disabled={r.uploading || submitting}
+                        onClick={() => setCameraForId(c.id)}
+                        className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
                         {r.uploading ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
                         Add photo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          disabled={r.uploading || submitting}
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) addPhoto(c.id, f);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
+                      </button>
                     </div>
                     <p className="text-[11px] text-red-700 mt-1.5">At least one photo is required when FAIL is selected.</p>
                   </div>
@@ -645,6 +650,14 @@ export default function QcOutInspectionDashboard() {
         checkInId={reportCheckInId}
         subtitle={reportSubtitle}
         onClose={() => { setReportCheckInId(null); setReportSubtitle(""); }}
+      />
+
+      {/* Live camera capture for QC-out photos (gallery blocked) — AI-6 */}
+      <LiveCameraCapture
+        isOpen={cameraForId !== null}
+        title="Capture QC Photo"
+        onClose={() => setCameraForId(null)}
+        onCapture={handleQcOutCapture}
       />
     </>
   );

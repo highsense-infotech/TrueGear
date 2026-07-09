@@ -21,6 +21,7 @@ import {
   type SAQCReport,
 } from "../../api/serviceAdvisor.api";
 import { listServiceTypes } from "../../api/serviceType.api";
+import { listJobTypes, type JobTypeItem } from "../../api/jobType.api";
 import { useCurrency } from "../../context/CurrencyContext";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
@@ -66,17 +67,33 @@ const CreateJobCard: React.FC = () => {
   // Service Type options (passed to each job row)
   const [serviceTypeOptions, setServiceTypeOptions] = useState<DropdownOption[]>([]);
 
+  // Evolve Job Type (AI-1) — card-level selection sent to the RO. Options come
+  // from the backend job-types lookup; empty until the Evolve lookup is
+  // configured (client-dependent), in which case the UI shows a disabled
+  // "No Job Types configured." state and jobType stays empty (backend defaults
+  // to 'INT' at RO push).
+  const [jobTypeOptions, setJobTypeOptions] = useState<JobTypeItem[]>([]);
+  const [jobType, setJobType] = useState<string>("");
+
 
   useEffect(() => {
     if (!vehicleId) return;
 
     const fetchData = async () => {
       try {
-        const [vehicleRes, suggestedRes, stRes] = await Promise.all([
+        const [vehicleRes, suggestedRes, stRes, jtRes] = await Promise.all([
           getVehicleDetail(vehicleId),
           getSuggestedJobs(vehicleId),
           listServiceTypes('service_assignment'),
+          // Job Types (AI-1). Best-effort: on any failure the dropdown falls back
+          // to the empty "No Job Types configured." state and booking proceeds.
+          listJobTypes().catch(() => null),
         ]);
+
+        // Populate the Job Type dropdown from the backend lookup (may be empty).
+        if (jtRes?.success && Array.isArray(jtRes.data)) {
+          setJobTypeOptions(jtRes.data);
+        }
 
         // Set vehicle info
         if (!vehicleRes.data || !suggestedRes.data) return;
@@ -125,6 +142,10 @@ const CreateJobCard: React.FC = () => {
         if (editJobCardId) {
           const jobCardRes = await getJobCardDetail(editJobCardId);
           if (!jobCardRes.data) return;
+          // Prefill the Job Type (AI-1) if the card already has one.
+          if (jobCardRes.data.jobCard?.jobType) {
+            setJobType(jobCardRes.data.jobCard.jobType);
+          }
           const existingItems = jobCardRes.data.items;
           if (existingItems.length > 0) {
             const reconstructed: Job[] = [];
@@ -492,6 +513,8 @@ const CreateJobCard: React.FC = () => {
           taxLabel: taxConfig.label,
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
+          // Empty → undefined so an unset selection preserves the existing value.
+          jobType: jobType || undefined,
         });
         if (res.success) {
           toast.success("Job card updated successfully");
@@ -504,6 +527,8 @@ const CreateJobCard: React.FC = () => {
           taxLabel: taxConfig.label,
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
+          // Empty → undefined → backend stores NULL → 'INT' default at RO push.
+          jobType: jobType || undefined,
         });
         if (res.success && res.data) {
           toast.success("Job card saved as draft");
@@ -546,6 +571,35 @@ const CreateJobCard: React.FC = () => {
           customerName={vehicleData.customerName}
           imageUrl={vehicleData.imageUrl}
         />
+
+        {/* Job Type (AI-1) — Evolve RO <JobType>. Populated from the backend
+            job-types lookup. When the lookup is empty (Evolve source not yet
+            configured — client-dependent) the control is disabled and shows
+            "No Job Types configured."; the job card is still creatable and the
+            RO push falls back to the existing default. */}
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5">
+          <label className="block text-[13px] font-semibold text-[#333] mb-1.5">
+            Job Type
+          </label>
+          {jobTypeOptions.length > 0 ? (
+            <select
+              value={jobType}
+              onChange={(e) => setJobType(e.target.value)}
+              className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31]"
+            >
+              <option value="">Select job type…</option>
+              {jobTypeOptions.map((jt) => (
+                <option key={jt.id} value={jt.code}>
+                  {jt.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
+              No Job Types configured.
+            </div>
+          )}
+        </div>
 
         {/* Summary card — collapsible. Header shows quick context so the
             advisor can decide whether to expand. */}

@@ -71,6 +71,9 @@ export interface NewVehicleData {
 }
 
 export interface WizardState {
+  // Company (Phase A) — the only persisted company state is the id.
+  companyId?:      string;
+
   // Step 1 — Customer
   customerId:      string | null;
   customerName:    string;
@@ -114,6 +117,8 @@ export interface WizardState {
 }
 
 const DEFAULT_STATE: WizardState = {
+  companyId:       undefined,
+
   customerId:      null,
   customerName:    '',
   customerPhone:   '',

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Home,
@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Button from "../../components/common/Button";
+import Modal from "../../components/common/Modal";
 import { ROUTES } from "../../constants/routes";
 import {
   irmCustomerSearch,
@@ -25,6 +26,7 @@ import {
   type InternalCustomer,
 } from "../../api/appointment.api";
 import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
+import { getCompanies, type Company } from "../../api/company.api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -98,7 +100,28 @@ const AppointmentCustomerSearch: React.FC = () => {
 
   const [phoneSearch, setPhoneSearch] = useState("");
   const [regSearch, setRegSearch] = useState("");
-  const [companyCode, setCompanyCode] = useState(COMPANY_OPTIONS[0].value);
+  // Backend-driven companies (dropdown source).
+  const [companies, setCompanies] = useState<Company[]>([]);
+  // Explicitly track backend availability. An empty list is still a valid
+  // backend response (registry reachable, just no companies) and stays in
+  // backend mode; only a failed request falls back to legacy options.
+  const [backendAvailable, setBackendAvailable] = useState(false);
+  const usingBackend = backendAvailable;
+  // Legacy fallback selection (interface code) — used ONLY when the backend
+  // company list is unavailable. In backend mode the selection is WizardState.companyId.
+  // Starts empty: company selection is mandatory (no silent default) — Phase D.
+  const [companyCode, setCompanyCode] = useState("");
+  const [switchSuggestion, setSwitchSuggestion] = useState<
+    { code: string } | null
+  >(null);
+  // A company change awaiting confirmation (only when there's data to clear).
+  const [pendingCompany, setPendingCompany] = useState<
+    { mode: "backend" | "legacy"; value: string } | null
+  >(null);
+  // Monotonic search generation. Bumped on every new search AND on a confirmed
+  // company change; a resolved request only writes state if its generation is
+  // still current — neutralises stale responses overwriting cleared state.
+  const searchGenRef = useRef(0);
   const [showResults, setShowResults] = useState(!!restoredSelected);
   const [results, setResults] = useState<IrmCustomerResult[]>(
     restoredSelected ? [restoredSelected] : [],
@@ -143,12 +166,127 @@ const AppointmentCustomerSearch: React.FC = () => {
     newCompanyName.trim() &&
     newPhone.trim() &&
     newEmail.trim();
-  const canProceed = selected || (activeTab === "new" && isNewFormValid);
+  // Mandatory company selection (Phase D): backend mode uses WizardState.companyId,
+  // legacy fallback uses the local interface-code selection. No silent default.
+  const companySelected = usingBackend ? !!state.companyId : !!companyCode;
+  const canProceed =
+    companySelected && (selected || (activeTab === "new" && isNewFormValid));
   const currentStep = 0;
+
+  // ── Company-change UX (D-5) ────────────────────────────────────────────────
+  // Lock the company once a customer/vehicle is selected. Before that, changing
+  // it clears entered data — with a confirmation dialog when there IS data.
+  const companyLocked = !!selected || !!state.customerId || !!state.vehicleId;
+
+  const hasClearableData =
+    !!regSearch.trim() ||
+    !!phoneSearch.trim() ||
+    showResults ||
+    results.length > 0 ||
+    !!switchSuggestion ||
+    !!newFirstName.trim() ||
+    !!newLastName.trim() ||
+    !!newCompanyName.trim() ||
+    !!newPhone.trim() ||
+    !!newEmail.trim() ||
+    !!newAddress.trim();
+
+  const applyCompanyChange = (mode: "backend" | "legacy", value: string) => {
+    if (mode === "backend") setState({ companyId: value });
+    else setCompanyCode(value);
+  };
+
+  const clearDependentState = () => {
+    // Invalidate any in-flight search so its late response cannot overwrite the
+    // state we are about to clear (request-generation guard).
+    searchGenRef.current += 1;
+    setRegSearch("");
+    setPhoneSearch("");
+    setResults([]);
+    setShowResults(false);
+    setSwitchSuggestion(null);
+    setSearchError(null);
+    setSearchStep(null);
+    setIsSearching(false);
+    setSelected(null);
+    setNewFirstName("");
+    setNewLastName("");
+    setNewCompanyName("");
+    setNewPhone("");
+    setNewEmail("");
+    setNewAddress("");
+    setFormErrors({});
+    setActiveTab("search");
+    setState({
+      customerId: null,
+      customerName: "",
+      customerPhone: "",
+      customerEmail: "",
+      isNewCustomer: false,
+      newCustomerData: null,
+      vehicleId: null,
+      vehicleName: "",
+      vehicleReg: "",
+      vehicleMakeModel: "",
+      vehicleYear: "",
+      vehicleFuel: "",
+      vehicleTransmission: "",
+      vehicleOdometer: "",
+      isNewVehicle: false,
+      newVehicleData: null,
+    });
+  };
+
+  const requestCompanyChange = (mode: "backend" | "legacy", value: string) => {
+    const current = mode === "backend" ? state.companyId ?? "" : companyCode;
+    if (value === current) return; // no-op
+    if (!hasClearableData) {
+      applyCompanyChange(mode, value); // nothing to lose → change immediately
+      return;
+    }
+    setPendingCompany({ mode, value }); // confirm before clearing
+  };
+
+  const confirmCompanyChange = () => {
+    if (!pendingCompany) return;
+    clearDependentState();
+    applyCompanyChange(pendingCompany.mode, pendingCompany.value);
+    setPendingCompany(null);
+  };
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
-  const handleSearch = async () => {
+  // Load the company list from the backend once. On success → backend-driven
+  // dropdown + default selection. On empty/failure → warn and keep the legacy
+  // COMPANY_OPTIONS fallback (no user-facing error).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await getCompanies();
+        if (cancelled) return;
+        setCompanies(list);
+        setBackendAvailable(true);
+        // No silent default (Phase D): the user must pick a company explicitly.
+        // A previously-restored companyId is preserved as-is.
+      } catch {
+        if (cancelled) return;
+        console.warn(
+          "[AppointmentCustomerSearch] GET /companies unavailable — falling back to legacy company options",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Load once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearch = async (override?: {
+    companyId?: string;
+    interfaceCode?: string;
+  }) => {
     const phone = phoneSearch.trim();
     const term  = regSearch.trim();
     if (!phone && !term) return;
@@ -158,10 +296,22 @@ const AppointmentCustomerSearch: React.FC = () => {
     // Evolve search field so the BE doesn't always look in the VIN column.
     const isVin = term.length === 17;
 
+    // New search generation; captured for staleness checks after each await.
+    const myGen = ++searchGenRef.current;
+    const isStale = () => searchGenRef.current !== myGen;
+
     setIsSearching(true);
     setSearchError(null);
+    setSwitchSuggestion(null);
     setShowResults(false);
     setSearchStep("crm");
+
+    // Prefer companyId (backend-driven dropdown). Only when we're on the legacy
+    // COMPANY_OPTIONS fallback do we send interfaceCode — preserves search during
+    // rollout. `override` lets the "switch company" prompt re-run immediately.
+    const companyParams = usingBackend
+      ? { companyId: override?.companyId ?? state.companyId }
+      : { interfaceCode: override?.interfaceCode ?? companyCode };
 
     try {
       // Step 1: Search CRM (IRM)
@@ -169,9 +319,11 @@ const AppointmentCustomerSearch: React.FC = () => {
         phone: phone || undefined,
         vin:   term && isVin  ? term : undefined,
         reg:   term && !isVin ? term : undefined,
-        interfaceCode: companyCode,
+        ...companyParams,
       });
+      if (isStale()) return; // superseded by a newer search / company change
       const irmData = irmRes.data ?? [];
+      const outcome = irmRes.meta?.outcome; // undefined = legacy BE without Phase 1 meta
 
       if (irmData.length > 0) {
         setResults(irmData);
@@ -180,12 +332,60 @@ const AppointmentCustomerSearch: React.FC = () => {
         return;
       }
 
-      // Step 2: Fall back to internal DB (q does ILIKE on both VIN and reg)
+      // Route by SEARCH INTENT. A VIN/registration term identifies a VEHICLE,
+      // whose company ownership is authoritative in Evolve. A phone identifies a
+      // PERSON (identity), which may legitimately span companies.
+      const isVehicleSearch = !!term;
+      const companyLabel = usingBackend
+        ? companies.find((c) => c.id === state.companyId)?.code ?? "the selected company"
+        : COMPANY_OPTIONS.find((o) => o.value === companyCode)?.label ?? companyCode;
+
+      // Cross-company detection: the vehicle isn't in the selected company but
+      // our records show it belongs to another one → offer to switch instead of
+      // a dead-end "not found".
+      if (
+        isVehicleSearch &&
+        outcome === "SWITCH_COMPANY" &&
+        irmRes.meta?.ownedByCompany
+      ) {
+        setResults([]);
+        setShowResults(false);
+        setSearchStep(null);
+        setSwitchSuggestion(irmRes.meta.ownedByCompany);
+        return;
+      }
+
+      // Vehicle search: Evolve is the system of record for company ownership.
+      // Do NOT fall back to the company-agnostic local DB — that is exactly what
+      // attached vehicles under the wrong company. (Legacy BE with no `outcome`
+      // still falls through to preserve prior behaviour until Phase 1 is live.)
+      if (isVehicleSearch && outcome === "NOT_FOUND") {
+        setResults([]);
+        setSearchStep(null);
+        setShowResults(false);
+        setSearchError(
+          `No vehicle found in ${companyLabel} for "${term}". Check that the correct company is selected.`,
+        );
+        return;
+      }
+      if (isVehicleSearch && outcome === "UNAVAILABLE") {
+        setResults([]);
+        setSearchStep(null);
+        setShowResults(false);
+        setSearchError(
+          "Evolve is currently unavailable. Please try again in a moment.",
+        );
+        return;
+      }
+
+      // Identity (phone) search — or a legacy backend without `outcome`: fall
+      // back to the internal DB as before (q does ILIKE on both VIN and reg).
       setSearchStep("internal");
       const internalData: InternalCustomer[] = await searchInternalCustomers({
         phone: phone || undefined,
         q: !phone && term ? term : undefined,
       });
+      if (isStale()) return; // superseded by a newer search / company change
 
       if (internalData.length > 0) {
         // Map internal customers to IrmCustomerResult shape
@@ -229,12 +429,15 @@ const AppointmentCustomerSearch: React.FC = () => {
       setSearchStep(null);
       setShowResults(true);
     } catch {
+      if (isStale()) return; // stale failure must not surface on the new state
       setSearchError(
         "Search failed. Please check your connection and try again.",
       );
       setSearchStep(null);
     } finally {
-      setIsSearching(false);
+      // Only the current generation owns the loading flag; a stale request
+      // must not flip it off (a newer search may be in progress).
+      if (!isStale()) setIsSearching(false);
     }
   };
 
@@ -375,6 +578,79 @@ const AppointmentCustomerSearch: React.FC = () => {
             </p>
           </div>
 
+          {/* Company selector — mandatory; governs the whole step (search + add new). */}
+          <div className="mb-3">
+            <label className="text-sm font-medium text-[#333]">Company</label>
+            <div className="relative mt-1">
+              {usingBackend ? (
+                <select
+                  value={state.companyId ?? ""}
+                  onChange={(e) => requestCompanyChange("backend", e.target.value)}
+                  disabled={companyLocked}
+                  className="w-full pl-3 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <option value="" disabled>
+                    Select company…
+                  </option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || c.code}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={companyCode}
+                  onChange={(e) => requestCompanyChange("legacy", e.target.value)}
+                  disabled={companyLocked}
+                  className="w-full pl-3 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <option value="" disabled>
+                    Select company…
+                  </option>
+                  {COMPANY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {companyLocked ? (
+              <p className="text-xs text-[#999] mt-1">
+                Company is locked while a customer/vehicle is selected.
+              </p>
+            ) : !companySelected ? (
+              <p className="text-xs text-[#999] mt-1">
+                Select a company to continue.
+              </p>
+            ) : null}
+          </div>
+
+          {/* Confirm dialog — company change that would clear entered data. */}
+          <Modal
+            isOpen={!!pendingCompany}
+            onClose={() => setPendingCompany(null)}
+            title="Change company?"
+            size="sm"
+          >
+            <p className="text-sm text-[#555] mb-5">
+              You've changed the selected company. This will clear the current
+              search and any unsaved customer/vehicle information. Continue?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setPendingCompany(null)}
+                className="px-4 py-2 text-sm font-medium text-[#555] border border-[#e5e7eb] rounded-lg hover:bg-[#f5f5f5]"
+              >
+                Cancel
+              </button>
+              <Button variant="gradient" onClick={confirmCompanyChange}>
+                Continue
+              </Button>
+            </div>
+          </Modal>
+
           {/* Tab toggle */}
           <div className="flex border border-[#e5e7eb] rounded-lg overflow-hidden">
             <button
@@ -416,25 +692,6 @@ const AppointmentCustomerSearch: React.FC = () => {
               </p>
 
               <div className="flex flex-col gap-4">
-                <div>
-                  <label className="text-sm font-medium text-[#333]">
-                    Company
-                  </label>
-                  <div className="relative mt-1">
-                    <select
-                      value={companyCode}
-                      onChange={(e) => setCompanyCode(e.target.value)}
-                      className="w-full pl-3 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] bg-white"
-                    >
-                      {COMPANY_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
                 <div>
                   <label className="text-sm font-medium text-[#333]">
                     VIN or Vehicle Registration
@@ -497,9 +754,11 @@ const AppointmentCustomerSearch: React.FC = () => {
                       <Search size={15} />
                     )
                   }
-                  onClick={handleSearch}
+                  onClick={() => handleSearch()}
                   disabled={
-                    isSearching || (!regSearch.trim() && !phoneSearch.trim())
+                    isSearching ||
+                    !companySelected ||
+                    (!regSearch.trim() && !phoneSearch.trim())
                   }
                 >
                   {searchStep === "crm"
@@ -511,6 +770,46 @@ const AppointmentCustomerSearch: React.FC = () => {
 
                 {searchError && (
                   <p className="text-sm text-red-500">{searchError}</p>
+                )}
+
+                {switchSuggestion && (
+                  <div className="flex flex-col gap-2 rounded-lg border border-[#fde68a] bg-[#fffbeb] p-3">
+                    <p className="text-sm text-[#92400e]">
+                      This vehicle belongs to company{" "}
+                      <strong>{switchSuggestion.code}</strong>, not the selected
+                      company. Switch to search under the correct company.
+                    </p>
+                    <div>
+                      <Button
+                        variant="gradient"
+                        onClick={() => {
+                          setSwitchSuggestion(null);
+                          if (usingBackend) {
+                            const owner = companies.find(
+                              (c) => c.code === switchSuggestion.code,
+                            );
+                            if (owner) {
+                              setState({ companyId: owner.id });
+                              handleSearch({ companyId: owner.id });
+                            }
+                          } else {
+                            // Legacy fallback: the backend no longer sends the
+                            // InterfaceCode, so derive it locally from the owner's
+                            // company code via COMPANY_OPTIONS (label = code).
+                            const legacy = COMPANY_OPTIONS.find(
+                              (o) => o.label === switchSuggestion.code,
+                            );
+                            if (legacy) {
+                              setCompanyCode(legacy.value);
+                              handleSearch({ interfaceCode: legacy.value });
+                            }
+                          }
+                        }}
+                      >
+                        Switch to {switchSuggestion.code} &amp; search
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
 

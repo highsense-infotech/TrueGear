@@ -30,6 +30,7 @@ export interface ServiceAdvisorUser {
 }
 
 export interface CreateAppointmentPayload {
+  companyId?:               string;
   customerId?:              string;
   vehicleId?:               string;
   serviceAdvisorId?:        string;
@@ -282,12 +283,28 @@ export const searchInternalCustomers = async (params: {
   }
 };
 
+// Phase 1 search outcome, carried in the additive `meta` sibling. Optional so
+// the FE still compiles/works against a backend that predates the meta field.
+export type IrmSearchOutcome = 'FOUND' | 'NOT_FOUND' | 'UNAVAILABLE' | 'SWITCH_COMPANY';
+export interface IrmSearchMeta {
+  outcome: IrmSearchOutcome;
+  // The selected company's public CODE (e.g. '10EC'), or null. Never the Evolve
+  // InterfaceCode — the backend does not expose that to the FE.
+  company: string | null;
+  source:  string;
+  // Present only when outcome === 'SWITCH_COMPANY': the company that actually
+  // owns this vehicle (public code only), so the FE can offer to switch to it.
+  ownedByCompany?: { code: string };
+}
+export type IrmSearchResponse = ApiResponse<IrmCustomerResult[]> & { meta?: IrmSearchMeta };
+
 export const irmCustomerSearch = async (params: {
   phone?: string;
   reg?:   string;
   vin?:   string;
+  companyId?: string;
   interfaceCode?: string;
-}): Promise<ApiResponse<IrmCustomerResult[]>> => {
+}): Promise<IrmSearchResponse> => {
   const { data } = await api.get('/appointments/irm-search', { params });
   return data;
 };

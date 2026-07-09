@@ -429,13 +429,21 @@ export interface VinLookupData {
   }>;
 }
 
-export const vinLookup = async (term: string): Promise<ApiResponse<VinLookupData>> => {
+export const vinLookup = async (
+  term: string,
+  companyId?: string,
+): Promise<ApiResponse<VinLookupData>> => {
   // VINs are ISO 3779 — exactly 17 alphanumeric characters. Anything else is
   // treated as a registration number. BE accepts whichever field is set and
   // routes to the matching Evolve lookup.
+  // companyId (optional) makes the lookup company-aware (AI-2); omitted →
+  // backend falls back to the default interface code, exactly as before.
   const trimmed = term.trim();
   const isVin = trimmed.length === 17;
-  const body = isVin ? { vin: trimmed } : { reg: trimmed };
+  const body: { vin?: string; reg?: string; companyId?: string } = isVin
+    ? { vin: trimmed }
+    : { reg: trimmed };
+  if (companyId) body.companyId = companyId;
   const { data } = await api.post("/vehicles/vin-lookup", body);
   return data;
 };

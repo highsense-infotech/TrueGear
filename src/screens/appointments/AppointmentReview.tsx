@@ -114,6 +114,8 @@ const AppointmentReview: React.FC = () => {
 
     try {
       const res = await createAppointment({
+        // Include companyId only when set — never send null/empty.
+        companyId:                state.companyId || undefined,
         customerId:               state.customerId ?? undefined,
         vehicleId:                state.vehicleId  ?? undefined,
         serviceAdvisorId:         state.serviceAdvisorId ?? undefined,
@@ -168,7 +170,18 @@ const AppointmentReview: React.FC = () => {
         },
       });
     } catch (err: any) {
-      const msg = err?.response?.data?.error?.message ?? "Failed to create appointment. Please try again.";
+      const errBody = err?.response?.data?.error;
+      let msg: string;
+      if (errBody?.outcome === "SWITCH_COMPANY") {
+        // Backend cross-company backstop (D-2): the vehicle is owned by another
+        // company. Guide the user back to the customer step to switch company.
+        const ownerCode = errBody?.ownedByCompany?.code;
+        msg = ownerCode
+          ? `This vehicle belongs to company ${ownerCode}. Go back to the customer step and select ${ownerCode} to continue.`
+          : "This vehicle belongs to another company. Go back to the customer step and select the correct company.";
+      } else {
+        msg = errBody?.message ?? "Failed to create appointment. Please try again.";
+      }
       setSubmitError(msg);
     } finally {
       setIsSubmitting(false);

@@ -112,6 +112,7 @@ export function ServiceAdvisorTable({
                 <tr className="border-b border-[#E5E7EB]">
                   <th className="text-left py-3 pr-5 text-[#333] text-[14px] font-normal">Vehicle Details</th>
                   <th className="text-left py-3 px-5 text-[#333] text-[14px] font-normal">Service Type</th>
+                  <th className="text-left py-3 px-5 text-[#333] text-[14px] font-normal">Job Card Ref</th>
                   <th className="text-left py-3 px-5 text-[#333] text-[14px] font-normal">Waiting Time</th>
                   <th className="text-left py-3 px-5 text-[#333] text-[14px] font-normal">Status</th>
                   <th className="text-left py-3 px-5 text-[#333] text-[14px] font-normal"></th>
@@ -153,6 +154,9 @@ export function ServiceAdvisorTable({
                     </td>
                     <td>
                       <p className="text-[#333] text-[14px]">{vehicle.serviceType || "—"}</p>
+                    </td>
+                    <td>
+                      <p className="text-[#333] text-[14px]">{vehicle.jobCardReference || "—"}</p>
                     </td>
                     <td>
                       <div className="flex items-center gap-1.5 text-[#999] text-[14px]">
