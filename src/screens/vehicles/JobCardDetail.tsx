@@ -209,6 +209,28 @@ const JobCardDetail: React.FC = () => {
   const statusConfig = STATUS_CONFIG[jobCard.status] || STATUS_CONFIG.DRAFT;
   const partsTotal = items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
 
+  // Evolve RO sync indicator. Reads the sync fields already returned by the
+  // job-card detail API. NULL status = not yet queued/attempted.
+  const evolveSync = (() => {
+    const s = jobCard.evolveSyncStatus;
+    const ro = jobCard.evolveRoNumber;
+    const err = jobCard.evolveLastError ?? undefined;
+    switch (s) {
+      case "SYNCED":
+        return { label: ro ? `Evolve: Synced · RO ${ro}` : "Evolve: Synced", cls: "bg-green-100 text-green-700", title: undefined };
+      case "PENDING":
+        return { label: "Evolve: Pending", cls: "bg-blue-100 text-blue-700", title: undefined };
+      case "DEFERRED":
+        return { label: "Evolve: Retrying", cls: "bg-amber-100 text-amber-700", title: err };
+      case "FAILED":
+        return { label: "Evolve: Failed", cls: "bg-red-100 text-red-700", title: err };
+      case "NEEDS_MANUAL":
+        return { label: "Evolve: Needs attention", cls: "bg-red-100 text-red-700", title: err };
+      default:
+        return { label: "Evolve: Not synced", cls: "bg-gray-100 text-gray-600", title: undefined };
+    }
+  })();
+
   return (
     <div className="flex flex-col gap-6 md:gap-8 w-full pb-8">
       {/* Header */}
@@ -232,6 +254,12 @@ const JobCardDetail: React.FC = () => {
           )}
           <span className={`text-xs font-semibold px-3 py-1 rounded-md ${statusConfig.bg} ${statusConfig.text}`}>
             {statusConfig.label}
+          </span>
+          <span
+            className={`text-xs font-semibold px-3 py-1 rounded-md ${evolveSync.cls}`}
+            title={evolveSync.title}
+          >
+            {evolveSync.label}
           </span>
         </div>
       </div>

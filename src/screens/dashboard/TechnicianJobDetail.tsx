@@ -8,6 +8,7 @@ import Button from "../../components/common/Button";
 import SignaturePad from "../../components/common/SignaturePad";
 import RequestPartsModal from "../../components/common/RequestPartsModal";
 import ProgressChip from "../../components/common/ProgressChip";
+import LiveCameraCapture from "../../components/common/LiveCameraCapture";
 import { useAuth } from "../../context/AuthContext";
 import { foremanUpdateWriteUp } from "../../api/workshop.api";
 import {
@@ -98,6 +99,18 @@ const TechnicianJobDetail: React.FC = () => {
   const [partsForId, setPartsForId] = useState<string | null>(null);
   const [partsForDesc, setPartsForDesc] = useState<string>("");
   const [photoBusyId, setPhotoBusyId] = useState<string | null>(null);
+  // Live-camera capture (gallery blocked, like QC). Tracks which item + photo
+  // category opened the camera; capture runs the same handlePhotoUpload path.
+  const [cameraFor, setCameraFor] = useState<{
+    itemId: string;
+    photoType: "DIAGNOSIS" | "REPAIR" | "OLD_PART" | "NEW_PART" | "NEW_PART_FITTED";
+    label: string;
+  } | null>(null);
+  const handleCameraCapture = async (file: File) => {
+    const target = cameraFor;
+    setCameraFor(null);
+    if (target) await handlePhotoUpload(target.itemId, target.photoType, file);
+  };
   // Local "now" tick — used to advance running-item displays without re-fetching.
   const [nowMs, setNowMs] = useState(() => Date.now());
   const tickRef = useRef<number | null>(null);
@@ -695,21 +708,15 @@ const TechnicianJobDetail: React.FC = () => {
                         </button>
                       </div>
                     ))}
-                    <label className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1">
+                    <button
+                      type="button"
+                      disabled={photoBusyId === item.id}
+                      onClick={() => setCameraFor({ itemId: item.id, photoType: "DIAGNOSIS", label: "Diagnosis Photo" })}
+                      className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <Camera size={12} />
                       Add photo
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={photoBusyId === item.id}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handlePhotoUpload(item.id, "DIAGNOSIS", f);
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
+                    </button>
                   </div>
                 </div>
               )}
@@ -744,21 +751,15 @@ const TechnicianJobDetail: React.FC = () => {
                             </button>
                           </div>
                         ))}
-                        <label className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1">
+                        <button
+                          type="button"
+                          disabled={photoBusyId === item.id}
+                          onClick={() => setCameraFor({ itemId: item.id, photoType: g.type, label: g.label })}
+                          className="cursor-pointer flex items-center gap-1 text-[11px] text-[#666] hover:text-[#ff4f31] border border-dashed border-[#e5e7eb] rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                           <Camera size={12} />
                           Add photo
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={photoBusyId === item.id}
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handlePhotoUpload(item.id, g.type, f);
-                              e.target.value = "";
-                            }}
-                          />
-                        </label>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1077,6 +1078,14 @@ const TechnicianJobDetail: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Live camera capture (gallery blocked, like QC) for technician photos. */}
+      <LiveCameraCapture
+        isOpen={cameraFor !== null}
+        title={cameraFor ? `Capture ${cameraFor.label}` : "Capture Photo"}
+        onClose={() => setCameraFor(null)}
+        onCapture={handleCameraCapture}
+      />
     </>
   );
 };

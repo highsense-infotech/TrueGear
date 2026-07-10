@@ -19,8 +19,31 @@ import {
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
 import { getVehiclesByCustomer, type VehicleListItem } from "../../api/appointment.api";
-import { listMakes, listModelsByMake, listModelCodes, updateVehicle, type VehicleMake, type VehicleModel, type VehicleModelCode } from "../../api/vehicle.api";
+import { listMakes, listModelsByMake, listModelCodes, updateVehicle, getVehicleDetails, type VehicleMake, type VehicleModel, type VehicleModelCode, type VehicleDetailData } from "../../api/vehicle.api";
 import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
+
+// Match a saved model string to a master-list model id. The saved value often
+// carries variant/year suffixes that don't exactly equal a master entry, so we
+// try exact match, then a first-token startsWith. Returns null when unmatched.
+function matchModelId(list: VehicleModel[], raw: string): string | null {
+  const target = raw.toLowerCase().trim();
+  if (!target) return null;
+  let m = list.find((x) => x.name.toLowerCase() === target);
+  if (!m) {
+    const first = target.split(/\s+/)[0];
+    m = list.find((x) => x.name.toLowerCase().startsWith(first));
+  }
+  return m ? m.id : null;
+}
+
+// Display-only: capitalize a stored fuel/transmission value (e.g. "diesel" →
+// "Diesel", "manual" → "Manual"). Returns "—" for empty values. Does not affect
+// stored data or the edit flow.
+function displayLabel(v: string | null | undefined): string {
+  const s = (v ?? "").trim();
+  if (!s) return "—";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -74,6 +97,13 @@ const AppointmentVehicleDetails: React.FC = () => {
   // Holds the model name to auto-select once models for the chosen make finish loading
   // (used by the edit-vehicle flow, since we only have brand/model strings to start with).
   const pendingModelNameRef = useRef<string>("");
+  // Edit flow: the saved make name (resolved once makes finish loading) and the
+  // saved model code (selected once model codes finish loading). Cleared once consumed.
+  const pendingMakeNameRef  = useRef<string>("");
+  const pendingModelCodeRef = useRef<string>("");
+  // Generation guard: bumped on every edit/cancel so a slow getVehicleDetails
+  // response from a previously-edited vehicle can't overwrite the current one.
+  const editGenRef = useRef(0);
 
   // Selected existing vehicle. "__irm__" is a sentinel for the IRM pre-filled vehicle.
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
@@ -166,6 +196,13 @@ const AppointmentVehicleDetails: React.FC = () => {
       .then((res) => {
         const list = res.data ?? [];
         setMakes(list);
+        // Edit flow: if an edit was opened before makes finished loading, resolve
+        // the stashed make name now (its model/code are matched by the effects below).
+        if (pendingMakeNameRef.current) {
+          const mk = list.find((m) => m.name.toLowerCase() === pendingMakeNameRef.current.toLowerCase());
+          pendingMakeNameRef.current = "";
+          if (mk) setMakeId(mk.id);
+        }
       })
       .catch(() => {/* makes optional */})
       .finally(() => setLoadingMakes(false));
@@ -180,25 +217,14 @@ const AppointmentVehicleDetails: React.FC = () => {
         const list = res.data ?? [];
         setModels(list);
         // Edit flow: if we stashed a model name to match, select its ID now.
-        // The saved vehicle model often has extra variant/year suffixes (e.g.
-        // "15.180FT 4X2 C/C 2026") that don't exactly match the master list
-        // entries ("15.180 FL"). Try exact match, then a loose contains match
-        // on the first token. If still no match, surface the raw text in the
-        // search input so the user can see what was saved and pick correctly.
+        // If no master entry matches (e.g. an IRM-sourced description), surface
+        // the raw text in the search input so the user can pick correctly.
         if (pendingModelNameRef.current) {
           const raw = pendingModelNameRef.current;
-          const target = raw.toLowerCase().trim();
-          let match = list.find((m) => m.name.toLowerCase() === target);
-          if (!match) {
-            const firstToken = target.split(/\s+/)[0];
-            match = list.find((m) => m.name.toLowerCase().startsWith(firstToken));
-          }
-          if (match) {
-            setModelId(match.id);
-          } else {
-            setModelSearch(raw);
-          }
           pendingModelNameRef.current = "";
+          const id = matchModelId(list, raw);
+          if (id) setModelId(id);
+          else { setModelSearch(raw); setModelId(""); pendingModelCodeRef.current = ""; }
         }
       })
       .catch(() => setModels([]))
@@ -215,12 +241,38 @@ const AppointmentVehicleDetails: React.FC = () => {
       .then((res) => {
         const list = res.data ?? [];
         setModelCodes(list);
-        // Auto-select when the series resolves to exactly one code.
-        if (list.length === 1) setModelCodeValue(list[0].code);
+        // Edit flow: re-select the vehicle's saved model code once its options load.
+        const pendingCode = pendingModelCodeRef.current;
+        pendingModelCodeRef.current = "";
+        const savedMatch = pendingCode ? list.find((c) => c.code === pendingCode) : undefined;
+        if (savedMatch) {
+          setModelCodeValue(savedMatch.code);
+        } else if (list.length === 1) {
+          // Auto-select when the series resolves to exactly one code.
+          setModelCodeValue(list[0].code);
+        }
       })
       .catch(() => setModelCodes([]))
       .finally(() => setLoadingModelCodes(false));
   }, [modelId]);
+
+  // ─── Year follows the selected model code ────────────────────────────────────
+  // Evolve stores a modelYear per (code, year) row. When a model code is chosen,
+  // constrain Year to that code's year(s): exactly one → auto-select it; several
+  // → keep the current/saved year if it's valid for the code, otherwise clear it
+  // so the user picks from the valid set. No code selected (or code carries no
+  // year) → leave Year untouched (generic list applies). Never guesses a year.
+  useEffect(() => {
+    if (!modelCodeValue) return;
+    const years = Array.from(new Set(
+      modelCodes
+        .filter((c) => c.code === modelCodeValue && c.modelYear != null)
+        .map((c) => String(c.modelYear)),
+    ));
+    if (years.length === 0) return;              // code has no year info → leave as-is
+    if (years.length === 1) { setYear(years[0]); return; }
+    setYear((prev) => (years.includes(prev) ? prev : "")); // keep if valid, else force a pick
+  }, [modelCodeValue, modelCodes]);
 
   const selectedVehicle   = vehicles.find((v) => v.id === selectedVehicleId);
   // Only show the IRM card if the vehicle doesn't already exist in local saved vehicles
@@ -249,6 +301,17 @@ const AppointmentVehicleDetails: React.FC = () => {
   const distinctModelCodes = Array.from(
     new Map(modelCodes.map((c) => [c.code, c])).values(),
   );
+  // Years available for the currently-selected model code (Evolve returns one
+  // row per model-year). When a code is chosen, the Year dropdown is restricted
+  // to these years; otherwise it falls back to the generic YEARS list.
+  const codeYears = modelCodeValue
+    ? Array.from(new Set(
+        modelCodes
+          .filter((c) => c.code === modelCodeValue && c.modelYear != null)
+          .map((c) => String(c.modelYear)),
+      )).sort((a, b) => Number(b) - Number(a))
+    : [];
+  const yearOptions = codeYears.length > 0 ? codeYears : YEARS;
   // ModelCode is required whenever Evolve returns codes for the chosen series.
   // Gate on !loadingModelCodes so the user can't proceed with a blank code in the
   // window before the picker resolves — that race let vehicles reach Evolve with no
@@ -264,34 +327,88 @@ const AppointmentVehicleDetails: React.FC = () => {
     setShowNewForm(false);
   };
 
-  const handleEditVehicle = (vehicle: VehicleListItem) => {
-    // Pre-fill the form with the vehicle's current values and switch to edit mode.
+  // Resolve make → model → model-code for the edit flow. `brand`/`modelName` are
+  // the saved strings; `modelCode` is the saved code to re-select once options load.
+  // Uses pending refs consumed by the make/model/code effects, plus a same-make
+  // direct match (the [makeId] effect won't re-run when the make is unchanged).
+  const applyEditCascade = (brand: string, modelName: string, modelCode: string) => {
+    const make = makes.find((m) => m.name.toLowerCase() === (brand ?? "").toLowerCase());
+    if (!make) {
+      // Makes may not have loaded yet (Case 4) — stash to resolve on load.
+      pendingMakeNameRef.current  = brand ?? "";
+      pendingModelNameRef.current = modelName ?? "";
+      pendingModelCodeRef.current = modelCode ?? "";
+      if (makes.length > 0) { setMakeId(""); setModelId(""); }
+      return;
+    }
+    if (make.id === makeId) {
+      // Same make already selected → its models are already loaded and the
+      // [makeId] effect won't re-run; match the model + code directly.
+      pendingModelCodeRef.current = modelCode ?? "";
+      const id = matchModelId(models, modelName ?? "");
+      if (id && id === modelId) {
+        // Same model too → codes already loaded; select the saved code inline.
+        const match = modelCodes.find((c) => c.code === modelCode);
+        pendingModelCodeRef.current = "";
+        setModelCodeValue(match ? match.code : "");
+      } else if (id) {
+        setModelId(id); // triggers the codes effect, which consumes the pending code
+      } else {
+        setModelSearch(modelName ?? ""); setModelId(""); pendingModelCodeRef.current = "";
+      }
+    } else {
+      // Different make → the [makeId] effect loads models + matches via the refs.
+      pendingModelNameRef.current = modelName ?? "";
+      pendingModelCodeRef.current = modelCode ?? "";
+      setMakeId(make.id);
+    }
+  };
+
+  const handleEditVehicle = async (vehicle: VehicleListItem) => {
+    const gen = ++editGenRef.current;
+    // Switch to edit mode + optimistic prefill from the list item (instant).
     setEditingVehicleId(vehicle.id);
     setShowNewForm(true);
     setSelectedVehicleId(null);
     setRegNumber(vehicle.registrationNumber ?? "");
     setVin(vehicle.vin ?? "");
+    setYear(String(vehicle.manufacturingYear ?? ""));
     setFuelType(vehicle.fuelType ?? "");
     setTransmission(vehicle.transmissionType ?? "");
-    setYear(String(vehicle.manufacturingYear ?? ""));
 
-    // Try to map brand/model strings back to make/model IDs from the loaded master data.
-    const make = makes.find((m) => m.name.toLowerCase() === vehicle.brand?.toLowerCase());
-    if (make) {
-      setMakeId(make.id);
-      // Models for the new make load via the existing useEffect; we'll select by name once they arrive.
-      // Stash the desired model name on a sentinel so the model effect can match it.
-      pendingModelNameRef.current = vehicle.model ?? "";
-    } else {
-      setMakeId("");
-      setModelId("");
-    }
+    // The list item omits fuel/transmission/modelCode — fetch the full record so
+    // every field (incl. the Model Code dropdown) can prefill. Falls back to the
+    // list item if the fetch fails.
+    let full: VehicleDetailData["vehicle"] | null = null;
+    try {
+      const res = await getVehicleDetails(vehicle.id);
+      if (res.success && res.data) full = res.data.vehicle;
+    } catch { /* fall back to list item */ }
+
+    // Ignore a stale response if the user has since edited/cancelled another card.
+    if (editGenRef.current !== gen) return;
+
+    const brand      = full?.brand ?? vehicle.brand ?? "";
+    const modelName  = full?.model ?? vehicle.model ?? "";
+    const modelCode  = full?.modelCode ?? "";
+    setRegNumber((full?.registrationNumber ?? vehicle.registrationNumber) ?? "");
+    setVin((full?.vin ?? vehicle.vin) ?? "");
+    setFuelType(full?.fuelType ?? vehicle.fuelType ?? "");
+    setTransmission(full?.transmissionType ?? vehicle.transmissionType ?? "");
+    setYear(String((full?.manufacturingYear ?? vehicle.manufacturingYear) ?? ""));
+
+    applyEditCascade(brand, modelName, modelCode);
   };
 
   const cancelEdit = () => {
+    editGenRef.current++; // invalidate any in-flight edit fetch
+    pendingMakeNameRef.current = "";
+    pendingModelNameRef.current = "";
+    pendingModelCodeRef.current = "";
     setEditingVehicleId(null);
     setShowNewForm(false);
     setRegNumber(""); setVin(""); setMakeId(""); setModelId("");
+    setModelCodeValue(""); setModelSearch("");
     setFuelType(""); setTransmission(""); setYear("");
   };
 
@@ -522,7 +639,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                       <p className="text-xs text-[#999]">Reg: {irmVehicle.registrationNumber.toUpperCase()}</p>
                     )}
                     <p className="text-xs text-[#999]">
-                      {irmVehicle.fuelType || "—"} · {irmVehicle.transmissionType || "—"}
+                      {displayLabel(irmVehicle.fuelType)} · {displayLabel(irmVehicle.transmissionType)}
                     </p>
                   </div>
                   <button
@@ -583,7 +700,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                           <p className="text-xs text-[#999]">Reg: {vehicle.registrationNumber.toUpperCase()}</p>
                         )}
                         <p className="text-xs text-[#999]">
-                          {vehicle.fuelType ?? "—"} · {vehicle.transmissionType ?? "—"}
+                          {displayLabel(vehicle.fuelType)} · {displayLabel(vehicle.transmissionType)}
                           {vehicle.odometerLast ? ` · ${vehicle.odometerLast.toLocaleString()} KM` : ""}
                         </p>
                       </div>
@@ -865,7 +982,7 @@ const AppointmentVehicleDetails: React.FC = () => {
                       className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] bg-white"
                     >
                       <option value="">Select year</option>
-                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                      {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
                 </div>

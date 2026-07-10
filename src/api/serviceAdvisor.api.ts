@@ -220,6 +220,11 @@ export interface SAJobCard {
   serviceType: string | null;
   jobType: string | null;
   description: string | null;
+  // Evolve RO sync status (surfaced on the job-card detail page).
+  evolveSyncStatus: string | null;
+  evolveRoNumber: string | null;
+  evolveLastError: string | null;
+  evolveSyncedAt: string | null;
 }
 
 export const getVehicleJobCards = async (

@@ -196,6 +196,10 @@ export interface VehicleDetailData {
     brand: string;
     model: string;
     modelVariant: string | null;
+    // Present at runtime (getVehicleDetails returns the full vehicle row); used
+    // to prefill the Model Code dropdown when editing a saved vehicle.
+    modelCode: string | null;
+    modelDescription: string | null;
     manufacturingYear: number;
     registrationNumber: string;
     engineNumber: string | null;

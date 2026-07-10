@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Search, ShieldCheck, CheckCircle2, Camera, Loader2 } from "lucide-react";
 import Button from "../../components/common/Button";
+import LiveCameraCapture from "../../components/common/LiveCameraCapture";
 import {
   listActiveGatePassesPaginated,
   lookupGatePass,
@@ -25,7 +26,7 @@ export default function GatePassScan() {
   const [licencePath, setLicencePath] = useState("");
   const [licencePreview, setLicencePreview] = useState("");
   const [uploadingLicence, setUploadingLicence] = useState(false);
-  const licenceInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [notes, setNotes] = useState("");
 
   const [page, setPage] = useState(1);
@@ -67,10 +68,10 @@ export default function GatePassScan() {
     }
   };
 
-  const onLicencePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file
-    if (!file) return;
+  // Live-camera capture only (gallery blocked). Runs the same upload path as
+  // before, receiving a JPEG File from LiveCameraCapture.
+  const handleLicenceCapture = async (file: File) => {
+    setCameraOpen(false);
     setUploadingLicence(true);
     try {
       const res = await uploadGatePassLicencePhoto(file);
@@ -184,14 +185,6 @@ export default function GatePassScan() {
                 <label className="text-[12px] text-[#999]">
                   Driver's licence photo <span className="text-red-500">*</span>
                 </label>
-                <input
-                  ref={licenceInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={onLicencePhoto}
-                  className="hidden"
-                />
                 {licencePreview ? (
                   <div className="mt-1 flex items-center gap-2">
                     <img
@@ -201,7 +194,7 @@ export default function GatePassScan() {
                     />
                     <button
                       type="button"
-                      onClick={() => licenceInputRef.current?.click()}
+                      onClick={() => setCameraOpen(true)}
                       disabled={uploadingLicence}
                       className="text-[12px] text-[#ff4f31] underline"
                     >
@@ -211,7 +204,7 @@ export default function GatePassScan() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => licenceInputRef.current?.click()}
+                    onClick={() => setCameraOpen(true)}
                     disabled={uploadingLicence}
                     className="mt-1 w-full h-10 border border-dashed border-[#e5e7eb] rounded-md px-2 text-[13px] text-[#666] flex items-center justify-center gap-1.5 hover:border-[#ff4f31]"
                   >
@@ -291,6 +284,13 @@ export default function GatePassScan() {
           )}
         </div>
       )}
+
+      <LiveCameraCapture
+        isOpen={cameraOpen}
+        title="Capture Driver's Licence"
+        onClose={() => setCameraOpen(false)}
+        onCapture={handleLicenceCapture}
+      />
     </>
   );
 }

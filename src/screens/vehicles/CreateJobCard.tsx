@@ -74,6 +74,7 @@ const CreateJobCard: React.FC = () => {
   // to 'INT' at RO push).
   const [jobTypeOptions, setJobTypeOptions] = useState<JobTypeItem[]>([]);
   const [jobType, setJobType] = useState<string>("");
+  const [jobTypeError, setJobTypeError] = useState(false);
 
 
   useEffect(() => {
@@ -405,6 +406,15 @@ const CreateJobCard: React.FC = () => {
     const errors: Record<number, JobErrors> = {};
     let hasError = false;
 
+    // Job Type is mandatory whenever job types are configured (only skipped when
+    // the lookup is empty, so an unseeded deployment isn't hard-blocked).
+    if (jobTypeOptions.length > 0 && !jobType) {
+      setJobTypeError(true);
+      hasError = true;
+    } else {
+      setJobTypeError(false);
+    }
+
     jobs.forEach((job) => {
       const err: JobErrors = {};
       const isPaidService = job.serviceType === "Repair";
@@ -579,13 +589,13 @@ const CreateJobCard: React.FC = () => {
             RO push falls back to the existing default. */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5">
           <label className="block text-[13px] font-semibold text-[#333] mb-1.5">
-            Job Type
+            Job Type {jobTypeOptions.length > 0 && <span className="text-red-500">*</span>}
           </label>
           {jobTypeOptions.length > 0 ? (
             <select
               value={jobType}
-              onChange={(e) => setJobType(e.target.value)}
-              className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31]"
+              onChange={(e) => { setJobType(e.target.value); if (e.target.value) setJobTypeError(false); }}
+              className={`w-full border rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31] ${jobTypeError ? "border-red-500" : "border-[#e5e7eb]"}`}
             >
               <option value="">Select job type…</option>
               {jobTypeOptions.map((jt) => (
@@ -598,6 +608,9 @@ const CreateJobCard: React.FC = () => {
             <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
               No Job Types configured.
             </div>
+          )}
+          {jobTypeError && (
+            <p className="mt-1 text-[12px] text-red-500">Job type is required.</p>
           )}
         </div>
 
