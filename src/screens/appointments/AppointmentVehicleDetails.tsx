@@ -270,8 +270,11 @@ const AppointmentVehicleDetails: React.FC = () => {
         .map((c) => String(c.modelYear)),
     ));
     if (years.length === 0) return;              // code has no year info → leave as-is
-    if (years.length === 1) { setYear(years[0]); return; }
-    setYear((prev) => (years.includes(prev) ? prev : "")); // keep if valid, else force a pick
+    // Never clobber a year that's already set (edit-prefill or a user pick) — even
+    // if it isn't in this code's catalog years (Evolve reg-year can differ from the
+    // catalog's model-year rows). Only auto-select when Year is empty and the code
+    // resolves to exactly one year.
+    setYear((prev) => (prev ? prev : years.length === 1 ? years[0] : ""));
   }, [modelCodeValue, modelCodes]);
 
   const selectedVehicle   = vehicles.find((v) => v.id === selectedVehicleId);
@@ -311,7 +314,13 @@ const AppointmentVehicleDetails: React.FC = () => {
           .map((c) => String(c.modelYear)),
       )).sort((a, b) => Number(b) - Number(a))
     : [];
-  const yearOptions = codeYears.length > 0 ? codeYears : YEARS;
+  // Restrict to the model code's years when available, else the generic list.
+  // Always include the currently-selected year (e.g. an edit-prefill value not in
+  // the catalog's per-code years) so it stays selectable instead of being dropped.
+  const baseYearOptions = codeYears.length > 0 ? codeYears : YEARS;
+  const yearOptions = year && !baseYearOptions.includes(year)
+    ? [year, ...baseYearOptions]
+    : baseYearOptions;
   // ModelCode is required whenever Evolve returns codes for the chosen series.
   // Gate on !loadingModelCodes so the user can't proceed with a blank code in the
   // window before the picker resolves — that race let vehicles reach Evolve with no
