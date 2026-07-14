@@ -219,6 +219,8 @@ export interface SAJobCard {
   updatedAt: string;
   serviceType: string | null;
   jobType: string | null;
+  // Evolve RO Franchise / Service Dept selection (AI-3) — chosen labeled pair id.
+  franchiseServiceDeptId: string | null;
   description: string | null;
   // Evolve RO sync status (surfaced on the job-card detail page).
   evolveSyncStatus: string | null;
@@ -280,6 +282,9 @@ export interface CreateJobCardPayload {
   // Evolve RO Job Type code (AI-1). Optional — omitted → backend stores NULL →
   // 'INT' default at RO push. Value comes from the job-types lookup.
   jobType?: string | null;
+  // Evolve RO Franchise / Service Dept (AI-3) — selected labeled pair id.
+  // Optional — omitted → NULL → '1'/'1' default at RO push.
+  franchiseServiceDeptId?: string | null;
 }
 
 export const createJobCard = async (
@@ -346,6 +351,8 @@ export interface UpdateJobCardPayload {
   currencyCode?: string;
   // Evolve RO Job Type code (AI-1). Optional; omitted → existing value preserved.
   jobType?: string | null;
+  // Evolve RO Franchise / Service Dept (AI-3). Optional; omitted → preserved.
+  franchiseServiceDeptId?: string | null;
 }
 
 export const updateJobCard = async (

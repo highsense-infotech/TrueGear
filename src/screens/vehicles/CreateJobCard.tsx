@@ -22,6 +22,10 @@ import {
 } from "../../api/serviceAdvisor.api";
 import { listServiceTypes } from "../../api/serviceType.api";
 import { listJobTypes, type JobTypeItem } from "../../api/jobType.api";
+import {
+  listFranchiseServiceDepts,
+  type FranchiseServiceDeptItem,
+} from "../../api/franchise.api";
 import { useCurrency } from "../../context/CurrencyContext";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
@@ -34,16 +38,18 @@ const CreateJobCard: React.FC = () => {
   const isEditMode = !!editJobCardId;
   const { taxConfig, currency } = useCurrency();
   const { warrantyOnly } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>([{
-    id: Date.now(),
-    jobDescription: "",
-    partsRequired: "",
-    partsCost: 0,
-    labourCost: 0,
-    quantity: 1,
-    serviceType: "",
-    serviceCategory: "",
-  }]);
+  const [jobs, setJobs] = useState<Job[]>([
+    {
+      id: Date.now(),
+      jobDescription: "",
+      partsRequired: "",
+      partsCost: 0,
+      labourCost: 0,
+      quantity: 1,
+      serviceType: "",
+      serviceCategory: "",
+    },
+  ]);
   const [, setSuggestedJobs] = useState<string[]>([]);
   const [vehicleData, setVehicleData] = useState<{
     registration: string;
@@ -61,11 +67,15 @@ const CreateJobCard: React.FC = () => {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [qcReportOpen, setQcReportOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [savingType, setSavingType] = useState<'draft' | 'estimate' | null>(null);
+  const [savingType, setSavingType] = useState<"draft" | "estimate" | null>(
+    null,
+  );
   const [jobErrors, setJobErrors] = useState<Record<number, JobErrors>>({});
 
   // Service Type options (passed to each job row)
-  const [serviceTypeOptions, setServiceTypeOptions] = useState<DropdownOption[]>([]);
+  const [serviceTypeOptions, setServiceTypeOptions] = useState<
+    DropdownOption[]
+  >([]);
 
   // Evolve Job Type (AI-1) — card-level selection sent to the RO. Options come
   // from the backend job-types lookup; empty until the Evolve lookup is
@@ -76,24 +86,63 @@ const CreateJobCard: React.FC = () => {
   const [jobType, setJobType] = useState<string>("");
   const [jobTypeError, setJobTypeError] = useState(false);
 
+  // Evolve Franchise / Service Dept (AI-3) — two dependent dropdowns mirroring
+  // the Evolve RO screen. Options are the labeled franchise_service_departments
+  // pairs; empty until an admin labels them (client-dependent), in which case
+  // the UI shows "No Franchises configured." and the RO falls back to '1'/'1'.
+  // The selected pair's id is stored on the job card.
+  const [fsdOptions, setFsdOptions] = useState<FranchiseServiceDeptItem[]>([]);
+  const [franchiseLabel, setFranchiseLabel] = useState<string>("");
+  const [franchiseServiceDeptId, setFranchiseServiceDeptId] =
+    useState<string>("");
+
+  // Derive the Franchise dropdown value from a stored pair id (edit-mode
+  // prefill): once the options load, resolve which franchise the saved pair
+  // belongs to so the dependent Service Dept dropdown shows the right list.
+  useEffect(() => {
+    if (!franchiseServiceDeptId || franchiseLabel || fsdOptions.length === 0)
+      return;
+    const match = fsdOptions.find((o) => o.id === franchiseServiceDeptId);
+    if (match?.franchiseLabel) setFranchiseLabel(match.franchiseLabel);
+  }, [franchiseServiceDeptId, franchiseLabel, fsdOptions]);
+
+  // Distinct franchise labels (first dropdown) and the service-dept options for
+  // the currently selected franchise (second dropdown).
+  const franchiseNames = Array.from(
+    new Set(
+      fsdOptions.map((o) => o.franchiseLabel).filter((l): l is string => !!l),
+    ),
+  );
+  const serviceDeptOptions = fsdOptions.filter(
+    (o) => o.franchiseLabel === franchiseLabel,
+  );
 
   useEffect(() => {
     if (!vehicleId) return;
 
     const fetchData = async () => {
       try {
-        const [vehicleRes, suggestedRes, stRes, jtRes] = await Promise.all([
-          getVehicleDetail(vehicleId),
-          getSuggestedJobs(vehicleId),
-          listServiceTypes('service_assignment'),
-          // Job Types (AI-1). Best-effort: on any failure the dropdown falls back
-          // to the empty "No Job Types configured." state and booking proceeds.
-          listJobTypes().catch(() => null),
-        ]);
+        const [vehicleRes, suggestedRes, stRes, jtRes, fsdRes] =
+          await Promise.all([
+            getVehicleDetail(vehicleId),
+            getSuggestedJobs(vehicleId),
+            listServiceTypes("service_assignment"),
+            // Job Types (AI-1). Best-effort: on any failure the dropdown falls back
+            // to the empty "No Job Types configured." state and booking proceeds.
+            listJobTypes().catch(() => null),
+            // Franchise / Service Dept pairs (AI-3). Best-effort — empty falls back
+            // to "No Franchises configured." and the RO keeps its '1'/'1' default.
+            listFranchiseServiceDepts().catch(() => null),
+          ]);
 
         // Populate the Job Type dropdown from the backend lookup (may be empty).
         if (jtRes?.success && Array.isArray(jtRes.data)) {
           setJobTypeOptions(jtRes.data);
+        }
+
+        // Populate the Franchise / Service Dept dropdowns (may be empty).
+        if (fsdRes?.success && Array.isArray(fsdRes.data)) {
+          setFsdOptions(fsdRes.data);
         }
 
         // Set vehicle info
@@ -130,12 +179,14 @@ const CreateJobCard: React.FC = () => {
 
         // Set suggested jobs from QC failed/NA items
         const suggestions = suggestedRes.data.suggestedJobs;
-        setSuggestedJobs(suggestions.map((s: SASuggestedJob) => s.suggestedDescription));
+        setSuggestedJobs(
+          suggestions.map((s: SASuggestedJob) => s.suggestedDescription),
+        );
 
         // Service types
         if (stRes.success && Array.isArray(stRes.data)) {
           setServiceTypeOptions(
-            stRes.data.map((s: any) => ({ id: s.id, name: s.name }))
+            stRes.data.map((s: any) => ({ id: s.id, name: s.name })),
           );
         }
 
@@ -146,6 +197,13 @@ const CreateJobCard: React.FC = () => {
           // Prefill the Job Type (AI-1) if the card already has one.
           if (jobCardRes.data.jobCard?.jobType) {
             setJobType(jobCardRes.data.jobCard.jobType);
+          }
+          // Prefill the Franchise / Service Dept (AI-3) selection if present;
+          // the dependent franchiseLabel is derived from the options via effect.
+          if (jobCardRes.data.jobCard?.franchiseServiceDeptId) {
+            setFranchiseServiceDeptId(
+              jobCardRes.data.jobCard.franchiseServiceDeptId,
+            );
           }
           const existingItems = jobCardRes.data.items;
           if (existingItems.length > 0) {
@@ -160,7 +218,9 @@ const CreateJobCard: React.FC = () => {
                 // Group into an autoParts job row keyed by serviceType + serviceCategory
                 const groupKey = `${item.serviceType || ""}||${item.serviceCategory}`;
                 const existing = reconstructed.find(
-                  (j) => `${j.serviceType}||${j.serviceCategory}` === groupKey && Array.isArray(j.autoParts),
+                  (j) =>
+                    `${j.serviceType}||${j.serviceCategory}` === groupKey &&
+                    Array.isArray(j.autoParts),
                 );
                 const autoPart = {
                   id: item.id,
@@ -170,7 +230,10 @@ const CreateJobCard: React.FC = () => {
                   unitPrice: String(item.partsCost || 0),
                 };
                 if (existing) {
-                  existing.autoParts = [...(existing.autoParts || []), autoPart];
+                  existing.autoParts = [
+                    ...(existing.autoParts || []),
+                    autoPart,
+                  ];
                 } else {
                   reconstructed.push({
                     id: counter++,
@@ -187,7 +250,8 @@ const CreateJobCard: React.FC = () => {
               } else if (isPaidService) {
                 // Group into a paidParts job row
                 const existing = reconstructed.find(
-                  (j) => j.serviceType === "Repair" && Array.isArray(j.paidParts),
+                  (j) =>
+                    j.serviceType === "Repair" && Array.isArray(j.paidParts),
                 );
                 const paidPart = {
                   id: item.id,
@@ -197,7 +261,10 @@ const CreateJobCard: React.FC = () => {
                   quantity: item.quantity || 1,
                 };
                 if (existing) {
-                  existing.paidParts = [...(existing.paidParts || []), paidPart];
+                  existing.paidParts = [
+                    ...(existing.paidParts || []),
+                    paidPart,
+                  ];
                 } else {
                   reconstructed.push({
                     id: counter++,
@@ -258,11 +325,13 @@ const CreateJobCard: React.FC = () => {
     setJobs((prev) => prev.filter((job) => job.id !== id));
   };
 
-  const updateJob = (id: number, field: keyof Job, value: string | number | boolean) => {
+  const updateJob = (
+    id: number,
+    field: keyof Job,
+    value: string | number | boolean,
+  ) => {
     setJobs((prev) =>
-      prev.map((job) =>
-        job.id === id ? { ...job, [field]: value } : job
-      )
+      prev.map((job) => (job.id === id ? { ...job, [field]: value } : job)),
     );
     // Clear error for this field when user types
     if (jobErrors[id]?.[field as keyof JobErrors]) {
@@ -281,7 +350,6 @@ const CreateJobCard: React.FC = () => {
     }
   };
 
-
   // When user selects a Service Category (B/C/D), fetch parts and replace the
   // triggering row with one auto-populated row per part.
   const handleServiceCategoryChange = async (
@@ -297,15 +365,21 @@ const CreateJobCard: React.FC = () => {
 
       const { data } = await api.get(
         `/model-service-type-assignments/by-category/${categoryCode}`,
-        { params }
+        { params },
       );
-      if (!data?.success || !Array.isArray(data.data) || data.data.length === 0) {
+      if (
+        !data?.success ||
+        !Array.isArray(data.data) ||
+        data.data.length === 0
+      ) {
         toast.error("No parts found for this combination");
         // Still update the category name on the row
         setJobs((prev) =>
           prev.map((j) =>
-            j.id === jobId ? { ...j, serviceCategory: categoryName, autoParts: [] } : j
-          )
+            j.id === jobId
+              ? { ...j, serviceCategory: categoryName, autoParts: [] }
+              : j,
+          ),
         );
         return;
       }
@@ -315,8 +389,8 @@ const CreateJobCard: React.FC = () => {
         prev.map((j) =>
           j.id === jobId
             ? { ...j, serviceCategory: categoryName, autoParts: data.data }
-            : j
-        )
+            : j,
+        ),
       );
 
       toast.success(`${data.data.length} parts loaded from ${categoryName}`);
@@ -335,16 +409,20 @@ const CreateJobCard: React.FC = () => {
         // Same part already on the line? Bump qty instead of pushing a
         // duplicate row. Match by partCode (falls back to partName).
         const idx = existing.findIndex(
-          (p) => (part.partCode && p.partCode === part.partCode) ||
-                 (!part.partCode && p.partName === part.partName),
+          (p) =>
+            (part.partCode && p.partCode === part.partCode) ||
+            (!part.partCode && p.partName === part.partName),
         );
         if (idx >= 0) {
           const merged = [...existing];
-          merged[idx] = { ...merged[idx], quantity: merged[idx].quantity + part.quantity };
+          merged[idx] = {
+            ...merged[idx],
+            quantity: merged[idx].quantity + part.quantity,
+          };
           return { ...job, paidParts: merged };
         }
         return { ...job, paidParts: [...existing, part] };
-      })
+      }),
     );
   };
 
@@ -352,9 +430,12 @@ const CreateJobCard: React.FC = () => {
     setJobs((prev) =>
       prev.map((job) =>
         job.id === jobId
-          ? { ...job, paidParts: (job.paidParts ?? []).filter((p) => p.id !== partId) }
-          : job
-      )
+          ? {
+              ...job,
+              paidParts: (job.paidParts ?? []).filter((p) => p.id !== partId),
+            }
+          : job,
+      ),
     );
   };
 
@@ -365,11 +446,11 @@ const CreateJobCard: React.FC = () => {
           ? {
               ...job,
               paidParts: (job.paidParts ?? []).map((p) =>
-                p.id === partId ? { ...p, quantity } : p
+                p.id === partId ? { ...p, quantity } : p,
               ),
             }
-          : job
-      )
+          : job,
+      ),
     );
   };
 
@@ -377,16 +458,19 @@ const CreateJobCard: React.FC = () => {
     // Paid Service: sum manually added paid parts
     if (job.serviceType === "Repair") {
       return (job.paidParts ?? []).reduce(
-        (sum, p) => sum + p.unitPrice * p.quantity, 0
+        (sum, p) => sum + p.unitPrice * p.quantity,
+        0,
       );
     }
     // Category-based auto-populated parts
     if (job.autoParts && job.autoParts.length > 0) {
       return job.autoParts.reduce(
-        (sum, p) => sum + (Number(p.quantity) || 1) * (Number(p.unitPrice) || 0), 0
+        (sum, p) =>
+          sum + (Number(p.quantity) || 1) * (Number(p.unitPrice) || 0),
+        0,
       );
     }
-    return (job.partsCost * job.quantity) + job.labourCost;
+    return job.partsCost * job.quantity + job.labourCost;
   };
 
   const subtotal = jobs.reduce((sum, job) => sum + calculateLineTotal(job), 0);
@@ -471,7 +555,7 @@ const CreateJobCard: React.FC = () => {
     return !hasError;
   };
 
-  const saveAndNavigate = async (type: 'draft' | 'estimate') => {
+  const saveAndNavigate = async (type: "draft" | "estimate") => {
     if (!vehicleId || savingType) return;
     if (!validateJobs()) return;
 
@@ -481,7 +565,11 @@ const CreateJobCard: React.FC = () => {
       const jobsPayload = jobs.map((job) => {
         let items;
 
-        if (job.serviceType === "Repair" && job.paidParts && job.paidParts.length > 0) {
+        if (
+          job.serviceType === "Repair" &&
+          job.paidParts &&
+          job.paidParts.length > 0
+        ) {
           items = job.paidParts.map((part) => ({
             jobDescription: part.partName,
             partsRequired: part.partCode,
@@ -498,16 +586,18 @@ const CreateJobCard: React.FC = () => {
             quantity: Number(part.quantity) || 1,
           }));
         } else {
-          items = [{
-            jobDescription: job.jobDescription,
-            partsRequired: job.partsRequired || null,
-            partsCost: job.partsCost,
-            labourCost: job.labourCost,
-            quantity: job.quantity,
-            isWarrantyClaim: !!job.isWarrantyClaim,
-            warrantyClaimNo: job.warrantyClaimNo || null,
-            warrantyOem: job.warrantyOem || null,
-          }];
+          items = [
+            {
+              jobDescription: job.jobDescription,
+              partsRequired: job.partsRequired || null,
+              partsCost: job.partsCost,
+              labourCost: job.labourCost,
+              quantity: job.quantity,
+              isWarrantyClaim: !!job.isWarrantyClaim,
+              warrantyClaimNo: job.warrantyClaimNo || null,
+              warrantyOem: job.warrantyOem || null,
+            },
+          ];
         }
 
         return {
@@ -525,10 +615,14 @@ const CreateJobCard: React.FC = () => {
           currencyCode: currency,
           // Empty → undefined so an unset selection preserves the existing value.
           jobType: jobType || undefined,
+          // Franchise / Service Dept selection (AI-3). Empty → undefined preserves.
+          franchiseServiceDeptId: franchiseServiceDeptId || undefined,
         });
         if (res.success) {
           toast.success("Job card updated successfully");
-          navigate(`/service-advisor-dashboard/job-card-detail/${editJobCardId}`);
+          navigate(
+            `/service-advisor-dashboard/job-card-detail/${editJobCardId}`,
+          );
         }
       } else {
         const res = await createJobCard(vehicleId, {
@@ -539,14 +633,19 @@ const CreateJobCard: React.FC = () => {
           currencyCode: currency,
           // Empty → undefined → backend stores NULL → 'INT' default at RO push.
           jobType: jobType || undefined,
+          // Franchise / Service Dept selection (AI-3). Empty → NULL → '1'/'1'.
+          franchiseServiceDeptId: franchiseServiceDeptId || undefined,
         });
         if (res.success && res.data) {
           toast.success("Job card saved as draft");
-          navigate(`/service-advisor-dashboard/job-card-detail/${res.data.jobCard.id}`);
+          navigate(
+            `/service-advisor-dashboard/job-card-detail/${res.data.jobCard.id}`,
+          );
         }
       }
     } catch (error: any) {
-      const msg = error?.response?.data?.error?.message || "Failed to save job card";
+      const msg =
+        error?.response?.data?.error?.message || "Failed to save job card";
       toast.error(msg);
     } finally {
       setSavingType(null);
@@ -569,8 +668,10 @@ const CreateJobCard: React.FC = () => {
 
         {warrantyOnly && (
           <div className="rounded-xl border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 text-[13px] text-[#c2410c]">
-            Warranty clerk — select <span className="font-semibold">Warranty Service</span> as the
-            service type. Only warranty job cards can be created with this account.
+            Warranty clerk — select{" "}
+            <span className="font-semibold">Warranty Service</span> as the
+            service type. Only warranty job cards can be created with this
+            account.
           </div>
         )}
 
@@ -582,37 +683,6 @@ const CreateJobCard: React.FC = () => {
           imageUrl={vehicleData.imageUrl}
         />
 
-        {/* Job Type (AI-1) — Evolve RO <JobType>. Populated from the backend
-            job-types lookup. When the lookup is empty (Evolve source not yet
-            configured — client-dependent) the control is disabled and shows
-            "No Job Types configured."; the job card is still creatable and the
-            RO push falls back to the existing default. */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5">
-          <label className="block text-[13px] font-semibold text-[#333] mb-1.5">
-            Job Type {jobTypeOptions.length > 0 && <span className="text-red-500">*</span>}
-          </label>
-          {jobTypeOptions.length > 0 ? (
-            <select
-              value={jobType}
-              onChange={(e) => { setJobType(e.target.value); if (e.target.value) setJobTypeError(false); }}
-              className={`w-full border rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31] ${jobTypeError ? "border-red-500" : "border-[#e5e7eb]"}`}
-            >
-              <option value="">Select job type…</option>
-              {jobTypeOptions.map((jt) => (
-                <option key={jt.id} value={jt.code}>
-                  {jt.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
-              No Job Types configured.
-            </div>
-          )}
-          {jobTypeError && (
-            <p className="mt-1 text-[12px] text-red-500">Job type is required.</p>
-          )}
-        </div>
 
         {/* Summary card — collapsible. Header shows quick context so the
             advisor can decide whether to expand. */}
@@ -636,8 +706,7 @@ const CreateJobCard: React.FC = () => {
               )}
               {!summaryOpen && (
                 <span className="text-[11px] text-[#666] truncate">
-                  {vehicleData.customerName || "—"} ·{" "}
-                  {vehicleData.model || "—"}
+                  {vehicleData.customerName || "—"} · {vehicleData.model || "—"}
                   {qcReport?.appointment?.complaints?.length
                     ? ` · ${qcReport.appointment.complaints.length} complaint${qcReport.appointment.complaints.length > 1 ? "s" : ""}`
                     : ""}
@@ -648,56 +717,70 @@ const CreateJobCard: React.FC = () => {
 
           {summaryOpen && (
             <div className="px-4 pb-4 md:px-5 md:pb-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Customer</p>
-              <p className="text-[13px] text-[#333] font-medium">
-                {vehicleData.customerName || "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Vehicle</p>
-              <p className="text-[13px] text-[#333] font-medium">
-                {vehicleData.model || "—"}
-              </p>
-              <p className="text-[11px] text-[#999]">
-                {vehicleData.registration || ""}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Service Type</p>
-              <p className="text-[13px] text-[#333] font-medium">
-                {qcReport?.appointment?.serviceType
-                  ? qcReport.appointment.serviceType.replace(/_/g, " ")
-                  : "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">Appointment</p>
-              <p className="text-[13px] text-[#333] font-medium">
-                {qcReport?.appointment
-                  ? `${qcReport.appointment.appointmentDate} · ${qcReport.appointment.appointmentTime}`
-                  : "—"}
-              </p>
-            </div>
-          </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                    Customer
+                  </p>
+                  <p className="text-[13px] text-[#333] font-medium">
+                    {vehicleData.customerName || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                    Vehicle
+                  </p>
+                  <p className="text-[13px] text-[#333] font-medium">
+                    {vehicleData.model || "—"}
+                  </p>
+                  <p className="text-[11px] text-[#999]">
+                    {vehicleData.registration || ""}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                    Service Type
+                  </p>
+                  <p className="text-[13px] text-[#333] font-medium">
+                    {qcReport?.appointment?.serviceType
+                      ? qcReport.appointment.serviceType.replace(/_/g, " ")
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                    Appointment
+                  </p>
+                  <p className="text-[13px] text-[#333] font-medium">
+                    {qcReport?.appointment
+                      ? `${qcReport.appointment.appointmentDate} · ${qcReport.appointment.appointmentTime}`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
 
-          <div className="rounded-lg border border-[#FFE0D6] bg-[#FFF7F3] p-3">
-            <p className="text-[12px] font-semibold text-[#333] mb-2">
-              Customer Complaints
-            </p>
-            {qcReport?.appointment?.complaints && qcReport.appointment.complaints.length > 0 ? (
-              <ul className="list-disc pl-5 space-y-1">
-                {qcReport.appointment.complaints.map((c, i) => (
-                  <li key={i} className="text-[#444] text-[13px] leading-normal">{c}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[#999] text-[12px] italic">
-                No complaints recorded for this appointment.
-              </p>
-            )}
-          </div>
+              <div className="rounded-lg border border-[#FFE0D6] bg-[#FFF7F3] p-3">
+                <p className="text-[12px] font-semibold text-[#333] mb-2">
+                  Customer Complaints
+                </p>
+                {qcReport?.appointment?.complaints &&
+                qcReport.appointment.complaints.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-1">
+                    {qcReport.appointment.complaints.map((c, i) => (
+                      <li
+                        key={i}
+                        className="text-[#444] text-[13px] leading-normal"
+                      >
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[#999] text-[12px] italic">
+                    No complaints recorded for this appointment.
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -716,15 +799,17 @@ const CreateJobCard: React.FC = () => {
                 ) : (
                   <ChevronRight size={16} className="text-[#666]" />
                 )}
-                <h3 className="text-[14px] font-semibold text-[#333]">QC Inspection Report</h3>
+                <h3 className="text-[14px] font-semibold text-[#333]">
+                  QC Inspection Report
+                </h3>
                 {qcReport.overallStatus && (
                   <span
                     className={`text-[11px] font-semibold uppercase px-2 py-0.5 rounded ${
                       qcReport.overallStatus === "PASS"
                         ? "bg-green-100 text-green-700"
                         : qcReport.overallStatus === "FAIL"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-yellow-100 text-yellow-700"
                     }`}
                   >
                     {qcReport.overallStatus}
@@ -733,7 +818,13 @@ const CreateJobCard: React.FC = () => {
                 {!qcReportOpen && (
                   <span className="text-[11px] text-[#666]">
                     {qcReport.summary.passCount} pass ·{" "}
-                    <span className={qcReport.summary.failCount > 0 ? "text-red-600 font-semibold" : ""}>
+                    <span
+                      className={
+                        qcReport.summary.failCount > 0
+                          ? "text-red-600 font-semibold"
+                          : ""
+                      }
+                    >
                       {qcReport.summary.failCount} fail
                     </span>{" "}
                     · {qcReport.summary.warningCount} N/A
@@ -747,135 +838,240 @@ const CreateJobCard: React.FC = () => {
 
             {qcReportOpen && (
               <div className="px-4 pb-4 md:px-5 md:pb-5">
-            {qcReport.completedAt && (
-              <p className="text-[11px] text-[#999] mb-3">
-                Completed: {new Date(qcReport.completedAt).toLocaleDateString()}
-              </p>
-            )}
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div className="bg-[#fafafa] rounded-lg p-3">
-                <p className="text-[11px] text-[#999] uppercase">Total Items</p>
-                <p className="text-[16px] font-semibold text-[#333]">
-                  {qcReport.summary.totalItems}
-                </p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3">
-                <p className="text-[11px] text-green-700 uppercase">Pass</p>
-                <p className="text-[16px] font-semibold text-green-700">
-                  {qcReport.summary.passCount}
-                </p>
-              </div>
-              <div className="bg-red-50 rounded-lg p-3">
-                <p className="text-[11px] text-red-700 uppercase">Fail</p>
-                <p className="text-[16px] font-semibold text-red-700">
-                  {qcReport.summary.failCount}
-                </p>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-3">
-                <p className="text-[11px] text-yellow-700 uppercase">N/A</p>
-                <p className="text-[16px] font-semibold text-yellow-700">
-                  {qcReport.summary.warningCount}
-                </p>
-              </div>
-            </div>
-
-            {qcReport.failedItems.length > 0 && (
-              <div className="mb-4">
-                <p className="text-[12px] font-semibold text-[#333] mb-2">Failed Items</p>
-                <ul className="space-y-1">
-                  {qcReport.failedItems.map((item) => (
-                    <li
-                      key={item.id}
-                      className="text-[12px] text-[#444] flex flex-wrap items-baseline gap-2"
-                    >
-                      <span className="font-mono text-red-600">{item.itemCode}</span>
-                      <span>{item.itemLabel}</span>
-                      {item.comment && (
-                        <span className="text-[#999] italic">— {item.comment}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {qcReport.finalRemarks && (
-              <div className="mb-4">
-                <p className="text-[12px] font-semibold text-[#333] mb-1">Final Remarks</p>
-                <p className="text-[12px] text-[#666]">{qcReport.finalRemarks}</p>
-              </div>
-            )}
-
-            {qcReport.components.length > 0 && (
-              <div className="mb-4">
-                <p className="text-[12px] font-semibold text-[#333] mb-2">
-                  Components ({qcReport.components.length})
-                </p>
-                <div className="space-y-2">
-                  {qcReport.components.map((c, i) => (
-                    <div
-                      key={c.id}
-                      className="border border-[#E5E7EB] rounded-lg p-3 text-[12px]"
-                    >
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1">
-                        <span className="text-[#999]">#{i + 1}</span>
-                        <span className="font-semibold text-[#333]">
-                          {c.majorComponent || "—"}
-                        </span>
-                        <span className="text-[#666]">
-                          Item: {c.itemNumber || "—"}
-                        </span>
-                      </div>
-                      {c.comment && <p className="text-[#444]">{c.comment}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {qcReport.workshopRework &&
-              (qcReport.workshopRework.majorComponent ||
-                qcReport.workshopRework.technician ||
-                qcReport.workshopRework.itemNumber ||
-                qcReport.workshopRework.comments) && (
-                <div>
-                  <p className="text-[12px] font-semibold text-[#333] mb-2">
-                    Workshop Rework
+                {qcReport.completedAt && (
+                  <p className="text-[11px] text-[#999] mb-3">
+                    Completed:{" "}
+                    {new Date(qcReport.completedAt).toLocaleDateString()}
                   </p>
-                  <div className="border border-[#FFE0D6] bg-[#FFF7F3] rounded-lg p-3 text-[12px]">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-                      <div>
-                        <span className="text-[#999]">Component: </span>
-                        <span className="text-[#333]">
-                          {qcReport.workshopRework.majorComponent || "—"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[#999]">Technician: </span>
-                        <span className="text-[#333]">
-                          {qcReport.workshopRework.technician || "—"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[#999]">Item No: </span>
-                        <span className="text-[#333]">
-                          {qcReport.workshopRework.itemNumber || "—"}
-                        </span>
-                      </div>
-                    </div>
-                    {qcReport.workshopRework.comments && (
-                      <p className="text-[#444]">
-                        {qcReport.workshopRework.comments}
-                      </p>
-                    )}
+                )}
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-[#fafafa] rounded-lg p-3">
+                    <p className="text-[11px] text-[#999] uppercase">
+                      Total Items
+                    </p>
+                    <p className="text-[16px] font-semibold text-[#333]">
+                      {qcReport.summary.totalItems}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <p className="text-[11px] text-green-700 uppercase">Pass</p>
+                    <p className="text-[16px] font-semibold text-green-700">
+                      {qcReport.summary.passCount}
+                    </p>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-3">
+                    <p className="text-[11px] text-red-700 uppercase">Fail</p>
+                    <p className="text-[16px] font-semibold text-red-700">
+                      {qcReport.summary.failCount}
+                    </p>
+                  </div>
+                  <div className="bg-yellow-50 rounded-lg p-3">
+                    <p className="text-[11px] text-yellow-700 uppercase">N/A</p>
+                    <p className="text-[16px] font-semibold text-yellow-700">
+                      {qcReport.summary.warningCount}
+                    </p>
                   </div>
                 </div>
-              )}
+
+                {qcReport.failedItems.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[12px] font-semibold text-[#333] mb-2">
+                      Failed Items
+                    </p>
+                    <ul className="space-y-1">
+                      {qcReport.failedItems.map((item) => (
+                        <li
+                          key={item.id}
+                          className="text-[12px] text-[#444] flex flex-wrap items-baseline gap-2"
+                        >
+                          <span className="font-mono text-red-600">
+                            {item.itemCode}
+                          </span>
+                          <span>{item.itemLabel}</span>
+                          {item.comment && (
+                            <span className="text-[#999] italic">
+                              — {item.comment}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {qcReport.finalRemarks && (
+                  <div className="mb-4">
+                    <p className="text-[12px] font-semibold text-[#333] mb-1">
+                      Final Remarks
+                    </p>
+                    <p className="text-[12px] text-[#666]">
+                      {qcReport.finalRemarks}
+                    </p>
+                  </div>
+                )}
+
+                {qcReport.components.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[12px] font-semibold text-[#333] mb-2">
+                      Components ({qcReport.components.length})
+                    </p>
+                    <div className="space-y-2">
+                      {qcReport.components.map((c, i) => (
+                        <div
+                          key={c.id}
+                          className="border border-[#E5E7EB] rounded-lg p-3 text-[12px]"
+                        >
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1">
+                            <span className="text-[#999]">#{i + 1}</span>
+                            <span className="font-semibold text-[#333]">
+                              {c.majorComponent || "—"}
+                            </span>
+                            <span className="text-[#666]">
+                              Item: {c.itemNumber || "—"}
+                            </span>
+                          </div>
+                          {c.comment && (
+                            <p className="text-[#444]">{c.comment}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {qcReport.workshopRework &&
+                  (qcReport.workshopRework.majorComponent ||
+                    qcReport.workshopRework.technician ||
+                    qcReport.workshopRework.itemNumber ||
+                    qcReport.workshopRework.comments) && (
+                    <div>
+                      <p className="text-[12px] font-semibold text-[#333] mb-2">
+                        Workshop Rework
+                      </p>
+                      <div className="border border-[#FFE0D6] bg-[#FFF7F3] rounded-lg p-3 text-[12px]">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                          <div>
+                            <span className="text-[#999]">Component: </span>
+                            <span className="text-[#333]">
+                              {qcReport.workshopRework.majorComponent || "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[#999]">Technician: </span>
+                            <span className="text-[#333]">
+                              {qcReport.workshopRework.technician || "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[#999]">Item No: </span>
+                            <span className="text-[#333]">
+                              {qcReport.workshopRework.itemNumber || "—"}
+                            </span>
+                          </div>
+                        </div>
+                        {qcReport.workshopRework.comments && (
+                          <p className="text-[#444]">
+                            {qcReport.workshopRework.comments}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
           </div>
         )}
+
+                {/* Job Type (AI-1) — Evolve RO <JobType>. Populated from the backend
+            job-types lookup. When the lookup is empty (Evolve source not yet
+            configured — client-dependent) the control is disabled and shows
+            "No Job Types configured."; the job card is still creatable and the
+            RO push falls back to the existing default. */}
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5">
+          <label className="block text-[13px] font-semibold text-[#333] mb-1.5">
+            Job Type{" "}
+            {jobTypeOptions.length > 0 && (
+              <span className="text-red-500">*</span>
+            )}
+          </label>
+          {jobTypeOptions.length > 0 ? (
+            <select
+              value={jobType}
+              onChange={(e) => {
+                setJobType(e.target.value);
+                if (e.target.value) setJobTypeError(false);
+              }}
+              className={`w-full border rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31] ${jobTypeError ? "border-red-500" : "border-[#e5e7eb]"}`}
+            >
+              <option value="">Select job type…</option>
+              {jobTypeOptions.map((jt) => (
+                <option key={jt.id} value={jt.code}>
+                  {jt.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
+              No Job Types configured.
+            </div>
+          )}
+          {jobTypeError && (
+            <p className="mt-1 text-[12px] text-red-500">
+              Job type is required.
+            </p>
+          )}
+        </div>
+
+
+        {/* Franchise / Service Dept (AI-3) — two dependent dropdowns mirroring
+            Evolve's RO screen (Franchise → Service Dept). Optional: when empty
+            or unselected the RO push falls back to the existing default. */}
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5">
+          <label className="block text-[13px] font-semibold text-[#333] mb-1.5">
+            Franchise / Service Dept
+          </label>
+          {franchiseNames.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select
+                value={franchiseLabel}
+                onChange={(e) => {
+                  setFranchiseLabel(e.target.value);
+                  setFranchiseServiceDeptId("");
+                }}
+                className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31]"
+              >
+                <option value="">Select franchise…</option>
+                {franchiseNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={franchiseServiceDeptId}
+                onChange={(e) => setFranchiseServiceDeptId(e.target.value)}
+                disabled={!franchiseLabel}
+                className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31] disabled:bg-[#f5f5f5] disabled:text-[#999]"
+              >
+                <option value="">
+                  {franchiseLabel
+                    ? "Select service dept…"
+                    : "Select franchise first"}
+                </option>
+                {serviceDeptOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.serviceDeptLabel}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
+              No Franchises configured.
+            </div>
+          )}
+        </div>
 
         {/* Suggested Jobs Chips — commented out for now
         <SuggestedJobsChips
@@ -911,8 +1107,8 @@ const CreateJobCard: React.FC = () => {
         <JobCardActions
           jobCount={jobs.length}
           total={total}
-          onSaveDraft={() => saveAndNavigate('draft')}
-          onShareEstimate={() => saveAndNavigate('estimate')}
+          onSaveDraft={() => saveAndNavigate("draft")}
+          onShareEstimate={() => saveAndNavigate("estimate")}
           savingType={savingType}
         />
       </div>
