@@ -473,6 +473,35 @@ const JobCardDetail: React.FC = () => {
         )}
       </div>
 
+      {/* Estimate edited after creation → parts must be re-confirmed before sharing. */}
+      {jobCard.partsReconfirmationRequired && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+          <AlertCircle size={20} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-700 mb-1">Parts Reconfirmation Required</p>
+            <p className="text-sm text-amber-600">
+              This job card was modified, so the estimate is outdated. Parts must be re-confirmed before it can be shared with the customer.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Edit action for the estimate/approval-phase statuses that don't already
+          render their own Edit button (DRAFT and MODIFICATION_REQUESTED do, below).
+          Editing is blocked once work starts (IN_PROGRESS and later). */}
+      {["PENDING_PARTS", "PARTS_CONFIRMED", "SHARED", "APPROVED", "PARTIALLY_APPROVED"].includes(jobCard.status) && (
+        <div>
+          <Button
+            variant="outline"
+            className="w-full md:w-auto"
+            icon={<Pencil size={18} />}
+            onClick={() => navigate(`/service-advisor-dashboard/job-card/${jobCard.vehicleId}?editJobCardId=${jobCard.id}`)}
+          >
+            Edit Job Card
+          </Button>
+        </div>
+      )}
+
       {/* Warranty clerk — accept the shared estimate on the customer's behalf. */}
       {warrantyOnly && (jobCard.status === "SHARED" || jobCard.status === "MODIFICATION_REQUESTED") && (
         <div className="bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-4 flex flex-col gap-3">
@@ -586,7 +615,7 @@ const JobCardDetail: React.FC = () => {
         </div>
       )}
 
-      {jobCard.status === "PARTS_CONFIRMED" && (
+      {jobCard.status === "PARTS_CONFIRMED" && !jobCard.partsReconfirmationRequired && (
         <div className="flex flex-col gap-3">
           <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
             <CheckCircle2 size={20} className="text-teal-500 shrink-0" />

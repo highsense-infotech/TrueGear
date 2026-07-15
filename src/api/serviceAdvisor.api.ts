@@ -221,6 +221,9 @@ export interface SAJobCard {
   jobType: string | null;
   // Evolve RO Franchise / Service Dept selection (AI-3) — chosen labeled pair id.
   franchiseServiceDeptId: string | null;
+  // Set when an estimate-affecting edit invalidated the parts confirmation while
+  // status was preserved — blocks sharing until parts are re-confirmed.
+  partsReconfirmationRequired?: boolean;
   description: string | null;
   // Evolve RO sync status (surfaced on the job-card detail page).
   evolveSyncStatus: string | null;
