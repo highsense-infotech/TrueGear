@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
 import { useCurrency, CURRENCIES } from "../../context/CurrencyContext";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
+import { useAuth } from "../../context/AuthContext";
+import { MODULES, ACTIONS } from "../../constants/permissions";
+import EmailSettings from "./EmailSettings";
 
 const Settings: React.FC = () => {
   const { currency, setCurrency, taxConfig, setTaxPercentage } = useCurrency();
+  const { hasPermission } = useAuth();
+  const canManageEmail = hasPermission(MODULES.ROLE_MANAGEMENT, ACTIONS.EDIT);
   const [taxInput, setTaxInput] = useState(String(taxConfig.percentage));
 
   // Sync input when currency changes
@@ -79,6 +84,13 @@ const Settings: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Email (SMTP) — admin only */}
+      {canManageEmail && (
+        <div className="mt-6">
+          <EmailSettings />
+        </div>
+      )}
     </>
   );
 };
