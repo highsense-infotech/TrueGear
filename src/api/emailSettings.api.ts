@@ -1,26 +1,44 @@
 import api from './axios';
 import type { ApiResponse } from './types';
 
-// Admin SMTP settings. The password is never returned — `passwordConfigured`
-// tells the UI whether one is stored.
+export type MailAuthType = 'BASIC' | 'MICROSOFT_OAUTH2';
+
+// Admin email settings. Secrets are never returned — `passwordConfigured` /
+// `clientSecretConfigured` tell the UI whether one is stored.
 export interface EmailSettings {
+  authType: MailAuthType;
   host: string;
   port: number;
   secure: boolean;
+  // BASIC
   username: string;
+  // MICROSOFT_OAUTH2
+  tenantId: string;
+  clientId: string;
+  senderEmail: string;
+  // Common
   fromName: string;
   fromEmail: string;
   replyTo: string;
   enabled: boolean;
   passwordConfigured: boolean;
+  clientSecretConfigured: boolean;
 }
 
 export interface UpdateEmailSettingsPayload {
+  authType: MailAuthType;
   host: string;
   port: number;
   secure: boolean;
-  username: string;
+  // BASIC
+  username?: string;
   password?: string; // blank/omitted → keep the existing password
+  // MICROSOFT_OAUTH2
+  tenantId?: string;
+  clientId?: string;
+  clientSecret?: string; // blank/omitted → keep the existing client secret
+  senderEmail?: string;
+  // Common
   fromName?: string | null;
   fromEmail: string;
   replyTo?: string | null;

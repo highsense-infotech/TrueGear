@@ -8,6 +8,7 @@ import {
   updateEmailSettings,
   sendTestEmail,
   type EmailSettings as EmailSettingsData,
+  type MailAuthType,
 } from "../../api/emailSettings.api";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,12 +37,21 @@ const EmailSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [passwordConfigured, setPasswordConfigured] = useState(false);
+  const [clientSecretConfigured, setClientSecretConfigured] = useState(false);
 
+  const [authType, setAuthType] = useState<MailAuthType>("BASIC");
   const [host, setHost] = useState("");
   const [port, setPort] = useState("587");
   const [secure, setSecure] = useState(false);
+  // BASIC
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  // MICROSOFT_OAUTH2
+  const [tenantId, setTenantId] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [senderEmail, setSenderEmail] = useState("");
+  // Common
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [replyTo, setReplyTo] = useState("");
@@ -51,21 +61,28 @@ const EmailSettings: React.FC = () => {
   const [testTo, setTestTo] = useState("");
   const [testing, setTesting] = useState(false);
 
+  const isOAuth = authType === "MICROSOFT_OAUTH2";
+
   useEffect(() => {
     (async () => {
       try {
         const res = await getEmailSettings();
         if (res.success && res.data) {
           const d: EmailSettingsData = res.data;
+          setAuthType(d.authType ?? "BASIC");
           setHost(d.host ?? "");
           setPort(String(d.port ?? 587));
           setSecure(!!d.secure);
           setUsername(d.username ?? "");
+          setTenantId(d.tenantId ?? "");
+          setClientId(d.clientId ?? "");
+          setSenderEmail(d.senderEmail ?? "");
           setFromName(d.fromName ?? "");
           setFromEmail(d.fromEmail ?? "");
           setReplyTo(d.replyTo ?? "");
           setEnabled(!!d.enabled);
           setPasswordConfigured(!!d.passwordConfigured);
+          setClientSecretConfigured(!!d.clientSecretConfigured);
         }
       } catch (e: any) {
         toast.error(e?.response?.data?.error?.message ?? "Failed to load email settings");
@@ -79,7 +96,15 @@ const EmailSettings: React.FC = () => {
     if (!host.trim()) return "SMTP host is required";
     const p = Number(port);
     if (!port.trim() || !Number.isInteger(p) || p < 1 || p > 65535) return "Port must be a number between 1 and 65535";
-    if (!username.trim()) return "Username is required";
+    if (isOAuth) {
+      if (!tenantId.trim()) return "Tenant ID is required";
+      if (!clientId.trim()) return "Client ID is required";
+      if (!clientSecretConfigured && !clientSecret.trim()) return "Client secret is required";
+      if (!EMAIL_RE.test(senderEmail.trim())) return "A valid sender email is required";
+    } else {
+      if (!username.trim()) return "Username is required";
+      if (!passwordConfigured && !password.trim()) return "Password is required";
+    }
     if (!EMAIL_RE.test(fromEmail.trim())) return "A valid From email is required";
     if (replyTo.trim() && !EMAIL_RE.test(replyTo.trim())) return "Reply-To must be a valid email";
     return null;
@@ -91,12 +116,22 @@ const EmailSettings: React.FC = () => {
     setSaving(true);
     try {
       const res = await updateEmailSettings({
+        authType,
         host: host.trim(),
         port: Number(port),
         secure,
-        username: username.trim(),
-        // Only send a password when the admin typed one; blank keeps the existing.
-        ...(password.trim() ? { password: password.trim() } : {}),
+        ...(isOAuth
+          ? {
+              tenantId: tenantId.trim(),
+              clientId: clientId.trim(),
+              senderEmail: senderEmail.trim(),
+              // Only send a secret when the admin typed one; blank keeps the existing.
+              ...(clientSecret.trim() ? { clientSecret: clientSecret.trim() } : {}),
+            }
+          : {
+              username: username.trim(),
+              ...(password.trim() ? { password: password.trim() } : {}),
+            }),
         fromName: fromName.trim() || null,
         fromEmail: fromEmail.trim(),
         replyTo: replyTo.trim() || null,
@@ -105,7 +140,9 @@ const EmailSettings: React.FC = () => {
       if (res.success) {
         toast.success("Email settings saved");
         setPassword("");
+        setClientSecret("");
         setPasswordConfigured(res.data?.passwordConfigured ?? passwordConfigured);
+        setClientSecretConfigured(res.data?.clientSecretConfigured ?? clientSecretConfigured);
       } else {
         toast.error(res.error?.message ?? "Failed to save settings");
       }
@@ -152,29 +189,69 @@ const EmailSettings: React.FC = () => {
       <p className="text-[#999] text-xs mb-6">Configure the SMTP server used to send all outgoing emails.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="md:col-span-2">
+          <label className={labelCls}>Authentication Type</label>
+          <select className={inputCls} value={authType} onChange={(e) => setAuthType(e.target.value as MailAuthType)}>
+            <option value="BASIC">Basic (Username &amp; Password)</option>
+            <option value="MICROSOFT_OAUTH2">Microsoft 365 (OAuth 2.0)</option>
+          </select>
+        </div>
+
         <div>
           <label className={labelCls}>SMTP Host</label>
-          <input className={inputCls} value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.gmail.com" />
+          <input className={inputCls} value={host} onChange={(e) => setHost(e.target.value)} placeholder={isOAuth ? "smtp.office365.com" : "smtp.gmail.com"} />
         </div>
         <div>
           <label className={labelCls}>SMTP Port</label>
           <input className={inputCls} value={port} onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="587" />
         </div>
-        <div>
-          <label className={labelCls}>Username</label>
-          <input className={inputCls} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="user@company.com" autoComplete="off" />
-        </div>
-        <div>
-          <label className={labelCls}>Password</label>
-          <input
-            className={inputCls}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={passwordConfigured ? "•••••••• (leave blank to keep)" : "Enter SMTP password"}
-            autoComplete="new-password"
-          />
-        </div>
+
+        {isOAuth ? (
+          <>
+            <div>
+              <label className={labelCls}>Tenant ID</label>
+              <input className={inputCls} value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="Directory (tenant) ID" autoComplete="off" />
+            </div>
+            <div>
+              <label className={labelCls}>Client ID</label>
+              <input className={inputCls} value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Application (client) ID" autoComplete="off" />
+            </div>
+            <div>
+              <label className={labelCls}>Client Secret</label>
+              <input
+                className={inputCls}
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                placeholder={clientSecretConfigured ? "•••••••• (leave blank to keep)" : "Enter client secret"}
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Sender Email (Mailbox)</label>
+              <input className={inputCls} value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="noreply@company.com" autoComplete="off" />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className={labelCls}>Username</label>
+              <input className={inputCls} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="user@company.com" autoComplete="off" />
+            </div>
+            <div>
+              <label className={labelCls}>Password</label>
+              <input
+                className={inputCls}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={passwordConfigured ? "•••••••• (leave blank to keep)" : "Enter SMTP password"}
+                autoComplete="new-password"
+              />
+            </div>
+          </>
+        )}
+
         <div>
           <label className={labelCls}>From Name</label>
           <input className={inputCls} value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="ELT Group" />
@@ -219,7 +296,7 @@ const EmailSettings: React.FC = () => {
               placeholder="you@example.com"
               onKeyDown={(e) => { if (e.key === "Enter" && !testing) handleSendTest(); }}
             />
-            <p className="mt-2 text-xs text-[#999]">Uses the currently saved SMTP settings. Save any changes first.</p>
+            <p className="mt-2 text-xs text-[#999]">Uses the currently saved settings. Save any changes first.</p>
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setTestOpen(false)} disabled={testing} className="w-full sm:w-auto">
