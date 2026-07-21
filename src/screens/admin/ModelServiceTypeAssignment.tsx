@@ -148,8 +148,12 @@ const ModelServiceTypeAssignment: React.FC = () => {
         }
 
         if (scRes.success && Array.isArray(scRes.data)) {
+          // Match the job-card page: only offer B / C / D Service.
+          const allowedCodes = ["B_SERVICE", "C_SERVICE", "D_SERVICE"];
           setServiceCategoryOptions(
-            scRes.data.map((s: any) => ({ id: s.id ?? s._id, name: s.name }))
+            scRes.data
+              .filter((s: any) => allowedCodes.includes(s.code))
+              .map((s: any) => ({ id: s.id ?? s._id, name: s.name }))
           );
         }
 
