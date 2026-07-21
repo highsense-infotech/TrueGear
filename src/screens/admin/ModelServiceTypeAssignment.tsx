@@ -114,9 +114,11 @@ const ModelServiceTypeAssignment: React.FC = () => {
       if (search.trim()) params.search = search.trim();
       const { data } = await api.get("/model-service-type-assignments", { params });
       if (data?.success) {
-        setAssignments(Array.isArray(data.data) ? data.data : []);
-        setTotalPages(data.totalPages ?? 1);
-        setTotalItems(data.total ?? 0);
+        // API envelope is { success, data: { data: rows, total, totalPages }, error }
+        const payload = data.data ?? {};
+        setAssignments(Array.isArray(payload.data) ? payload.data : []);
+        setTotalPages(payload.totalPages ?? 1);
+        setTotalItems(payload.total ?? 0);
       }
     } catch {
       toast.error("Failed to load assignments");
