@@ -11,6 +11,7 @@ interface JobDetailsProps {
   calculateLineTotal: (job: Job) => number;
   jobErrors?: Record<number, JobErrors>;
   serviceTypeOptions?: DropdownOption[];
+  jobTypeOptions?: { code: string; name: string }[];
   onServiceCategoryChange?: (
     jobId: number,
     categoryCode: string,
@@ -30,6 +31,7 @@ export function JobDetails({
   calculateLineTotal,
   jobErrors,
   serviceTypeOptions,
+  jobTypeOptions,
   onServiceCategoryChange,
   onAddPaidPart,
   onRemovePaidPart,
@@ -73,6 +75,7 @@ export function JobDetails({
             calculateLineTotal={calculateLineTotal}
             errors={jobErrors?.[job.id]}
             serviceTypeOptions={serviceTypeOptions}
+            jobTypeOptions={jobTypeOptions}
             onServiceCategoryChange={onServiceCategoryChange}
             onAddPaidPart={onAddPaidPart}
             onRemovePaidPart={onRemovePaidPart}

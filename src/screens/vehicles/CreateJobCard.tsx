@@ -77,14 +77,11 @@ const CreateJobCard: React.FC = () => {
     DropdownOption[]
   >([]);
 
-  // Evolve Job Type (AI-1) — card-level selection sent to the RO. Options come
+  // Evolve Job Type (AI-1) — now selected PER JOB (see JobRow). Options come
   // from the backend job-types lookup; empty until the Evolve lookup is
-  // configured (client-dependent), in which case the UI shows a disabled
-  // "No Job Types configured." state and jobType stays empty (backend defaults
-  // to 'INT' at RO push).
+  // configured (client-dependent), in which case each job's Job Type control is
+  // hidden and the RO push falls back to the 'INT' default.
   const [jobTypeOptions, setJobTypeOptions] = useState<JobTypeItem[]>([]);
-  const [jobType, setJobType] = useState<string>("");
-  const [jobTypeError, setJobTypeError] = useState(false);
 
   // Evolve Franchise / Service Dept (AI-3) — two dependent dropdowns mirroring
   // the Evolve RO screen. Options are the labeled franchise_service_departments
@@ -190,14 +187,14 @@ const CreateJobCard: React.FC = () => {
           );
         }
 
-        // Edit mode: reconstruct separate job rows grouped by serviceType + serviceCategory
+        // Edit mode: reconstruct separate job rows grouped by jobGroup (the job
+        // each item belonged to at creation). Grouping by serviceType/category
+        // used to merge two jobs that shared a service type (e.g. two "Repair"
+        // jobs) into one; jobGroup keeps them separate.
         if (editJobCardId) {
           const jobCardRes = await getJobCardDetail(editJobCardId);
           if (!jobCardRes.data) return;
-          // Prefill the Job Type (AI-1) if the card already has one.
-          if (jobCardRes.data.jobCard?.jobType) {
-            setJobType(jobCardRes.data.jobCard.jobType);
-          }
+          // Job Type is prefilled per job during item reconstruction below.
           // Prefill the Franchise / Service Dept (AI-3) selection if present;
           // the dependent franchiseLabel is derived from the options via effect.
           if (jobCardRes.data.jobCard?.franchiseServiceDeptId) {
@@ -213,13 +210,15 @@ const CreateJobCard: React.FC = () => {
             for (const item of existingItems as any[]) {
               const isPaidService = item.serviceType === "Repair";
               const hasCategory = Boolean(item.serviceCategory);
+              // The job this item belonged to at creation. Items only merge into
+              // the same reconstructed row when they share this group.
+              const jobGroup = Number(item.jobGroup ?? 1);
 
               if (hasCategory) {
-                // Group into an autoParts job row keyed by serviceType + serviceCategory
-                const groupKey = `${item.serviceType || ""}||${item.serviceCategory}`;
+                // Group into an autoParts job row scoped to its jobGroup.
                 const existing = reconstructed.find(
                   (j) =>
-                    `${j.serviceType}||${j.serviceCategory}` === groupKey &&
+                    (j as any).__jobGroup === jobGroup &&
                     Array.isArray(j.autoParts),
                 );
                 const autoPart = {
@@ -245,13 +244,19 @@ const CreateJobCard: React.FC = () => {
                     serviceType: item.serviceType || "",
                     serviceCategory: item.serviceCategory || "",
                     autoParts: [autoPart],
-                  });
+                    jobType: item.jobType || "",
+                    estimatedHours: item.estimatedHours != null ? String(item.estimatedHours) : "",
+                    __jobGroup: jobGroup,
+                  } as any);
                 }
               } else if (isPaidService) {
-                // Group into a paidParts job row
+                // Group into a paidParts job row scoped to its jobGroup, so two
+                // separate "Repair" jobs stay as two rows.
                 const existing = reconstructed.find(
                   (j) =>
-                    j.serviceType === "Repair" && Array.isArray(j.paidParts),
+                    (j as any).__jobGroup === jobGroup &&
+                    j.serviceType === "Repair" &&
+                    Array.isArray(j.paidParts),
                 );
                 const paidPart = {
                   id: item.id,
@@ -276,7 +281,10 @@ const CreateJobCard: React.FC = () => {
                     serviceType: "Repair",
                     serviceCategory: "",
                     paidParts: [paidPart],
-                  });
+                    jobType: item.jobType || "",
+                    estimatedHours: item.estimatedHours != null ? String(item.estimatedHours) : "",
+                    __jobGroup: jobGroup,
+                  } as any);
                 }
               } else {
                 // Manual row — each item is its own job
@@ -289,7 +297,10 @@ const CreateJobCard: React.FC = () => {
                   quantity: item.quantity || 1,
                   serviceType: item.serviceType || "",
                   serviceCategory: "",
-                });
+                  jobType: item.jobType || "",
+                  estimatedHours: item.estimatedHours != null ? String(item.estimatedHours) : "",
+                  __jobGroup: jobGroup,
+                } as any);
               }
             }
 
@@ -490,20 +501,18 @@ const CreateJobCard: React.FC = () => {
     const errors: Record<number, JobErrors> = {};
     let hasError = false;
 
-    // Job Type is mandatory whenever job types are configured (only skipped when
-    // the lookup is empty, so an unseeded deployment isn't hard-blocked).
-    if (jobTypeOptions.length > 0 && !jobType) {
-      setJobTypeError(true);
-      hasError = true;
-    } else {
-      setJobTypeError(false);
-    }
-
     jobs.forEach((job) => {
       const err: JobErrors = {};
       const isPaidService = job.serviceType === "Repair";
       const hasAutoParts = job.autoParts && job.autoParts.length > 0;
       const hasPaidParts = job.paidParts && job.paidParts.length > 0;
+
+      // Job Type is mandatory per job whenever job types are configured (skipped
+      // only when the lookup is empty, so an unseeded deployment isn't blocked).
+      if (jobTypeOptions.length > 0 && !job.jobType) {
+        err.jobType = "Job type is required";
+        hasError = true;
+      }
 
       if (!job.serviceType) {
         err.serviceType = "Service type is required";
@@ -603,9 +612,14 @@ const CreateJobCard: React.FC = () => {
         return {
           serviceType: job.serviceType || null,
           serviceCategory: job.serviceCategory || null,
+          jobType: job.jobType || null,
+          estimatedHours: job.estimatedHours ? Number(job.estimatedHours) : null,
           items,
         };
       });
+
+      // Card-level jobType kept for backward compatibility = first job's type.
+      const cardJobType = jobsPayload.find((j) => j.jobType)?.jobType || undefined;
 
       if (isEditMode) {
         const res = await updateJobCard(editJobCardId, {
@@ -614,7 +628,7 @@ const CreateJobCard: React.FC = () => {
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
           // Empty → undefined so an unset selection preserves the existing value.
-          jobType: jobType || undefined,
+          jobType: cardJobType,
           // Franchise / Service Dept selection (AI-3). Empty → undefined preserves.
           franchiseServiceDeptId: franchiseServiceDeptId || undefined,
         });
@@ -632,7 +646,7 @@ const CreateJobCard: React.FC = () => {
           taxPercentage: taxConfig.percentage,
           currencyCode: currency,
           // Empty → undefined → backend stores NULL → 'INT' default at RO push.
-          jobType: jobType || undefined,
+          jobType: cardJobType,
           // Franchise / Service Dept selection (AI-3). Empty → NULL → '1'/'1'.
           franchiseServiceDeptId: franchiseServiceDeptId || undefined,
         });
@@ -983,46 +997,7 @@ const CreateJobCard: React.FC = () => {
           </div>
         )}
 
-                {/* Job Type (AI-1) — Evolve RO <JobType>. Populated from the backend
-            job-types lookup. When the lookup is empty (Evolve source not yet
-            configured — client-dependent) the control is disabled and shows
-            "No Job Types configured."; the job card is still creatable and the
-            RO push falls back to the existing default. */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5">
-          <label className="block text-[13px] font-semibold text-[#333] mb-1.5">
-            Job Type{" "}
-            {jobTypeOptions.length > 0 && (
-              <span className="text-red-500">*</span>
-            )}
-          </label>
-          {jobTypeOptions.length > 0 ? (
-            <select
-              value={jobType}
-              onChange={(e) => {
-                setJobType(e.target.value);
-                if (e.target.value) setJobTypeError(false);
-              }}
-              className={`w-full border rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31] ${jobTypeError ? "border-red-500" : "border-[#e5e7eb]"}`}
-            >
-              <option value="">Select job type…</option>
-              {jobTypeOptions.map((jt) => (
-                <option key={jt.id} value={jt.code}>
-                  {jt.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
-              No Job Types configured.
-            </div>
-          )}
-          {jobTypeError && (
-            <p className="mt-1 text-[12px] text-red-500">
-              Job type is required.
-            </p>
-          )}
-        </div>
-
+        {/* Job Type moved to per-job (see each Job row in Job Details below). */}
 
         {/* Franchise / Service Dept (AI-3) — two dependent dropdowns mirroring
             Evolve's RO screen (Franchise → Service Dept). Optional: when empty
@@ -1090,6 +1065,7 @@ const CreateJobCard: React.FC = () => {
           calculateLineTotal={calculateLineTotal}
           jobErrors={jobErrors}
           serviceTypeOptions={serviceTypeOptions}
+          jobTypeOptions={jobTypeOptions.map((jt) => ({ code: jt.code, name: jt.name }))}
           onServiceCategoryChange={handleServiceCategoryChange}
           onAddPaidPart={addPaidPart}
           onRemovePaidPart={removePaidPart}

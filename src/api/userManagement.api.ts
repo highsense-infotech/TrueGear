@@ -23,6 +23,8 @@ export interface ManagedUser {
   warrantyOnly?: boolean;
   // Evolve technician mapping (only set for technician users).
   evolveTechnicianNo?: number | null;
+  // Evolve service-advisor mapping (only set for service-advisor users).
+  evolveSaNumber?: number | null;
   // Technician profile (only set for technician users). ability may serialize as
   // a string from the DB numeric column. designationId → designations master.
   ability?: number | string | null;
@@ -85,6 +87,7 @@ export const createUser = (data: {
   shopScope?: ShopScope;
   warrantyOnly?: boolean;
   evolveTechnicianNo?: number | null;
+  evolveSaNumber?: number | null;
   ability?: number | null;
   designationId?: string | null;
 }): Promise<ApiResponse<ManagedUser>> =>
@@ -100,11 +103,35 @@ export const updateUser = (
     shopScope?: ShopScope;
     warrantyOnly?: boolean;
     evolveTechnicianNo?: number | null;
+    evolveSaNumber?: number | null;
     ability?: number | null;
     designationId?: string | null;
   },
 ): Promise<ApiResponse<ManagedUser>> =>
   api.put(`/user-management/users/${id}`, data).then((res) => res.data);
+
+// ─── Evolve Service Advisor Mapping (admin-only) ───────────────────────────────
+// Maps local service-advisor users to their Evolve SANumber (RO ServiceAdvisorNumber).
+
+export interface EvolveServiceAdvisor {
+  saNumber: number;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+}
+
+/** Active Evolve service advisors (live from Evolve) for the mapping picker. */
+export const listEvolveServiceAdvisors = (): Promise<ApiResponse<EvolveServiceAdvisor[]>> =>
+  api.get('/user-management/evolve-service-advisors').then((res) => res.data);
+
+/** Set (number) or clear (null) a service advisor's Evolve SANumber. */
+export const setUserEvolveSaNumber = (
+  userId: string,
+  evolveSaNumber: number | null,
+): Promise<ApiResponse<{ userId: string; evolveSaNumber: number | null }>> =>
+  api
+    .put(`/user-management/users/${userId}/evolve-sa-number`, { evolveSaNumber })
+    .then((res) => res.data);
 
 export const deleteUser = (id: string): Promise<ApiResponse<null>> =>
   api.delete(`/user-management/users/${id}`).then((res) => res.data);

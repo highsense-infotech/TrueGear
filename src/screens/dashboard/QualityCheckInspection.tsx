@@ -267,21 +267,8 @@ const QualityCheckInspection: React.FC = () => {
         // Findings summary is view-only, no validation needed
         break;
       case 5: {
-        // Components — every row must have all three fields filled
-        components.forEach((c, idx) => {
-          if (!c.majorComponent?.trim()) {
-            newErrors[`comp_${idx}_majorComponent`] = "Major component is required";
-            isValid = false;
-          }
-          if (!c.itemNumber?.trim()) {
-            newErrors[`comp_${idx}_itemNumber`] = "Item number is required";
-            isValid = false;
-          }
-          if (!c.comment?.trim()) {
-            newErrors[`comp_${idx}_comment`] = "Comment is required";
-            isValid = false;
-          }
-        });
+        // Components — Major Component / Item Number / Comment are all OPTIONAL.
+        // No per-field validation; the row can be left blank.
 
         // Workshop Rework — optional (only relevant for post-repair
         // re-inspections, not first-time entry QC). Skip validation entirely.
@@ -791,7 +778,7 @@ const QualityCheckInspection: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-3">
                   <div>
-                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Major Component <span className="text-red-500">*</span></label>
+                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Major Component</label>
                     <input
                       className={`w-full border rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none ${errors[`comp_${idx}_majorComponent`] ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#ff5100]"}`}
                       placeholder="Enter major component"
@@ -807,7 +794,7 @@ const QualityCheckInspection: React.FC = () => {
                     )}
                   </div>
                   <div>
-                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Item Number <span className="text-red-500">*</span></label>
+                    <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Item Number</label>
                     <input
                       className={`w-full border rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none ${errors[`comp_${idx}_itemNumber`] ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#ff5100]"}`}
                       placeholder="Enter item number"
@@ -824,7 +811,7 @@ const QualityCheckInspection: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Comment <span className="text-red-500">*</span></label>
+                  <label className="text-[12px] font-bold text-[#333] uppercase mb-1 block">Comment</label>
                   <textarea
                     className={`w-full border rounded-lg px-3 py-2 text-sm text-[#333] placeholder-[#bbb] focus:outline-none resize-none ${errors[`comp_${idx}_comment`] ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#ff5100]"}`}
                     rows={3}

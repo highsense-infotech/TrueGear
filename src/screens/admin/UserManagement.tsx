@@ -29,11 +29,13 @@ import {
   getRolePermissions,
   updateRolePermissions,
   listEvolveTechnicians,
+  listEvolveServiceAdvisors,
   type ManagedRole,
   type ManagedUser,
   type RolePermission,
   type ShopScope,
   type EvolveTechnician,
+  type EvolveServiceAdvisor,
 } from "../../api/userManagement.api.ts";
 import { listActiveDesignations, type Designation } from "../../api/designation.api.ts";
 import { MODULES, ACTIONS } from "../../constants/permissions.ts";
@@ -760,6 +762,7 @@ function UsersTab() {
     shopScope: "ALL" as ShopScope,
     warrantyOnly: false,
     evolveTechnicianNo: null as number | null,
+    evolveSaNumber: null as number | null,
     ability: "",
     designationId: "",
   });
@@ -776,6 +779,7 @@ function UsersTab() {
     shopScope: "ALL" as ShopScope,
     warrantyOnly: false,
     evolveTechnicianNo: null as number | null,
+    evolveSaNumber: null as number | null,
     ability: "",
     designationId: "",
   });
@@ -787,6 +791,11 @@ function UsersTab() {
   const [evolveTechs, setEvolveTechs] = useState<EvolveTechnician[]>([]);
   const [evolveTechsLoading, setEvolveTechsLoading] = useState(false);
   const [evolveTechsLoaded, setEvolveTechsLoaded] = useState(false);
+
+  // Evolve service advisors — lazy-loaded when a service-advisor role is selected.
+  const [evolveSAs, setEvolveSAs] = useState<EvolveServiceAdvisor[]>([]);
+  const [evolveSAsLoading, setEvolveSAsLoading] = useState(false);
+  const [evolveSAsLoaded, setEvolveSAsLoaded] = useState(false);
 
   // Active designations — lazy-loaded when a technician role is selected. The
   // dropdown lists only active designations; an existing user's inactive
@@ -889,6 +898,27 @@ function UsersTab() {
     name: `${t.displayName} · #${t.technicianNo}`,
   }));
 
+  // Active Evolve service advisors — lazy-loaded when a service-advisor role is
+  // selected, so non-SA forms never block on Evolve.
+  const loadEvolveServiceAdvisors = async () => {
+    if (evolveSAsLoaded || evolveSAsLoading) return;
+    setEvolveSAsLoading(true);
+    try {
+      const res = await listEvolveServiceAdvisors();
+      setEvolveSAs(res.data ?? []);
+      setEvolveSAsLoaded(true);
+    } catch {
+      toast.error("Failed to load Evolve service advisors");
+    } finally {
+      setEvolveSAsLoading(false);
+    }
+  };
+
+  const saOptions = evolveSAs.map((s) => ({
+    id: String(s.saNumber),
+    name: `${s.displayName} · #${s.saNumber}`,
+  }));
+
   const loadDesignations = async () => {
     if (designationsLoaded || designationsLoading) return;
     setDesignationsLoading(true);
@@ -919,12 +949,14 @@ function UsersTab() {
       shopScope: "ALL",
       warrantyOnly: false,
       evolveTechnicianNo: null,
+      evolveSaNumber: null,
       ability: "",
       designationId: "",
     });
     setCreateUsernameError("");
     setCreateModalOpen(true);
     if (initialRole === "technician") loadTechnicianLookups();
+    if (initialRole === "service-advisor") void loadEvolveServiceAdvisors();
   };
 
   const handleCreate = async () => {
@@ -940,6 +972,10 @@ function UsersTab() {
     }
     if (roleSlug === "technician" && createForm.evolveTechnicianNo == null) {
       toast.error("Please select an Evolve Technician");
+      return;
+    }
+    if (roleSlug === "service-advisor" && createForm.evolveSaNumber == null) {
+      toast.error("Please select an Evolve Service Advisor");
       return;
     }
     if (createForm.ability !== "") {
@@ -976,12 +1012,14 @@ function UsersTab() {
       shopScope: user.shopScope ?? "ALL",
       warrantyOnly: user.warrantyOnly ?? false,
       evolveTechnicianNo: user.evolveTechnicianNo ?? null,
+      evolveSaNumber: user.evolveSaNumber ?? null,
       ability: user.ability != null ? String(user.ability) : "",
       designationId: user.designationId ?? "",
     });
     setEditUsernameError("");
     setEditModalOpen(true);
     if (user.role.slug === "technician") loadTechnicianLookups();
+    if (user.role.slug === "service-advisor") void loadEvolveServiceAdvisors();
   };
 
   const handleEdit = async () => {
@@ -993,6 +1031,10 @@ function UsersTab() {
     }
     if (editForm.roleSlug === "technician" && editForm.evolveTechnicianNo == null) {
       toast.error("Please select an Evolve Technician");
+      return;
+    }
+    if (editForm.roleSlug === "service-advisor" && editForm.evolveSaNumber == null) {
+      toast.error("Please select an Evolve Service Advisor");
       return;
     }
     if (editForm.ability !== "") {
@@ -1374,14 +1416,17 @@ function UsersTab() {
               onChange={(e) => {
                 const roleSlug = e.target.value;
                 const isTech = roleSlug === "technician";
+                const isSA = roleSlug === "service-advisor";
                 setCreateForm((f) => ({
                   ...f,
                   roleSlug,
                   evolveTechnicianNo: isTech ? f.evolveTechnicianNo : null,
+                  evolveSaNumber: isSA ? f.evolveSaNumber : null,
                   ability: isTech ? f.ability : "",
                   designationId: isTech ? f.designationId : "",
                 }));
                 if (isTech) loadTechnicianLookups();
+                if (isSA) void loadEvolveServiceAdvisors();
               }}
               className={inputClass}
             >
@@ -1392,6 +1437,21 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          {createForm.roleSlug === "service-advisor" && (
+            <div>
+              <label className={labelClass}>Evolve Service Advisor</label>
+              <SearchableDropdown
+                options={saOptions}
+                value={createForm.evolveSaNumber != null ? String(createForm.evolveSaNumber) : ""}
+                onChange={(id) => setCreateForm((f) => ({ ...f, evolveSaNumber: id ? Number(id) : null }))}
+                placeholder="Select Evolve service advisor"
+                loading={evolveSAsLoading}
+              />
+              <p className="text-[11px] text-[#999] mt-1">
+                Required for service advisors — maps to the Evolve SANumber.
+              </p>
+            </div>
+          )}
           {createForm.roleSlug === "technician" && (
             <>
               <div>
@@ -1472,7 +1532,8 @@ function UsersTab() {
                 !createForm.email ||
                 !createForm.password ||
                 !createForm.roleSlug ||
-                (createForm.roleSlug === "technician" && createForm.evolveTechnicianNo == null)
+                (createForm.roleSlug === "technician" && createForm.evolveTechnicianNo == null) ||
+                (createForm.roleSlug === "service-advisor" && createForm.evolveSaNumber == null)
               }
               className="flex-1"
             >
@@ -1523,14 +1584,17 @@ function UsersTab() {
               onChange={(e) => {
                 const roleSlug = e.target.value;
                 const isTech = roleSlug === "technician";
+                const isSA = roleSlug === "service-advisor";
                 setEditForm((f) => ({
                   ...f,
                   roleSlug,
                   evolveTechnicianNo: isTech ? f.evolveTechnicianNo : null,
+                  evolveSaNumber: isSA ? f.evolveSaNumber : null,
                   ability: isTech ? f.ability : "",
                   designationId: isTech ? f.designationId : "",
                 }));
                 if (isTech) loadTechnicianLookups();
+                if (isSA) void loadEvolveServiceAdvisors();
               }}
               className={inputClass}
             >
@@ -1541,6 +1605,21 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          {editForm.roleSlug === "service-advisor" && (
+            <div>
+              <label className={labelClass}>Evolve Service Advisor</label>
+              <SearchableDropdown
+                options={saOptions}
+                value={editForm.evolveSaNumber != null ? String(editForm.evolveSaNumber) : ""}
+                onChange={(id) => setEditForm((f) => ({ ...f, evolveSaNumber: id ? Number(id) : null }))}
+                placeholder="Select Evolve service advisor"
+                loading={evolveSAsLoading}
+              />
+              <p className="text-[11px] text-[#999] mt-1">
+                Required for service advisors — maps to the Evolve SANumber.
+              </p>
+            </div>
+          )}
           {editForm.roleSlug === "technician" && (
             <>
               <div>

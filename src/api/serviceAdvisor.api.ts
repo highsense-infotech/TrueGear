@@ -273,6 +273,8 @@ export interface CreateJobCardItem {
 export interface CreateJobCardJob {
   serviceType?: string | null;
   serviceCategory?: string | null;
+  jobType?: string | null;
+  estimatedHours?: number | null;
   items: CreateJobCardItem[];
 }
 

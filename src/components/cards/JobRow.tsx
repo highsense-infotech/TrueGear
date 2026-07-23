@@ -36,6 +36,8 @@ export interface Job {
   quantity: number;
   serviceType: string;
   serviceCategory: string;
+  jobType?: string;
+  estimatedHours?: string;
   autoParts?: AutoPart[];
   paidParts?: PaidPart[];
   isWarrantyClaim?: boolean;
@@ -50,6 +52,7 @@ export interface JobErrors {
   quantity?: string;
   serviceType?: string;
   serviceCategory?: string;
+  jobType?: string;
   paidParts?: string;
 }
 
@@ -80,6 +83,8 @@ interface JobRowProps {
   calculateLineTotal: (job: Job) => number;
   errors?: JobErrors;
   serviceTypeOptions?: DropdownOption[];
+  // Evolve Job Type options (from the job_types lookup); shown per job.
+  jobTypeOptions?: { code: string; name: string }[];
   onServiceCategoryChange?: (
     jobId: number,
     categoryCode: string,
@@ -101,6 +106,7 @@ export function JobRow({
   onRemove,
   errors,
   serviceTypeOptions,
+  jobTypeOptions,
   onServiceCategoryChange,
   onAddPaidPart,
   onRemovePaidPart,
@@ -227,6 +233,44 @@ export function JobRow({
             <Trash2 size={20} />
           </Button>
         )}
+      </div>
+
+      {/* ── Job Type (Evolve RO <JobType>) — per job ── */}
+      {jobTypeOptions && jobTypeOptions.length > 0 && (
+        <div>
+          <label className={labelClass}>Job Type</label>
+          <select
+            value={job.jobType || ""}
+            onChange={(e) => onUpdate(job.id, "jobType", e.target.value)}
+            className={`mt-2 w-full border rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31] ${errors?.jobType ? "border-red-500" : "border-[#e5e7eb]"}`}
+          >
+            <option value="">Select job type…</option>
+            {jobTypeOptions.map((jt) => (
+              <option key={jt.code} value={jt.code}>
+                {jt.name}
+              </option>
+            ))}
+          </select>
+          {errors?.jobType && (
+            <p className="text-red-500 text-xs mt-1">{errors.jobType}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Estimated Hours (Evolve RO <HoursEstimate>) — per job ── */}
+      <div>
+        <label className={labelClass}>Estimated Hours</label>
+        <input
+          type="number"
+          min="0"
+          max="999.99"
+          step="0.25"
+          inputMode="decimal"
+          placeholder="e.g. 1.0 (optional)"
+          value={job.estimatedHours ?? ""}
+          onChange={(e) => onUpdate(job.id, "estimatedHours", e.target.value)}
+          className="mt-2 w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31]"
+        />
       </div>
 
       {/* ── Service Type radio buttons ── */}

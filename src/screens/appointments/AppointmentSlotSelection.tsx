@@ -385,7 +385,12 @@ const AppointmentSlotSelection: React.FC = () => {
                 >
                   <option value="">Unassigned</option>
                   {advisors.map((a) => (
-                    <option key={a.id} value={a.id}>{a.username}</option>
+                    <option key={a.id} value={a.id}>
+                      {a.username}
+                      {a.evolveSaNumber != null
+                        ? ` · Evolve SA #${a.evolveSaNumber}`
+                        : " · not mapped to Evolve"}
+                    </option>
                   ))}
                 </select>
               </div>

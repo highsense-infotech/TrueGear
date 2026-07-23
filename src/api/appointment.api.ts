@@ -27,6 +27,8 @@ export interface ServiceAdvisorUser {
   id:       string;
   username: string;
   email:    string;
+  // Evolve SANumber this advisor is mapped to (null = unmapped → RO falls back).
+  evolveSaNumber?: number | null;
 }
 
 export interface CreateAppointmentPayload {
