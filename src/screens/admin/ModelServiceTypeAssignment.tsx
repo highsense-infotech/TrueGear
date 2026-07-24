@@ -7,7 +7,7 @@ import SearchableDropdown, {
 } from "../../components/common/SearchableDropdown.tsx";
 import Button from "../../components/common/Button.tsx";
 import { Pagination } from "../../components/common/Pagination.tsx";
-import { listMakes, listModelsByMake } from "../../api/vehicle.api.ts";
+import { listMakes, listModelsByMake, listModelCodes } from "../../api/vehicle.api.ts";
 import { listServiceTypes } from "../../api/serviceType.api.ts";
 import api from "../../api/axios.ts";
 
@@ -24,6 +24,7 @@ interface Assignment {
   serviceTypeCode: string;
   serviceCategoryId: string | null;
   serviceCategoryName: string | null;
+  modelCode: string | null;
   partCode: string;
   partName: string;
   quantity: string;
@@ -51,11 +52,15 @@ const ModelServiceTypeAssignment: React.FC = () => {
   // Dropdown options
   const [makes, setMakes] = useState<DropdownOption[]>([]);
   const [models, setModels] = useState<DropdownOption[]>([]);
+  // Third cascade level (Make → Model → Model Code / "Series").
+  const [modelCodeOptions, setModelCodeOptions] = useState<DropdownOption[]>([]);
   const [serviceTypes, setServiceTypes] = useState<DropdownOption[]>([]);
 
   // Selected values
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const [selectedModelCode, setSelectedModelCode] = useState("");
+  const [modelCodesLoading, setModelCodesLoading] = useState(false);
   const [selectedServiceType, setSelectedServiceType] = useState("");
   const [selectedServiceCategory, setSelectedServiceCategory] = useState("");
   const [serviceCategoryOptions, setServiceCategoryOptions] = useState<DropdownOption[]>([]);
@@ -227,16 +232,51 @@ const ModelServiceTypeAssignment: React.FC = () => {
     fetchModels();
   }, [selectedMake]);
 
+  // Fetch model codes ("Series") when the model changes. Make → Model → Code.
+  useEffect(() => {
+    if (!selectedModel) {
+      setModelCodeOptions([]);
+      return;
+    }
+
+    const fetchCodes = async () => {
+      setModelCodesLoading(true);
+      try {
+        const res = await listModelCodes(selectedModel);
+        if (res.success && Array.isArray(res.data)) {
+          // De-dupe by code; label with description, fall back to the code.
+          const opts = Array.from(
+            new Map(res.data.map((c) => [c.code, c])).values(),
+          ).map((c) => ({ id: c.code, name: c.description || c.code }));
+          setModelCodeOptions(opts);
+          // Auto-select when the model resolves to exactly one code.
+          if (opts.length === 1) setSelectedModelCode(opts[0].id);
+        }
+      } catch {
+        toast.error("Failed to load model codes");
+        setModelCodeOptions([]);
+      } finally {
+        setModelCodesLoading(false);
+      }
+    };
+
+    fetchCodes();
+  }, [selectedModel]);
+
   // ─── Handlers ───────────────────────────────────────────────────────────
 
   const handleMakeChange = (id: string, _name: string) => {
     setSelectedMake(id);
     setSelectedModel("");
+    setSelectedModelCode("");
     setModels([]);
+    setModelCodeOptions([]);
   };
 
   const handleModelChange = (id: string, _name: string) => {
     setSelectedModel(id);
+    setSelectedModelCode("");
+    setModelCodeOptions([]);
   };
 
   const handleServiceTypeChange = (id: string, _name: string) => {
@@ -269,6 +309,12 @@ const ModelServiceTypeAssignment: React.FC = () => {
       toast.error("Please select a model");
       return;
     }
+    // Model Code ("Series") is required whenever the model resolves to codes,
+    // so the stored assignment matches vehicles by their model_code.
+    if (modelCodeOptions.length > 0 && !selectedModelCode) {
+      toast.error("Please select a series (model code)");
+      return;
+    }
     if (!selectedServiceType) {
       toast.error("Please select a service type");
       return;
@@ -291,6 +337,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       await createAssignments({
         makeId: selectedMake,
         modelId: selectedModel,
+        modelCode: selectedModelCode || undefined,
         serviceTypeId: selectedServiceCategory,
         serviceCategoryId: selectedServiceType,
         parts: validParts.map((p) => ({
@@ -304,9 +351,11 @@ const ModelServiceTypeAssignment: React.FC = () => {
       toast.success("Assignment created successfully");
       setSelectedMake("");
       setSelectedModel("");
+      setSelectedModelCode("");
       setSelectedServiceType("");
       setSelectedServiceCategory("");
       setModels([]);
+      setModelCodeOptions([]);
       setPartKeyCounter((c) => c + 1);
       setParts([{ key: partKeyCounter, partId: "", partName: "", partCode: "", quantity: "1" }]);
       setPage(1);
@@ -433,7 +482,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       {/* ── Form Card ───────────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 space-y-5">
         {/* Row 1: Dropdowns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <div>
             <label className={labelClass}>Make</label>
             <SearchableDropdown
@@ -455,6 +504,26 @@ const ModelServiceTypeAssignment: React.FC = () => {
               }
               disabled={!selectedMake}
               loading={modelsLoading}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Series</label>
+            <SearchableDropdown
+              options={modelCodeOptions}
+              value={selectedModelCode}
+              onChange={(id) => setSelectedModelCode(id)}
+              placeholder={
+                !selectedModel
+                  ? "Select a model first"
+                  : modelCodesLoading
+                    ? "Loading series..."
+                    : modelCodeOptions.length === 0
+                      ? "No series available"
+                      : "Select series"
+              }
+              disabled={!selectedModel || modelCodesLoading || modelCodeOptions.length === 0}
+              loading={modelCodesLoading}
             />
           </div>
 
@@ -659,6 +728,9 @@ const ModelServiceTypeAssignment: React.FC = () => {
                   Model
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">
+                  Series
+                </th>
+                <th className="px-4 sm:px-6 py-3 text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">
                   Service Type
                 </th>
                 <th className="px-4 sm:px-6 py-3 text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">
@@ -675,14 +747,14 @@ const ModelServiceTypeAssignment: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {tableLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-[#ff4f31] mx-auto" />
                   </td>
                 </tr>
               ) : assignments.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-6 py-12 text-center text-[13px] text-[#9ca3af]"
                   >
                     {assignments.length === 0
@@ -703,6 +775,13 @@ const ModelServiceTypeAssignment: React.FC = () => {
                     </td>
                     <td className="px-4 sm:px-6 py-3 text-[13px] text-[#333] whitespace-nowrap">
                       {a.modelName}
+                    </td>
+                    <td className="px-4 sm:px-6 py-3 text-[13px] text-[#333] whitespace-nowrap">
+                      {a.modelCode ? (
+                        <span className="font-mono text-[12px]">{a.modelCode}</span>
+                      ) : (
+                        <span className="text-[#9ca3af]">—</span>
+                      )}
                     </td>
                     <td className="px-4 sm:px-6 py-3 text-[13px] text-[#333] whitespace-nowrap">
                       <span className="inline-block bg-[#fff0ed] text-[#ff4f31] px-2 py-0.5 rounded text-[12px] font-medium">
