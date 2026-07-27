@@ -14,6 +14,9 @@ interface SearchableDropdownProps {
   disabled?: boolean;
   loading?: boolean;
   hasError?: boolean;
+  // Opt-in: when provided, a typed value that matches no option can be added
+  // (via Enter or the "+ Add …" row). Off by default → existing usages unchanged.
+  onCreate?: (name: string) => void;
 }
 
 const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
@@ -24,6 +27,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   disabled = false,
   loading = false,
   hasError = false,
+  onCreate,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +39,19 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   const filtered = query.trim()
     ? options.filter((o) => o.name.toLowerCase().includes(query.toLowerCase()))
     : options;
+
+  const trimmedQuery = query.trim();
+  const hasExactMatch = options.some(
+    (o) => o.name.toLowerCase() === trimmedQuery.toLowerCase(),
+  );
+  const canCreate = !!onCreate && trimmedQuery.length > 0 && !hasExactMatch;
+
+  const create = () => {
+    if (!canCreate) return;
+    onCreate!(trimmedQuery);
+    setIsOpen(false);
+    setQuery("");
+  };
 
   // Close on outside click
   useEffect(() => {
@@ -91,6 +108,12 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canCreate) {
+                  e.preventDefault();
+                  create();
+                }
+              }}
               placeholder="Search..."
               className="flex-1 text-[14px] text-[#333] outline-none bg-transparent min-w-0"
             />
@@ -131,27 +154,42 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
       {/* Dropdown list */}
       {isOpen && (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-[#e5e7eb] rounded-[10px] shadow-lg max-h-56 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && !canCreate ? (
             <div className="px-4 py-3 text-[13px] text-[#9ca3af] text-center">
               {query ? "No results found" : "No options available"}
             </div>
           ) : (
-            filtered.map((option) => (
-              <div
-                key={option.id}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  select(option);
-                }}
-                className={`px-4 py-2.5 text-[14px] cursor-pointer transition-colors ${
-                  option.id === value
-                    ? "bg-[#04c397]/10 text-[#04c397] font-medium"
-                    : "text-[#333] hover:bg-[#f9f9f9]"
-                }`}
-              >
-                {option.name}
-              </div>
-            ))
+            <>
+              {filtered.map((option) => (
+                <div
+                  key={option.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    select(option);
+                  }}
+                  className={`px-4 py-2.5 text-[14px] cursor-pointer transition-colors ${
+                    option.id === value
+                      ? "bg-[#04c397]/10 text-[#04c397] font-medium"
+                      : "text-[#333] hover:bg-[#f9f9f9]"
+                  }`}
+                >
+                  {option.name}
+                </div>
+              ))}
+              {canCreate && (
+                <div
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    create();
+                  }}
+                  className={`px-4 py-2.5 text-[14px] cursor-pointer text-[#04c397] hover:bg-[#f9f9f9] ${
+                    filtered.length > 0 ? "border-t border-[#f0f0f0]" : ""
+                  }`}
+                >
+                  + Add &ldquo;{trimmedQuery}&rdquo;
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

@@ -6,6 +6,10 @@ import { JobCardActions } from "../../components/cards/JobCardActions";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { JobDetails, type Job } from "../../components/cards/JobDetails";
 import { type JobErrors, type PaidPart } from "../../components/cards/JobRow";
+import {
+  type LabourLine,
+  createEmptyLabourLine,
+} from "../../components/cards/LabourSection";
 // import { SuggestedJobsChips } from "../../components/cards/SuggestedJobsChips";
 import { TotalsSummary } from "../../components/cards/TotalsSummary";
 import { VehicleSummaryCard } from "../../components/cards/VehicleSummaryCard";
@@ -22,6 +26,10 @@ import {
 } from "../../api/serviceAdvisor.api";
 import { listServiceTypes } from "../../api/serviceType.api";
 import { listJobTypes, type JobTypeItem } from "../../api/jobType.api";
+import {
+  listActiveLabourDescriptions,
+  createLabourDescription,
+} from "../../api/labourDescription.api";
 import {
   listFranchiseServiceDepts,
   type FranchiseServiceDeptItem,
@@ -48,6 +56,7 @@ const CreateJobCard: React.FC = () => {
       quantity: 1,
       serviceType: "",
       serviceCategory: "",
+      labourLines: [createEmptyLabourLine()],
     },
   ]);
   const [, setSuggestedJobs] = useState<string[]>([]);
@@ -82,6 +91,9 @@ const CreateJobCard: React.FC = () => {
   // configured (client-dependent), in which case each job's Job Type control is
   // hidden and the RO push falls back to the 'INT' default.
   const [jobTypeOptions, setJobTypeOptions] = useState<JobTypeItem[]>([]);
+  // Labour Master options (Phase 3). Best-effort: empty falls back to a
+  // free-text-only Labour dropdown so the Job Card never breaks.
+  const [labourOptions, setLabourOptions] = useState<DropdownOption[]>([]);
 
   // Evolve Franchise / Service Dept (AI-3) — two dependent dropdowns mirroring
   // the Evolve RO screen. Options are the labeled franchise_service_departments
@@ -119,7 +131,7 @@ const CreateJobCard: React.FC = () => {
 
     const fetchData = async () => {
       try {
-        const [vehicleRes, suggestedRes, stRes, jtRes, fsdRes] =
+        const [vehicleRes, suggestedRes, stRes, jtRes, fsdRes, labourRes] =
           await Promise.all([
             getVehicleDetail(vehicleId),
             getSuggestedJobs(vehicleId),
@@ -130,11 +142,21 @@ const CreateJobCard: React.FC = () => {
             // Franchise / Service Dept pairs (AI-3). Best-effort — empty falls back
             // to "No Franchises configured." and the RO keeps its '1'/'1' default.
             listFranchiseServiceDepts().catch(() => null),
+            // Labour Master (Phase 3). Best-effort — empty leaves the Labour
+            // dropdown blank while the Description textbox stays fully editable.
+            listActiveLabourDescriptions().catch(() => null),
           ]);
 
         // Populate the Job Type dropdown from the backend lookup (may be empty).
         if (jtRes?.success && Array.isArray(jtRes.data)) {
           setJobTypeOptions(jtRes.data);
+        }
+
+        // Populate the Labour dropdown from the Labour Master (may be empty).
+        if (labourRes?.success && Array.isArray(labourRes.data)) {
+          setLabourOptions(
+            labourRes.data.map((l) => ({ id: l.id, name: l.name })),
+          );
         }
 
         // Populate the Franchise / Service Dept dropdowns (may be empty).
@@ -206,13 +228,34 @@ const CreateJobCard: React.FC = () => {
           if (existingItems.length > 0) {
             const reconstructed: Job[] = [];
             let counter = Date.now();
+            // Labour items (partsRequired='LABOUR') are collected per jobGroup and
+            // attached to their job's Labour section — never shown as parts.
+            const labourByGroup = new Map<number, LabourLine[]>();
 
             for (const item of existingItems as any[]) {
-              const isPaidService = item.serviceType === "Repair";
-              const hasCategory = Boolean(item.serviceCategory);
               // The job this item belonged to at creation. Items only merge into
               // the same reconstructed row when they share this group.
               const jobGroup = Number(item.jobGroup ?? 1);
+
+              // Labour line → Labour section (skip the parts reconstruction).
+              if (String(item.partsRequired ?? "").trim().toUpperCase() === "LABOUR") {
+                const line: LabourLine = {
+                  id: item.id ? String(item.id) : crypto.randomUUID(),
+                  presetLabel: "",
+                  description: item.jobDescription || "",
+                  hours: item.estimatedHours != null ? String(item.estimatedHours) : "",
+                  amount: item.labourCost != null ? String(item.labourCost) : "",
+                  notes: item.notes ?? "",
+                };
+                labourByGroup.set(jobGroup, [
+                  ...(labourByGroup.get(jobGroup) ?? []),
+                  line,
+                ]);
+                continue;
+              }
+
+              const isPaidService = item.serviceType === "Repair";
+              const hasCategory = Boolean(item.serviceCategory);
 
               if (hasCategory) {
                 // Group into an autoParts job row scoped to its jobGroup.
@@ -304,7 +347,42 @@ const CreateJobCard: React.FC = () => {
               }
             }
 
-            setJobs(reconstructed);
+            // Attach reconstructed labour lines to their job (by jobGroup). A
+            // labour-only group (no parts) still gets its own row so nothing is lost.
+            labourByGroup.forEach((lines, group) => {
+              const target = reconstructed.find(
+                (j) => (j as any).__jobGroup === group,
+              );
+              if (target) {
+                target.labourLines = lines;
+              } else {
+                reconstructed.push({
+                  id: counter++,
+                  jobDescription: "",
+                  partsRequired: "",
+                  partsCost: 0,
+                  labourCost: 0,
+                  quantity: 1,
+                  serviceType: "",
+                  serviceCategory: "",
+                  jobType: "",
+                  estimatedHours: "",
+                  __jobGroup: group,
+                  labourLines: lines,
+                } as any);
+              }
+            });
+
+            // Ensure every job shows at least one labour row — reconstructed
+            // labour when present, otherwise a single empty default row.
+            setJobs(
+              reconstructed.map((j) => ({
+                ...j,
+                labourLines: j.labourLines?.length
+                  ? j.labourLines
+                  : [createEmptyLabourLine()],
+              })),
+            );
           }
         }
       } catch (error) {
@@ -328,6 +406,7 @@ const CreateJobCard: React.FC = () => {
       quantity: 1,
       serviceType: "",
       serviceCategory: "",
+      labourLines: [createEmptyLabourLine()],
     };
     setJobs((prev) => [...prev, newJob]);
   };
@@ -465,6 +544,92 @@ const CreateJobCard: React.FC = () => {
     );
   };
 
+  // ── Labour handlers (Phase 1 — local state only; not persisted / not summed) ──
+
+  const addLabourLine = (jobId: number) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? { ...job, labourLines: [...(job.labourLines ?? []), createEmptyLabourLine()] }
+          : job,
+      ),
+    );
+  };
+
+  const updateLabourLine = (
+    jobId: number,
+    lineId: string,
+    field: keyof LabourLine,
+    value: string,
+  ) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              labourLines: (job.labourLines ?? []).map((l) =>
+                l.id === lineId ? { ...l, [field]: value } : l,
+              ),
+            }
+          : job,
+      ),
+    );
+  };
+
+  // Add a typed-but-unlisted labour value. Returns a dropdown option immediately
+  // (optimistic, so selection is instant) and persists it to the Labour Master in
+  // the background so it's reusable next time. On success the temp id is swapped
+  // for the real DB id; on failure (e.g. duplicate) the local option still works
+  // and the value is saved on the job card regardless. De-dupes case-insensitively.
+  const addLabourOption = (name: string): DropdownOption => {
+    const trimmed = name.trim();
+    const existing = labourOptions.find(
+      (o) => o.name.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (existing) return existing;
+
+    const tempOpt: DropdownOption = { id: crypto.randomUUID(), name: trimmed };
+    setLabourOptions((prev) => [...prev, tempOpt]);
+
+    void createLabourDescription({ name: trimmed })
+      .then((res) => {
+        if (res.success && res.data) {
+          const saved = { id: res.data.id, name: res.data.name };
+          // Swap the temp option for the persisted record.
+          setLabourOptions((prev) =>
+            prev.map((o) => (o.id === tempOpt.id ? saved : o)),
+          );
+          // Repoint any labour line that selected the temp option at the real id.
+          setJobs((prev) =>
+            prev.map((job) => ({
+              ...job,
+              labourLines: (job.labourLines ?? []).map((l) =>
+                l.presetLabel === tempOpt.id ? { ...l, presetLabel: saved.id } : l,
+              ),
+            })),
+          );
+        }
+      })
+      .catch(() => {
+        /* keep the local option — value is still saved on the job card */
+      });
+
+    return tempOpt;
+  };
+
+  const removeLabourLine = (jobId: number, lineId: string) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              labourLines: (job.labourLines ?? []).filter((l) => l.id !== lineId),
+            }
+          : job,
+      ),
+    );
+  };
+
   const calculateLineTotal = (job: Job) => {
     // Paid Service: sum manually added paid parts
     if (job.serviceType === "Repair") {
@@ -484,7 +649,19 @@ const CreateJobCard: React.FC = () => {
     return job.partsCost * job.quantity + job.labourCost;
   };
 
-  const subtotal = jobs.reduce((sum, job) => sum + calculateLineTotal(job), 0);
+  // Estimate breakdown — mirrors the backend exactly so the preview matches
+  // what gets saved. Backend subtotal = Σ(parts-item lineTotals) + Σ(labour
+  // lineTotals), where a labour item's lineTotal = 0*qty + amount = amount.
+  //   partsTotal  = existing per-job parts/base total (paid / auto / manual)
+  //   labourTotal = sum of the Labour-section line amounts
+  const partsTotal = jobs.reduce((sum, job) => sum + calculateLineTotal(job), 0);
+  const labourTotal = jobs.reduce(
+    (sum, job) =>
+      sum +
+      (job.labourLines ?? []).reduce((s, l) => s + (Number(l.amount) || 0), 0),
+    0,
+  );
+  const subtotal = partsTotal + labourTotal;
   const taxAmount = subtotal * (taxConfig.percentage / 100);
   const total = subtotal + taxAmount;
 
@@ -609,12 +786,27 @@ const CreateJobCard: React.FC = () => {
           ];
         }
 
+        // Labour lines → items (Phase 2). Reuses the existing job_card_items
+        // table + the partsRequired='LABOUR' convention. Blank rows (no
+        // description) are skipped so the default empty row isn't persisted.
+        const labourItems = (job.labourLines ?? [])
+          .filter((l) => l.description.trim())
+          .map((l) => ({
+            jobDescription: l.description.trim(),
+            partsRequired: "LABOUR",
+            partsCost: 0,
+            labourCost: Number(l.amount) || 0,
+            quantity: 1,
+            estimatedHours: l.hours ? Number(l.hours) : null,
+            notes: l.notes.trim() || null,
+          }));
+
         return {
           serviceType: job.serviceType || null,
           serviceCategory: job.serviceCategory || null,
           jobType: job.jobType || null,
           estimatedHours: job.estimatedHours ? Number(job.estimatedHours) : null,
-          items,
+          items: [...items, ...labourItems],
         };
       });
 
@@ -1070,10 +1262,17 @@ const CreateJobCard: React.FC = () => {
           onAddPaidPart={addPaidPart}
           onRemovePaidPart={removePaidPart}
           onUpdatePaidPart={updatePaidPart}
+          onAddLabour={addLabourLine}
+          onUpdateLabour={updateLabourLine}
+          onRemoveLabour={removeLabourLine}
+          labourOptions={labourOptions}
+          onCreateLabourOption={addLabourOption}
         />
 
         {/* Totals Section */}
         <TotalsSummary
+          partsTotal={partsTotal}
+          labourTotal={labourTotal}
           subtotal={subtotal}
           taxAmount={taxAmount}
           total={total}

@@ -5,6 +5,7 @@ import Button from "../common/Button";
 import Modal from "../common/Modal";
 import { type DropdownOption } from "../common/SearchableDropdown";
 import SearchableDropdown from "../common/SearchableDropdown";
+import { LabourSection, type LabourLine } from "./LabourSection";
 import { useCurrency } from "../../context/CurrencyContext";
 import api from "../../api/axios";
 
@@ -40,6 +41,7 @@ export interface Job {
   estimatedHours?: string;
   autoParts?: AutoPart[];
   paidParts?: PaidPart[];
+  labourLines?: LabourLine[];
   isWarrantyClaim?: boolean;
   warrantyClaimNo?: string;
   warrantyOem?: string;
@@ -94,6 +96,19 @@ interface JobRowProps {
   onAddPaidPart?: (jobId: number, part: PaidPart) => void;
   onRemovePaidPart?: (jobId: number, partId: string) => void;
   onUpdatePaidPart?: (jobId: number, partId: string, quantity: number) => void;
+  // Labour section (Phase 1 — local state only; not persisted yet)
+  onAddLabour?: (jobId: number) => void;
+  onUpdateLabour?: (
+    jobId: number,
+    lineId: string,
+    field: keyof LabourLine,
+    value: string,
+  ) => void;
+  onRemoveLabour?: (jobId: number, lineId: string) => void;
+  // Labour Master options (active labour descriptions) for the Labour dropdown.
+  labourOptions?: DropdownOption[];
+  // Add a typed-but-unlisted labour value as a (session-local) option.
+  onCreateLabourOption?: (name: string) => DropdownOption;
   totalJobs?: number;
 }
 
@@ -111,6 +126,11 @@ export function JobRow({
   onAddPaidPart,
   onRemovePaidPart,
   onUpdatePaidPart,
+  onAddLabour,
+  onUpdateLabour,
+  onRemoveLabour,
+  labourOptions,
+  onCreateLabourOption,
   totalJobs = 1,
 }: JobRowProps) {
   const { formatCurrency } = useCurrency();
@@ -677,6 +697,23 @@ export function JobRow({
           )}
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          Labour Section — separate from Parts (Phase 1: local state only)
+          ══════════════════════════════════════════════════════════════════════ */}
+      <div className="border-t border-gray-100 pt-5">
+        <LabourSection
+          jobId={job.id}
+          labourLines={job.labourLines ?? []}
+          options={labourOptions}
+          onCreateOption={onCreateLabourOption}
+          onAdd={(jobId) => onAddLabour?.(jobId)}
+          onUpdate={(jobId, lineId, field, value) =>
+            onUpdateLabour?.(jobId, lineId, field, value)
+          }
+          onRemove={(jobId, lineId) => onRemoveLabour?.(jobId, lineId)}
+        />
+      </div>
 
       {/* ── Warranty claim toggle ── */}
       <div className="border-t border-gray-100 pt-3">

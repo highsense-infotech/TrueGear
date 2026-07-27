@@ -265,6 +265,9 @@ export interface CreateJobCardItem {
   partsCost: number;
   labourCost: number;
   quantity: number;
+  // Labour lines (Phase 2). Optional/backward compatible.
+  estimatedHours?: number | null;
+  notes?: string | null;
   isWarrantyClaim?: boolean;
   warrantyClaimNo?: string | null;
   warrantyOem?: string | null;

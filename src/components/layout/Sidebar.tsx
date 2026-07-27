@@ -36,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   // { route: ROUTES.VEHICLE_OUT_DASHBOARD, icon: CarFront, label: "Vehicle Out", resource: MODULES.VEHICLE_OUT, action: ACTIONS.VIEW },
   { route: ROUTES.VEHICLE_360_DASHBOARD, icon: Globe, label: "Vehicle 360", resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW },
   { route: ROUTES.MODEL_SERVICE_TYPE, icon: Wrench, label: "Model Service Types", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
+  { route: ROUTES.LABOUR_MASTER, icon: Wrench, label: "Labour Master", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
   { route: ROUTES.TECHNICIAN_DASHBOARD, icon: Wrench, label: "Technician", resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW },
   { route: ROUTES.FOREMAN_DASHBOARD, icon: Wrench, label: "Workshop", resource: MODULES.WORKSHOP, action: ACTIONS.VIEW },
   { route: ROUTES.QC_OUT_INSPECTION_DASHBOARD, icon: ShieldCheck, label: "QC Out", resource: MODULES.QC_OUT, action: ACTIONS.VIEW },

@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import Button from "../common/Button";
 import { type DropdownOption } from "../common/SearchableDropdown";
 import { type Job, type JobErrors, type PaidPart, JobRow } from "./JobRow";
+import { type LabourLine } from "./LabourSection";
 
 interface JobDetailsProps {
   jobs: Job[];
@@ -21,6 +22,16 @@ interface JobDetailsProps {
   onAddPaidPart?: (jobId: number, part: PaidPart) => void;
   onRemovePaidPart?: (jobId: number, partId: string) => void;
   onUpdatePaidPart?: (jobId: number, partId: string, quantity: number) => void;
+  onAddLabour?: (jobId: number) => void;
+  onUpdateLabour?: (
+    jobId: number,
+    lineId: string,
+    field: keyof LabourLine,
+    value: string,
+  ) => void;
+  onRemoveLabour?: (jobId: number, lineId: string) => void;
+  labourOptions?: DropdownOption[];
+  onCreateLabourOption?: (name: string) => DropdownOption;
 }
 
 export function JobDetails({
@@ -36,6 +47,11 @@ export function JobDetails({
   onAddPaidPart,
   onRemovePaidPart,
   onUpdatePaidPart,
+  onAddLabour,
+  onUpdateLabour,
+  onRemoveLabour,
+  labourOptions,
+  onCreateLabourOption,
 }: JobDetailsProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 shadow-sm">
@@ -80,6 +96,11 @@ export function JobDetails({
             onAddPaidPart={onAddPaidPart}
             onRemovePaidPart={onRemovePaidPart}
             onUpdatePaidPart={onUpdatePaidPart}
+            onAddLabour={onAddLabour}
+            onUpdateLabour={onUpdateLabour}
+            onRemoveLabour={onRemoveLabour}
+            labourOptions={labourOptions}
+            onCreateLabourOption={onCreateLabourOption}
             totalJobs={jobs.length}
           />
         ))}

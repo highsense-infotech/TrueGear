@@ -34,6 +34,7 @@ import UserManagement from '../screens/admin/UserManagement.tsx';
 import TechnicianMapping from '../screens/admin/TechnicianMapping.tsx';
 import DesignationManagement from '../screens/admin/DesignationManagement.tsx';
 import ModelServiceTypeAssignment from '../screens/admin/ModelServiceTypeAssignment.tsx';
+import LabourMaster from '../screens/admin/LabourMaster.tsx';
 import ForemanDashboard from '../screens/dashboard/ForemanDashboard.tsx';
 import WorkshopBays from '../screens/admin/WorkshopBays.tsx';
 import QcOutInspectionDashboard from '../screens/dashboard/QcOutInspectionDashboard.tsx';
@@ -350,6 +351,16 @@ const AppRoutes: React.FC = () => (
           element={
             <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
               <ModelServiceTypeAssignment />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Labour Master (admin) — ROLE_MANAGEMENT:view required */}
+        <Route
+          path={ROUTES.LABOUR_MASTER.slice(1)}
+          element={
+            <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
+              <LabourMaster />
             </ProtectedRoute>
           }
         />

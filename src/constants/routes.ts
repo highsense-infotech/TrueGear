@@ -39,6 +39,7 @@ export const ROUTES = {
   VEHICLE_OUT_DASHBOARD: '/vehicle-out-dashboard',
   VEHICLE_OUT_INSPECTION: '/vehicle-out-dashboard/inspection/:vehicleId',
   MODEL_SERVICE_TYPE: '/model-service-type',
+  LABOUR_MASTER: '/labour-master',
   FOREMAN_DASHBOARD: '/foreman-dashboard',
   WORKSHOP_BAYS: '/settings/workshop-bays',
   QC_OUT_INSPECTION_DASHBOARD: '/qc-out-inspection',
