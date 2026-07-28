@@ -277,22 +277,6 @@ export function JobRow({
         </div>
       )}
 
-      {/* ── Estimated Hours (Evolve RO <HoursEstimate>) — per job ── */}
-      <div>
-        <label className={labelClass}>Estimated Hours</label>
-        <input
-          type="number"
-          min="0"
-          max="999.99"
-          step="0.25"
-          inputMode="decimal"
-          placeholder="e.g. 1.0 (optional)"
-          value={job.estimatedHours ?? ""}
-          onChange={(e) => onUpdate(job.id, "estimatedHours", e.target.value)}
-          className="mt-2 w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31]"
-        />
-      </div>
-
       {/* ── Service Type radio buttons ── */}
       {serviceTypeOptions && serviceTypeOptions.length > 0 && (
         <div>

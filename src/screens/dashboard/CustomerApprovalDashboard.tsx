@@ -22,6 +22,7 @@ interface Job {
   details: string;
   price: number;
   selected: boolean;
+  mandatory: boolean;
   partStatus: EstimateItem['partStatus'];
   partExpectedTime: string | null;
 }
@@ -94,6 +95,8 @@ function CustomerApprovalDashboard() {
             details: `Parts: ${fmtForMapping(Number(item.partsCost))} | Labour: ${fmtForMapping(Number(item.labourCost))}`,
             price: Number(item.lineTotal),
             selected: true,
+            // Labour lines are always included — customer cannot deselect them.
+            mandatory: (item.partsRequired || "").trim().toUpperCase() === "LABOUR",
             partStatus: item.partStatus ?? null,
             partExpectedTime: item.partExpectedTime ?? null,
           }));
@@ -120,7 +123,8 @@ function CustomerApprovalDashboard() {
   function toggleJob(jobId: number) {
     setJobs(
       jobs.map(function (job) {
-        if (job.id === jobId) {
+        // Mandatory (Labour) lines can't be deselected.
+        if (job.id === jobId && !job.mandatory) {
           return Object.assign({}, job, { selected: !job.selected });
         }
         return job;
@@ -320,6 +324,7 @@ function CustomerApprovalDashboard() {
                   details={job.details}
                   price={fmt(job.price)}
                   isSelected={job.selected}
+                  mandatory={job.mandatory}
                   partStatus={job.partStatus}
                   partExpectedTime={job.partExpectedTime}
                   onToggle={function () {
