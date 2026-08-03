@@ -8,6 +8,7 @@ import SearchableDropdown, {
 import Button from "../../components/common/Button.tsx";
 import { Pagination } from "../../components/common/Pagination.tsx";
 import { listMakes, listModelsByMake, listModelCodes } from "../../api/vehicle.api.ts";
+import PartCodeSearch, { type PartSearchResult } from "../../components/common/PartCodeSearch.tsx";
 import { listServiceTypes } from "../../api/serviceType.api.ts";
 import api from "../../api/axios.ts";
 
@@ -68,8 +69,9 @@ const ModelServiceTypeAssignment: React.FC = () => {
 
   // Parts rows — each row has a unique key for React rendering
   const [partKeyCounter, setPartKeyCounter] = useState(1);
-  const [parts, setParts] = useState<{ key: number; partId: string; partName: string; partCode: string; quantity: string }[]>(
-    [{ key: 0, partId: "", partName: "", partCode: "", quantity: "1" }]
+  // Parts are now selected from the Evolve part search (no manual part-name entry).
+  const [parts, setParts] = useState<{ key: number; partName: string; partCode: string; quantity: string }[]>(
+    [{ key: 0, partName: "", partCode: "", quantity: "1" }]
   );
 
   // Filter state
@@ -284,14 +286,28 @@ const ModelServiceTypeAssignment: React.FC = () => {
   };
 
   // Parts management
-  const handlePartFieldChange = (index: number, field: "partName" | "partCode" | "quantity", value: string) => {
+  const handlePartQtyChange = (index: number, value: string) => {
+    setParts((prev) => prev.map((p, i) => (i === index ? { ...p, quantity: value } : p)));
+  };
+
+  // A part is chosen from the Evolve search — auto-fill code + name (read-only).
+  const handleSelectPart = (index: number, part: PartSearchResult) => {
+    // Prevent the same part code appearing twice in one assignment.
+    if (parts.some((p, i) => i !== index && p.partCode.trim().toUpperCase() === part.partCode.trim().toUpperCase())) {
+      toast.error(`Part ${part.partCode} is already added`);
+      return;
+    }
     setParts((prev) =>
-      prev.map((p, i) => (i === index ? { ...p, [field]: value } : p))
+      prev.map((p, i) => (i === index ? { ...p, partCode: part.partCode, partName: part.partName } : p)),
     );
   };
 
+  const handleClearPart = (index: number) => {
+    setParts((prev) => prev.map((p, i) => (i === index ? { ...p, partCode: "", partName: "" } : p)));
+  };
+
   const addPartRow = () => {
-    setParts((prev) => [...prev, { key: partKeyCounter, partId: "", partName: "", partCode: "", quantity: "1" }]);
+    setParts((prev) => [...prev, { key: partKeyCounter, partName: "", partCode: "", quantity: "1" }]);
     setPartKeyCounter((c) => c + 1);
   };
 
@@ -324,11 +340,19 @@ const ModelServiceTypeAssignment: React.FC = () => {
       return;
     }
 
+    // A valid part must be selected from the Evolve search (code + name) with a
+    // quantity greater than zero.
     const validParts = parts.filter(
-      (p) => p.partName.trim() && p.partCode.trim() && p.quantity.trim()
+      (p) => p.partCode.trim() && p.partName.trim() && Number(p.quantity) > 0,
     );
     if (validParts.length === 0) {
-      toast.error("Please add at least one part with name, code and quantity");
+      toast.error("Please search and select at least one part with a quantity greater than 0");
+      return;
+    }
+    // Guard against duplicate part codes within the same assignment.
+    const codes = validParts.map((p) => p.partCode.trim().toUpperCase());
+    if (new Set(codes).size !== codes.length) {
+      toast.error("Duplicate part codes are not allowed in one assignment");
       return;
     }
 
@@ -357,7 +381,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       setModels([]);
       setModelCodeOptions([]);
       setPartKeyCounter((c) => c + 1);
-      setParts([{ key: partKeyCounter, partId: "", partName: "", partCode: "", quantity: "1" }]);
+      setParts([{ key: partKeyCounter, partName: "", partCode: "", quantity: "1" }]);
       setPage(1);
       await loadAssignments(1);
     } catch (err: any) {
@@ -571,39 +595,35 @@ const ModelServiceTypeAssignment: React.FC = () => {
             {parts.map((part, idx) => (
               <div
                 key={part.key}
-                className="flex items-center gap-3"
+                className="flex items-start gap-3"
               >
-                <div className="flex-1">
+                <div className="w-44 sm:w-52 shrink-0">
+                  {idx === 0 && (
+                    <label className={labelClass}>Search Part Code</label>
+                  )}
+                  <PartCodeSearch
+                    partCode={part.partCode}
+                    partName={part.partName}
+                    onSelect={(p) => handleSelectPart(idx, p)}
+                    onClear={() => handleClearPart(idx)}
+                  />
+                </div>
+
+                <div className="flex-1 min-w-0">
                   {idx === 0 && (
                     <label className={labelClass}>Part Name</label>
                   )}
                   <input
                     type="text"
                     value={part.partName}
-                    onChange={(e) =>
-                      handlePartFieldChange(idx, "partName", e.target.value)
-                    }
-                    placeholder="Enter part name"
-                    className={inputClass}
+                    readOnly
+                    placeholder="Select a part code…"
+                    title="Auto-filled from the selected part"
+                    className={`${inputClass} bg-[#f9fafb] cursor-not-allowed`}
                   />
                 </div>
 
-                <div className="w-36 sm:w-44">
-                  {idx === 0 && (
-                    <label className={labelClass}>Part Code</label>
-                  )}
-                  <input
-                    type="text"
-                    value={part.partCode}
-                    onChange={(e) =>
-                      handlePartFieldChange(idx, "partCode", e.target.value)
-                    }
-                    placeholder="Enter part code"
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="w-24 sm:w-28">
+                <div className="w-24 sm:w-28 shrink-0">
                   {idx === 0 && (
                     <label className={labelClass}>Quantity</label>
                   )}
@@ -612,9 +632,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
                     min="1"
                     step="1"
                     value={part.quantity}
-                    onChange={(e) =>
-                      handlePartFieldChange(idx, "quantity", e.target.value)
-                    }
+                    onChange={(e) => handlePartQtyChange(idx, e.target.value)}
                     placeholder="1"
                     className={inputClass}
                   />
@@ -894,24 +912,30 @@ const ModelServiceTypeAssignment: React.FC = () => {
       <Modal isOpen={editModalOpen} onClose={closeEditModal} title="Edit Assignment" size="sm">
         <div className="space-y-4">
           <div>
-            <label className={labelClass}>Part Name</label>
-            <input
-              type="text"
-              value={editPartName}
-              onChange={(e) => setEditPartName(e.target.value)}
-              placeholder="Enter part name"
-              className={inputClass}
+            <label className={labelClass}>Search Part Code</label>
+            <PartCodeSearch
+              partCode={editPartCode}
+              partName={editPartName}
+              onSelect={(p) => {
+                setEditPartCode(p.partCode);
+                setEditPartName(p.partName);
+              }}
+              onClear={() => {
+                setEditPartCode("");
+                setEditPartName("");
+              }}
             />
           </div>
 
           <div>
-            <label className={labelClass}>Part Code</label>
+            <label className={labelClass}>Part Name</label>
             <input
               type="text"
-              value={editPartCode}
-              onChange={(e) => setEditPartCode(e.target.value)}
-              placeholder="Enter part code"
-              className={inputClass}
+              value={editPartName}
+              readOnly
+              placeholder="Select a part code…"
+              title="Auto-filled from the selected part"
+              className={`${inputClass} bg-[#f9fafb] cursor-not-allowed`}
             />
           </div>
 

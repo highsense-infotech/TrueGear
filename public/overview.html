@@ -382,6 +382,7 @@
     <li><a href="#scenario">Real Example — End to End</a></li>
     <li><a href="#admin">Admin Controls</a></li>
     <li><a href="#statuses">All System Statuses Reference</a></li>
+    <li><a href="#changelog">Change Log — Documentation Update</a></li>
   </ol>
 </div>
 
@@ -762,9 +763,14 @@
       <div class="arrow-down">↓</div>
       <div class="flow-box primary">🔧 Select Service Type + Service Category</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box green">⚡ Standard Parts Auto-Loaded (Model × Category)</div>
+      <div class="flow-box green">⚡ Standard Parts Auto-Loaded (Model Code × Category)</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box blue">💰 Add Labour + Adjust Line Items</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center">
+        <div class="flow-box blue" style="min-width:170px">🧩 PARTS Section<sub>auto-loaded / searched</sub></div>
+        <div class="flow-box blue" style="min-width:170px">🔧 LABOUR Section<sub>separate · Type · Hours · Amount</sub></div>
+      </div>
+      <div class="arrow-down">↓</div>
+      <div class="flow-box green">💰 Estimate = Parts Total + Labour Total + Tax</div>
       <div class="arrow-down">↓</div>
       <div class="flow-box amber">💾 Save — Job Card Status: DRAFT</div>
     </div>
@@ -773,8 +779,10 @@
   <ul class="steps">
     <li><div class="step-num">1</div><div class="step-body"><h5>Review Findings</h5><p>The SA opens the vehicle and sees the QC-In failed items and the customer's complaints together.</p></div></li>
     <li><div class="step-num">2</div><div class="step-body"><h5>Select Service Type &amp; Category</h5><p>The SA picks the Service Type (who pays / agreement) and Service Category (the work — e.g. B / C / D Service, Brake, Tyre). The category drives parts auto-loading. See <a href="#types">Section 04</a>.</p></div></li>
-    <li><div class="step-num">3</div><div class="step-body"><h5>Build the Estimate</h5><p>Standard parts auto-load for the vehicle model + category. The SA adds labour, adjusts quantities and adds or removes line items. Tax and totals calculate automatically.</p></div></li>
-    <li><div class="step-num">4</div><div class="step-body"><h5>Save</h5><p>The Job Card is saved as <strong>DRAFT</strong> with a unique Job Card number.</p></div></li>
+    <li><div class="step-num">3</div><div class="step-body"><h5>Parts Section</h5><p>Standard parts auto-load for the vehicle (by Model Code) + category; the SA can search-and-add more parts, and adjust quantities.</p></div></li>
+    <li><div class="step-num">4</div><div class="step-body"><h5>Labour Section <span class="tag tag-blue">New</span></h5><p>A <strong>dedicated Labour section, separate from Parts</strong>, supports multiple labour lines. Each line has a <strong>Labour Type</strong> (dropdown from the <a href="#admin">Labour Master</a>; a not-listed value can be typed and is saved to the master on the fly), an editable <strong>Description</strong>, <strong>Hours</strong> and a manually-entered <strong>Amount</strong>. At least one labour row is always shown.</p></div></li>
+    <li><div class="step-num">5</div><div class="step-body"><h5>Estimate</h5><p>Totals calculate automatically and are shown as <strong>Parts Total + Labour Total → Subtotal → Tax → Total Estimate</strong>.</p></div></li>
+    <li><div class="step-num">6</div><div class="step-body"><h5>Save</h5><p>The Job Card is saved as <strong>DRAFT</strong> with a unique Job Card number.</p></div></li>
   </ul>
 
 
@@ -838,6 +846,14 @@
       </div>
       <div class="arrow-down">↓</div>
       <div class="flow-box dark">Approved Items Proceed to Workshop</div>
+    </div>
+  </div>
+
+  <div class="info-box green">
+    <div class="icon">🔧</div>
+    <div>
+      <strong>Labour lines are mandatory <span class="tag tag-blue">New</span></strong>
+      <p>On the estimate the customer can select or deselect individual <em>parts</em>, but <strong>Labour lines are always included and cannot be deselected</strong> — they are shown with a <em>Mandatory</em> badge and stay in every approval. Only parts are optional.</p>
     </div>
   </div>
 
@@ -1054,9 +1070,9 @@
   <h3 class="sub-title">Parts Auto-Loading</h3>
   <div class="flow-wrap">
     <div class="flow">
-      <div class="flow-box blue">SA Selects: Vehicle Model + Service Category</div>
+      <div class="flow-box blue">SA Opens Job Card for a Vehicle + Service Category</div>
       <div class="arrow-down">↓</div>
-      <div class="flow-box primary">System Looks Up Model → Service Category Parts Assignment</div>
+      <div class="flow-box primary">System Matches by Vehicle <strong>Model Code</strong> → Service Category Parts Assignment</div>
       <div class="arrow-down">↓</div>
       <div class="flow-box green">Standard Parts Auto-Loaded with Codes &amp; Quantities</div>
       <div class="arrow-down">↓</div>
@@ -1068,7 +1084,15 @@
     <div class="icon">💡</div>
     <div>
       <strong>How the Admin Sets This Up</strong>
-      <p>Under <em>Model Service Types</em>, the Admin maps each vehicle model + service category to its standard parts list. Once mapped, the Service Advisor gets those parts auto-loaded every time.</p>
+      <p>Under <em>Model Service Types</em>, the Admin maps each Make → Model → <strong>Series (Model Code)</strong> + service category to its standard parts list. Once mapped, the Service Advisor gets those parts auto-loaded every time.</p>
+    </div>
+  </div>
+
+  <div class="info-box green">
+    <div class="icon">🎯</div>
+    <div>
+      <strong>Matching is by Model Code, not the model name <span class="tag tag-blue">Updated</span></strong>
+      <p>Bundles are now fetched using the vehicle's stable <strong>Model Code</strong> (the Evolve MM code, e.g. <code>18667525</code>), with a trimmed/case-insensitive model-name fallback. This fixes the earlier "series mismatch" where a small spelling/whitespace difference between the vehicle's model text and the assignment stopped parts from loading. The assignment screen therefore includes a third <strong>Series</strong> cascade (Make → Model → Series) so each bundle is tied to a specific Model Code.</p>
     </div>
   </div>
 </div>
@@ -1155,7 +1179,7 @@
         <li><div class="step-num" style="background:var(--dark)">A</div><div class="step-body"><h5>Roles &amp; Permissions</h5><p>Create roles and switch modules on/off per role (User Management). Build the operational roles for the newer modules (Technician, Workshop, QC Out, Washbay, Warranty, Billing, Gate Release).</p></div></li>
         <li><div class="step-num" style="background:var(--dark)">B</div><div class="step-body"><h5>User Accounts</h5><p>Create staff accounts, assign a role, and optionally set shop scope or warranty-only restrictions. Deactivate when staff leave.</p></div></li>
         <li><div class="step-num" style="background:var(--dark)">C</div><div class="step-body"><h5>Service Types &amp; Categories</h5><p>Maintain the Service Type and Service Category lists used on the job card.</p></div></li>
-        <li><div class="step-num" style="background:var(--dark)">D</div><div class="step-body"><h5>Model → Parts Assignments</h5><p>Map each vehicle model + service category to its standard parts (Model Service Types). This powers parts auto-loading.</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">D</div><div class="step-body"><h5>Model → Parts Assignments</h5><p>Map each <strong>Make → Model → Series (Model Code)</strong> + service category to its standard parts (Model Service Types). This powers parts auto-loading, which now matches vehicles by their <strong>Model Code</strong>. See <a href="#types">Section 04</a>.</p></div></li>
         <li><div class="step-num" style="background:var(--dark)">E</div><div class="step-body"><h5>Slot Configuration</h5><p>Set time-slot capacity for appointment booking.</p></div></li>
         <li><div class="step-num" style="background:var(--dark)">F</div><div class="step-body"><h5>Evolve Technician Mapping &amp; Profile</h5><p>When creating or editing a user whose role is <strong>Technician</strong>, three technician-only fields appear in the same Add/Edit User form: <strong>Evolve Technician</strong> (links the user to their Evolve <em>TechnicianNo</em> so labour hours post to the correct person — required), <strong>Ability</strong> (an informational productivity factor 0.00–1.00, optional, never sent to Evolve), and <strong>Designation</strong> (job grade — Service Mechanic, Major Shop Mechanic, Repair Shop Assistant, Apprentice — optional, and <em>not</em> a role/permission). All three are shown only for the Technician role; switching the role away clears them. This replaces the earlier standalone Technician Mapping screen — it now lives inside User Management. <em>Note: the client technician spreadsheet has no unique key, and names don't reliably match Evolve (duplicate surnames, spelling differences), so these values are entered manually. If spreadsheet import is ever wanted, the sheet must include the Evolve <strong>TechNo</strong> as the join key.</em></p></div></li>
         <li><div class="step-num" style="background:var(--dark)">G</div><div class="step-body"><h5>Designation Master</h5><p>Technician <strong>Designations</strong> (job grades such as Service Mechanic, Major Shop Mechanic, Repair Shop Assistant, Apprentice) are managed independently from the <strong>Designations</strong> menu (admin). The page provides a full master-data CRUD:</p>
@@ -1165,6 +1189,8 @@
           <li><strong>Activate / Deactivate</strong> — no hard delete (master data). Both actions open a <strong>confirmation dialog</strong>; when deactivating a designation that is currently assigned to technicians, the dialog warns how many are affected.</li>
         </ul>
         <p><strong>How User Management uses it:</strong> the Add/Edit User <em>Designation</em> dropdown (shown only for the Technician role) lists <strong>active</strong> designations only. An existing technician whose designation was later deactivated still sees it (marked <em>inactive</em>) in Edit mode, so it displays correctly and can be kept or changed. Deactivating a designation therefore only hides it from <em>new</em> selections — it never alters existing assignments.</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">H</div><div class="step-body"><h5>Labour Master <span class="tag tag-blue">New</span></h5><p>The standard labour descriptions used by the Job Card <strong>Labour</strong> section are managed from the <strong>Labour Master</strong> menu (admin), a master-data CRUD that mirrors the Designation Master: <strong>list + search + status filter</strong>, <strong>Add / Edit</strong> (name required, unique case-insensitive), and <strong>Activate / Deactivate</strong> with confirmation (no hard delete). The list is <strong>newest-first</strong>. The Job Card Labour Type dropdown shows <strong>active</strong> descriptions only; a Service Advisor can also type a description that isn't listed and it is <strong>saved to the master on the fly</strong> for reuse.</p></div></li>
+        <li><div class="step-num" style="background:var(--dark)">I</div><div class="step-body"><h5>Email Settings <span class="tag tag-blue">New</span></h5><p>Under <strong>Settings → Email</strong>, the admin configures the outbound mail transport — <strong>SMTP</strong> or <strong>Microsoft 365 (OAuth 2.0)</strong> — with sender/from details and a <strong>Test Email</strong> button. A master <strong>Enable Email</strong> toggle controls whether the system actually sends transactional emails (appointment, QC, estimate/approval). <em>Note: Test Email always sends using the entered config, but real emails only go out when <strong>Enable Email</strong> is ON.</em></p></div></li>
       </ul>
     </div>
     <div>
@@ -1174,7 +1200,7 @@
           <thead><tr><th>Setting</th><th>Example Value</th></tr></thead>
           <tbody>
             <tr><td>Workshop Name</td><td>ELT Group Auto Workshop</td></tr>
-            <tr><td>Default Currency</td><td>AED</td></tr>
+            <tr><td>Default Currency</td><td>ZAR</td></tr>
             <tr><td>Default Tax Label</td><td>VAT</td></tr>
             <tr><td>Min Entry Photos</td><td>4</td></tr>
             <tr><td>Receiving No Prefix</td><td>RCV-</td></tr>
@@ -1252,6 +1278,58 @@
   </div>
 </div>
 
+
+<!-- ═══════════════════════════════════════════════════ 9. CHANGE LOG -->
+<div class="section" id="changelog">
+  <span class="section-label">Section 09</span>
+  <h2 class="section-title">Change Log — Documentation Update</h2>
+  <p class="section-intro">Changes made to the application since the previous version of this document (baseline v3.0, June 2026), with the source files that drove each documentation update.</p>
+
+  <h3 class="sub-title">New Features</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>What it does</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td>Separate <strong>Labour</strong> section on the Job Card</td><td>Labour is now its own section, distinct from Parts — multiple lines, each with Labour Type, Description, Hours and a manual Amount.</td><td><code>components/cards/LabourSection.tsx</code>, <code>JobRow.tsx</code>, <code>screens/vehicles/CreateJobCard.tsx</code></td></tr>
+        <tr><td><strong>Labour Master</strong> (admin)</td><td>CRUD for standard labour descriptions (active/inactive, newest-first); feeds the Labour Type dropdown; supports add-on-the-fly from the job card.</td><td><code>screens/admin/LabourMaster.tsx</code>, <code>modules/labour-descriptions/*</code></td></tr>
+        <tr><td><strong>Parts + Labour</strong> estimate split</td><td>The estimate now shows Parts Total and Labour Total separately, then Subtotal → Tax → Total.</td><td><code>components/cards/TotalsSummary.tsx</code></td></tr>
+        <tr><td><strong>Email Settings</strong> + Enable Email</td><td>SMTP / Microsoft 365 (OAuth) mail config, Test Email, and a master Enable-Email toggle gating all transactional email.</td><td><code>modules/settings/*</code>, <code>services/mailConfig.service.ts</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub-title">Updated Flows</h3>
+  <ul class="steps">
+    <li><div class="step-num">1</div><div class="step-body"><h5>Job Card Creation (§3.4)</h5><p>Now builds Parts and Labour as separate sections; estimate = Parts Total + Labour Total. <code>CreateJobCard.tsx</code>.</p></div></li>
+    <li><div class="step-num">2</div><div class="step-body"><h5>Share Estimate &amp; Approval (§3.6)</h5><p>Estimate shows the Parts/Labour split; <strong>Labour lines are mandatory</strong> and can't be deselected by the customer. <code>screens/dashboard/CustomerApprovalDashboard.tsx</code>, <code>components/cards/JobCard.tsx</code>.</p></div></li>
+    <li><div class="step-num">3</div><div class="step-body"><h5>Parts Auto-Loading (§04)</h5><p>Bundles are matched by the vehicle <strong>Model Code</strong> (with normalized name fallback); the assignment screen gained a Make → Model → <strong>Series</strong> cascade. <code>modules/model-service-types/service.ts</code>, <code>screens/admin/ModelServiceTypeAssignment.tsx</code>.</p></div></li>
+    <li><div class="step-num">4</div><div class="step-body"><h5>Admin Setup (§07)</h5><p>Added Labour Master and Email Settings; Model→Parts now keyed by Series/Model Code.</p></div></li>
+  </ul>
+
+  <h3 class="sub-title">Modified Validation</h3>
+  <ul style="margin:8px 0 8px 18px;padding:0;list-style:disc;color:var(--muted);font-size:14px;line-height:1.8">
+    <li>Customer approval: <strong>Labour items cannot be deselected</strong> — always part of the approved set (parts remain optional). <code>CustomerApprovalDashboard.tsx</code>.</li>
+    <li>Job card save accepts per-item <strong>estimated hours</strong> and a <strong>notes</strong> field for labour lines. <code>modules/service-advisors/dto.ts</code>.</li>
+  </ul>
+
+  <h3 class="sub-title">Modified APIs</h3>
+  <ul style="margin:8px 0 8px 18px;padding:0;list-style:disc;color:var(--muted);font-size:14px;line-height:1.8">
+    <li><code>GET/POST /api/labour-descriptions</code> — new Labour Master endpoints; read + create are open to authenticated users (so a Service Advisor can add labour on the job card), edit/deactivate stay admin-only. <code>modules/labour-descriptions/routes.ts</code>.</li>
+    <li><code>GET /model-service-type-assignments/by-category/:code</code> — now matches the vehicle by Model Code. <code>modules/model-service-types/service.ts</code>.</li>
+    <li>Job card create/update payloads carry optional labour item fields (<code>estimatedHours</code>, <code>notes</code>). <code>modules/service-advisors/dto.ts</code>.</li>
+  </ul>
+
+  <h3 class="sub-title">Modified Business Logic</h3>
+  <ul style="margin:8px 0 8px 18px;padding:0;list-style:disc;color:var(--muted);font-size:14px;line-height:1.8">
+    <li><strong>Company name on all customer emails</strong> — appointment (confirm / cancel / reschedule), vehicle-entry, QC and estimate/approval emails now address the <strong>company name</strong>, falling back to the contact person only when no company name exists. <code>services/email.service.ts</code> + callers (<code>modules/appointments</code>, <code>confirm-entry</code>, <code>notifications</code>, <code>service-advisors</code>).</li>
+    <li><strong>Evolve RO create — ModelYear optional</strong> — a missing model year no longer blocks the job-card → Evolve RO sync. <code>services/jobCardEvolveSync.service.ts</code>.</li>
+    <li>Parts-bundle matching moved from free-text model name to the stable <strong>Model Code</strong>, fixing the "series mismatch" that stopped bundles loading.</li>
+  </ul>
+
+  <h3 class="sub-title">Removed Flows</h3>
+  <p class="section-intro" style="margin-bottom:0">None. No existing workflow was removed — all changes are additive or refinements. The per-job "Estimated Hours" input was removed from the Job Card form (labour hours are captured per labour line instead).</p>
+</div>
+
 <hr class="section-hr">
 
 <div class="info-box green" style="margin:40px 0">
@@ -1266,8 +1344,8 @@
 
 <footer>
   <strong>ELT Group Workshop Management System</strong> &nbsp;·&nbsp;
-  System Overview Document v3.0 &nbsp;·&nbsp;
-  June 2026 &nbsp;·&nbsp;
+  System Overview Document v3.1 &nbsp;·&nbsp;
+  July 2026 &nbsp;·&nbsp;
   Internal Use Only &nbsp;·&nbsp;
   All rights reserved.
 </footer>
