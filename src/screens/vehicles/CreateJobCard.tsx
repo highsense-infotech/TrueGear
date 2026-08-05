@@ -448,6 +448,12 @@ const CreateJobCard: React.FC = () => {
     categoryName: string,
     serviceTypeId: string,
   ) => {
+    // Show a loader on the row while parts + their (live Evolve) prices load.
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId ? { ...j, serviceCategory: categoryName, autoPartsLoading: true } : j,
+      ),
+    );
     try {
       const params: Record<string, string> = {};
       if (serviceTypeId) params.serviceCategoryId = serviceTypeId;
@@ -486,6 +492,10 @@ const CreateJobCard: React.FC = () => {
       toast.success(`${data.data.length} parts loaded from ${categoryName}`);
     } catch {
       toast.error("Failed to load parts for this category");
+    } finally {
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, autoPartsLoading: false } : j)),
+      );
     }
   };
 

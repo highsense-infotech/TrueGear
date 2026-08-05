@@ -40,6 +40,7 @@ export interface Job {
   jobType?: string;
   estimatedHours?: string;
   autoParts?: AutoPart[];
+  autoPartsLoading?: boolean;
   paidParts?: PaidPart[];
   labourLines?: LabourLine[];
   isWarrantyClaim?: boolean;
@@ -348,8 +349,16 @@ export function JobRow({
         </div>
       )}
 
+      {/* ── Loading auto-parts (fetching parts + live Evolve prices) ── */}
+      {!isPaidService && job.autoPartsLoading && (
+        <div className="flex items-center justify-center gap-3 bg-gray-50 rounded-xl border border-gray-200 px-4 py-6">
+          <Loader2 size={18} className="animate-spin text-[#ff4f31]" />
+          <span className="text-[13px] text-gray-500">Loading parts &amp; prices…</span>
+        </div>
+      )}
+
       {/* ── Category-based auto-parts (non-Paid Service) ── */}
-      {!isPaidService && hasCategoryParts && (
+      {!isPaidService && !job.autoPartsLoading && hasCategoryParts && (
         <>
           <div className="flex items-center gap-4 bg-gray-50 rounded-xl border border-gray-200 px-4 py-3.5">
             <div className="w-10 h-10 rounded-lg bg-[#ff4f31]/10 flex items-center justify-center shrink-0">
@@ -422,7 +431,7 @@ export function JobRow({
       )}
 
       {/* No parts found for category (non-Paid Service) */}
-      {!isPaidService && !hasCategoryParts && job.serviceCategory && (
+      {!isPaidService && !job.autoPartsLoading && !hasCategoryParts && job.serviceCategory && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
           <Package size={18} className="text-amber-500 shrink-0" />
           <p className="text-[13px] text-amber-700">
