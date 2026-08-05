@@ -200,6 +200,18 @@ export const SendEstimate = () => {
               )}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              const msg = `Please review and approve your service estimate:\n${approvalUrl}`;
+              window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+            }}
+            className="w-full mt-2 inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[#25D366] text-white text-[13px] font-medium hover:bg-[#1da851] transition-colors"
+            title="Share the approval link on WhatsApp"
+          >
+            <MessageCircle size={16} />
+            Share on WhatsApp
+          </button>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle, Eye, UserPlus } from "lucide-react";
+import { Loader2, Clock, Send, CheckCircle2, Pencil, Package, AlertCircle, Copy, Check, MessageSquareWarning, CheckCircle, XCircle, Eye, UserPlus, MessageCircle } from "lucide-react";
 import Modal from "../../components/common/Modal";
 import { AssignTechnicianModal } from "../../components/common/AssignTechnicianModal";
 import ReassignItemModal from "../../components/common/ReassignItemModal";
@@ -454,7 +454,7 @@ const JobCardDetail: React.FC = () => {
 
         {approvalUrl && (
           <div className="pt-1 border-t border-gray-100 space-y-1.5">
-            <p className="text-xs font-medium text-gray-400">Approval link — copy and share manually</p>
+            <p className="text-xs font-medium text-gray-400">Approval link — copy or share on WhatsApp</p>
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <span className="flex-1 text-xs text-gray-600 truncate">{approvalUrl}</span>
               <button
@@ -469,6 +469,18 @@ const JobCardDetail: React.FC = () => {
                 )}
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                const msg = `Please review and approve your service estimate:\n${approvalUrl}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#25D366] text-white text-xs font-medium hover:bg-[#1da851] transition-colors"
+              title="Share the approval link on WhatsApp"
+            >
+              <MessageCircle size={15} />
+              Share on WhatsApp
+            </button>
           </div>
         )}
       </div>
