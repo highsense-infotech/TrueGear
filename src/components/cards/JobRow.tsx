@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from "react";
-import { Trash2, Eye, Package, Search, Plus, Loader2, X } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Trash2, Eye, Package, Search, Plus, Loader2, X, RotateCcw } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "../common/Button";
 import Modal from "../common/Modal";
@@ -16,7 +16,10 @@ export interface AutoPart {
   partCode: string;
   partName: string;
   quantity: string;
+  // unitPrice = the EFFECTIVE price (editable). evolveUnitPrice = the original
+  // Evolve/auto-load price; a manual override is when they differ.
   unitPrice: string;
+  evolveUnitPrice?: string;
 }
 
 /** A part added manually under Paid Service flow */
@@ -24,7 +27,10 @@ export interface PaidPart {
   id: string;
   partCode: string;
   partName: string;
+  // unitPrice = the EFFECTIVE price (editable). evolveUnitPrice = the original
+  // Evolve/search price; a manual override is when they differ.
   unitPrice: number;
+  evolveUnitPrice?: number;
   quantity: number;
 }
 
@@ -70,6 +76,54 @@ interface PartSearchResult {
 
 const PAID_SERVICE_NAME = "Repair";
 
+// Editable unit-price cell (blur-to-save) for auto-loaded parts. Validates
+// numeric, >= 0, max 2 decimals; reverts invalid input on blur.
+function AutoPartPriceInput({
+  value,
+  onSave,
+  overridden = false,
+  className,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  overridden?: boolean;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const commit = () => {
+    const t = draft.trim();
+    const n = Number(t);
+    const twoDp = /^\d+(\.\d{1,2})?$/.test(t); // digits + up to 2 decimals
+    if (t === "" || isNaN(n) || n < 0 || !twoDp) {
+      setDraft(value); // reject → revert
+      return;
+    }
+    if (t !== value) onSave(t);
+  };
+  return (
+    <input
+      type="number"
+      min="0"
+      step="0.01"
+      inputMode="decimal"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      title={overridden ? "Manual price override" : undefined}
+      className={
+        className ??
+        `w-24 h-8 border rounded-lg px-2 text-[13px] text-right text-gray-700 outline-none focus:border-[#04c397] ${
+          overridden ? "border-[#ff4f31]" : "border-gray-200"
+        }`
+      }
+    />
+  );
+}
+
 const SERVICE_CATEGORIES: DropdownOption[] = [
   { id: "B_SERVICE", name: "B Service" },
   { id: "C_SERVICE", name: "C Service" },
@@ -97,6 +151,12 @@ interface JobRowProps {
   onAddPaidPart?: (jobId: number, part: PaidPart) => void;
   onRemovePaidPart?: (jobId: number, partId: string) => void;
   onUpdatePaidPart?: (jobId: number, partId: string, quantity: number) => void;
+  // Manual Part Price Override on auto-loaded parts.
+  onUpdateAutoPartPrice?: (jobId: number, partId: string, unitPrice: string) => void;
+  onResetAutoPartPrice?: (jobId: number, partId: string) => void;
+  // Manual Part Price Override on paid ("Repair") parts.
+  onUpdatePaidPartPrice?: (jobId: number, partId: string, unitPrice: number) => void;
+  onResetPaidPartPrice?: (jobId: number, partId: string) => void;
   // Labour section (Phase 1 — local state only; not persisted yet)
   onAddLabour?: (jobId: number) => void;
   onUpdateLabour?: (
@@ -127,6 +187,10 @@ export function JobRow({
   onAddPaidPart,
   onRemovePaidPart,
   onUpdatePaidPart,
+  onUpdateAutoPartPrice,
+  onResetAutoPartPrice,
+  onUpdatePaidPartPrice,
+  onResetPaidPartPrice,
   onAddLabour,
   onUpdateLabour,
   onRemoveLabour,
@@ -222,6 +286,7 @@ export function JobRow({
       partCode: selectedPart.partCode,
       partName: selectedPart.partName,
       unitPrice: selectedPart.unitPrice,
+      evolveUnitPrice: selectedPart.unitPrice, // original Evolve price (for override detection)
       quantity: addQty,
     };
     onAddPaidPart?.(job.id, newPart);
@@ -410,20 +475,52 @@ export function JobRow({
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[50vh] overflow-y-auto pr-1">
-                {job.autoParts!.map((part) => (
-                  <div
-                    key={part.id}
-                    className="flex items-start gap-3 bg-gray-50 rounded-lg px-3.5 py-3 border border-gray-100"
-                  >
-                    <span className="text-[11px] font-mono bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 shrink-0 mt-0.5">
-                      {part.partCode}
-                    </span>
-                    <p className="text-[13px] text-gray-700 leading-snug">
-                      {part.partName}
-                    </p>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto pr-1">
+                {job.autoParts!.map((part) => {
+                  const evolve = Number(part.evolveUnitPrice ?? part.unitPrice) || 0;
+                  const eff = Number(part.unitPrice) || 0;
+                  const overridden = part.evolveUnitPrice != null && eff !== evolve;
+                  const qty = Number(part.quantity) || 1;
+                  return (
+                    <div
+                      key={part.id}
+                      className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-50 rounded-lg px-3.5 py-2.5 border border-gray-100"
+                    >
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <span className="text-[11px] font-mono bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 shrink-0 mt-0.5">
+                          {part.partCode}
+                        </span>
+                        <p className="text-[13px] text-gray-700 leading-snug">{part.partName}</p>
+                      </div>
+                      <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                        <span className="text-[12px] text-gray-400">Qty {qty}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] text-gray-400">Unit</span>
+                          <AutoPartPriceInput
+                            value={part.unitPrice}
+                            onSave={(v) => onUpdateAutoPartPrice?.(job.id, part.id, v)}
+                          />
+                        </div>
+                        {overridden && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#ff4f31] bg-[#fff0ed] rounded-[5px] px-1.5 py-0.5">
+                            Manual
+                            <button
+                              type="button"
+                              onClick={() => onResetAutoPartPrice?.(job.id, part.id)}
+                              title={`Reset to Evolve price ${formatCurrency(evolve)}`}
+                              className="hover:text-[#e6452b]"
+                            >
+                              <X size={11} />
+                            </button>
+                          </span>
+                        )}
+                        <span className="w-24 text-right text-[13px] font-semibold text-gray-800">
+                          {formatCurrency(eff * qty)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </Modal>
@@ -629,10 +726,29 @@ export function JobRow({
                       {p.partName}
                     </span>
 
-                    {/* Unit Price — desktop only */}
-                    <span className="hidden sm:block text-[13px] text-gray-500">
-                      {formatCurrency(p.unitPrice)}
-                    </span>
+                    {/* Unit Price — editable (Manual Part Price Override) */}
+                    <div className="hidden sm:flex items-center gap-1">
+                      <AutoPartPriceInput
+                        value={String(p.unitPrice)}
+                        overridden={p.evolveUnitPrice != null && p.unitPrice !== p.evolveUnitPrice}
+                        onSave={(v) => onUpdatePaidPartPrice?.(job.id, p.id, Number(v))}
+                        className={`w-[76px] h-8 border rounded-lg px-2 text-[13px] text-right text-gray-700 outline-none focus:border-[#04c397] ${
+                          p.evolveUnitPrice != null && p.unitPrice !== p.evolveUnitPrice
+                            ? "border-[#ff4f31]"
+                            : "border-gray-200"
+                        }`}
+                      />
+                      {p.evolveUnitPrice != null && p.unitPrice !== p.evolveUnitPrice && (
+                        <button
+                          type="button"
+                          onClick={() => onResetPaidPartPrice?.(job.id, p.id)}
+                          title={`Manual price — reset to Evolve ${formatCurrency(p.evolveUnitPrice)}`}
+                          className="text-[#ff4f31] hover:text-[#e6452b] shrink-0"
+                        >
+                          <RotateCcw size={13} />
+                        </button>
+                      )}
+                    </div>
 
                     {/* Qty input */}
                     <div>

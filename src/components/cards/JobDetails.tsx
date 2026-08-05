@@ -22,6 +22,10 @@ interface JobDetailsProps {
   onAddPaidPart?: (jobId: number, part: PaidPart) => void;
   onRemovePaidPart?: (jobId: number, partId: string) => void;
   onUpdatePaidPart?: (jobId: number, partId: string, quantity: number) => void;
+  onUpdateAutoPartPrice?: (jobId: number, partId: string, unitPrice: string) => void;
+  onResetAutoPartPrice?: (jobId: number, partId: string) => void;
+  onUpdatePaidPartPrice?: (jobId: number, partId: string, unitPrice: number) => void;
+  onResetPaidPartPrice?: (jobId: number, partId: string) => void;
   onAddLabour?: (jobId: number) => void;
   onUpdateLabour?: (
     jobId: number,
@@ -47,6 +51,10 @@ export function JobDetails({
   onAddPaidPart,
   onRemovePaidPart,
   onUpdatePaidPart,
+  onUpdateAutoPartPrice,
+  onResetAutoPartPrice,
+  onUpdatePaidPartPrice,
+  onResetPaidPartPrice,
   onAddLabour,
   onUpdateLabour,
   onRemoveLabour,
@@ -96,6 +104,10 @@ export function JobDetails({
             onAddPaidPart={onAddPaidPart}
             onRemovePaidPart={onRemovePaidPart}
             onUpdatePaidPart={onUpdatePaidPart}
+            onUpdateAutoPartPrice={onUpdateAutoPartPrice}
+            onResetAutoPartPrice={onResetAutoPartPrice}
+            onUpdatePaidPartPrice={onUpdatePaidPartPrice}
+            onResetPaidPartPrice={onResetPaidPartPrice}
             onAddLabour={onAddLabour}
             onUpdateLabour={onUpdateLabour}
             onRemoveLabour={onRemoveLabour}

@@ -268,6 +268,9 @@ export interface CreateJobCardItem {
   // Labour lines (Phase 2). Optional/backward compatible.
   estimatedHours?: number | null;
   notes?: string | null;
+  // Manual Part Price Override (optional/backward compatible).
+  evolveUnitPrice?: number | null;
+  manualUnitPrice?: number | null;
   isWarrantyClaim?: boolean;
   warrantyClaimNo?: string | null;
   warrantyOem?: string | null;
@@ -313,6 +316,11 @@ export interface SAJobCardItem {
   serviceType: string | null;
   serviceCategory: string | null;
   partsCost: string;
+  // Manual Part Price Override. partsCost == effectiveUnitPrice (manual ?? evolve).
+  evolveUnitPrice: string | null;
+  manualUnitPrice: string | null;
+  effectiveUnitPrice: number | null;
+  isPriceOverridden: boolean;
   labourCost: string;
   quantity: number;
   lineTotal: string;

@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { JobCardActions } from "../../components/cards/JobCardActions";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { JobDetails, type Job } from "../../components/cards/JobDetails";
-import { type JobErrors, type PaidPart } from "../../components/cards/JobRow";
+import { type JobErrors, type PaidPart, type AutoPart } from "../../components/cards/JobRow";
 import {
   type LabourLine,
   createEmptyLabourLine,
@@ -269,7 +269,14 @@ const CreateJobCard: React.FC = () => {
                   partCode: item.partsRequired || "",
                   partName: item.jobDescription || "",
                   quantity: String(item.quantity),
-                  unitPrice: String(item.partsCost || 0),
+                  // Effective price (parts_cost), plus the original Evolve price
+                  // so a manual override reloads correctly with its badge.
+                  unitPrice: String(
+                    item.effectiveUnitPrice ?? item.partsCost ?? 0,
+                  ),
+                  evolveUnitPrice: String(
+                    item.evolveUnitPrice ?? item.partsCost ?? 0,
+                  ),
                 };
                 if (existing) {
                   existing.autoParts = [
@@ -305,7 +312,10 @@ const CreateJobCard: React.FC = () => {
                   id: item.id,
                   partCode: item.partsRequired || "",
                   partName: item.jobDescription || "",
-                  unitPrice: Number(item.partsCost) || 0,
+                  // Effective price (parts_cost) + original Evolve price so a
+                  // manual override reloads with its indicator.
+                  unitPrice: Number(item.effectiveUnitPrice ?? item.partsCost) || 0,
+                  evolveUnitPrice: Number(item.evolveUnitPrice ?? item.partsCost) || 0,
                   quantity: item.quantity || 1,
                 };
                 if (existing) {
@@ -480,11 +490,16 @@ const CreateJobCard: React.FC = () => {
         return;
       }
 
-      // Store fetched parts on the job row
+      // Store fetched parts on the job row. Seed evolveUnitPrice = the loaded
+      // price so a later manual edit can be detected + reverted.
+      const loadedParts = (data.data as AutoPart[]).map((p) => ({
+        ...p,
+        evolveUnitPrice: String(p.unitPrice ?? 0),
+      }));
       setJobs((prev) =>
         prev.map((j) =>
           j.id === jobId
-            ? { ...j, serviceCategory: categoryName, autoParts: data.data }
+            ? { ...j, serviceCategory: categoryName, autoParts: loadedParts }
             : j,
         ),
       );
@@ -547,6 +562,71 @@ const CreateJobCard: React.FC = () => {
               ...job,
               paidParts: (job.paidParts ?? []).map((p) =>
                 p.id === partId ? { ...p, quantity } : p,
+              ),
+            }
+          : job,
+      ),
+    );
+  };
+
+  // ── Paid-part unit-price override (Manual Part Price Override) ───────────────
+  const updatePaidPartPrice = (jobId: number, partId: string, unitPrice: number) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              paidParts: (job.paidParts ?? []).map((p) =>
+                p.id === partId ? { ...p, unitPrice } : p,
+              ),
+            }
+          : job,
+      ),
+    );
+  };
+
+  const resetPaidPartPrice = (jobId: number, partId: string) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              paidParts: (job.paidParts ?? []).map((p) =>
+                p.id === partId ? { ...p, unitPrice: p.evolveUnitPrice ?? p.unitPrice } : p,
+              ),
+            }
+          : job,
+      ),
+    );
+  };
+
+  // ── Auto-part unit-price override (Manual Part Price Override) ───────────────
+  const updateAutoPartPrice = (jobId: number, partId: string, unitPrice: string) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              autoParts: (job.autoParts ?? []).map((p) =>
+                p.id === partId ? { ...p, unitPrice } : p,
+              ),
+            }
+          : job,
+      ),
+    );
+  };
+
+  // Clear the override → revert the effective price back to the Evolve price.
+  const resetAutoPartPrice = (jobId: number, partId: string) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              autoParts: (job.autoParts ?? []).map((p) =>
+                p.id === partId
+                  ? { ...p, unitPrice: p.evolveUnitPrice ?? p.unitPrice }
+                  : p,
               ),
             }
           : job,
@@ -766,21 +846,37 @@ const CreateJobCard: React.FC = () => {
           job.paidParts &&
           job.paidParts.length > 0
         ) {
-          items = job.paidParts.map((part) => ({
-            jobDescription: part.partName,
-            partsRequired: part.partCode,
-            partsCost: part.unitPrice,
-            labourCost: 0,
-            quantity: part.quantity,
-          }));
+          items = job.paidParts.map((part) => {
+            const effective = Number(part.unitPrice) || 0;
+            const evolve = Number(part.evolveUnitPrice ?? part.unitPrice) || 0;
+            const overridden = part.evolveUnitPrice != null && effective !== evolve;
+            return {
+              jobDescription: part.partName,
+              partsRequired: part.partCode,
+              partsCost: effective,
+              labourCost: 0,
+              quantity: part.quantity,
+              evolveUnitPrice: evolve,
+              manualUnitPrice: overridden ? effective : null,
+            };
+          });
         } else if (job.autoParts && job.autoParts.length > 0) {
-          items = job.autoParts.map((part) => ({
-            jobDescription: part.partName,
-            partsRequired: part.partCode,
-            partsCost: Number(part.unitPrice) || 0,
-            labourCost: 0,
-            quantity: Number(part.quantity) || 1,
-          }));
+          items = job.autoParts.map((part) => {
+            const effective = Number(part.unitPrice) || 0;
+            const evolve = Number(part.evolveUnitPrice ?? part.unitPrice) || 0;
+            const overridden = part.evolveUnitPrice != null && effective !== evolve;
+            return {
+              jobDescription: part.partName,
+              partsRequired: part.partCode,
+              partsCost: effective, // effective (backend recomputes from evolve/manual)
+              labourCost: 0,
+              quantity: Number(part.quantity) || 1,
+              // Manual Part Price Override: preserve the Evolve price; send the
+              // manual override only when the price was actually changed.
+              evolveUnitPrice: evolve,
+              manualUnitPrice: overridden ? effective : null,
+            };
+          });
         } else {
           items = [
             {
@@ -1272,6 +1368,10 @@ const CreateJobCard: React.FC = () => {
           onAddPaidPart={addPaidPart}
           onRemovePaidPart={removePaidPart}
           onUpdatePaidPart={updatePaidPart}
+          onUpdateAutoPartPrice={updateAutoPartPrice}
+          onResetAutoPartPrice={resetAutoPartPrice}
+          onUpdatePaidPartPrice={updatePaidPartPrice}
+          onResetPaidPartPrice={resetPaidPartPrice}
           onAddLabour={addLabourLine}
           onUpdateLabour={updateLabourLine}
           onRemoveLabour={removeLabourLine}
