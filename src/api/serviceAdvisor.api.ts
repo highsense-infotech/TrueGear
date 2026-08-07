@@ -452,6 +452,8 @@ export interface AssignTechnicianItem {
 export const assignTechnician = async (
   jobCardId: string,
   assignments: AssignTechnicianItem[],
+  // Bulk Technician Allocation ("Assign All") — flags an audit row on the BE.
+  bulk = false,
 ): Promise<ApiResponse<{
   jobCardId: string;
   status: string;
@@ -461,7 +463,7 @@ export const assignTechnician = async (
 }>> => {
   const { data } = await api.post(
     `/service-advisor/job-cards/${jobCardId}/assign-technician`,
-    { assignments },
+    { assignments, bulk },
   );
   return data;
 };

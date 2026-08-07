@@ -39,6 +39,13 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Bulk Technician Allocation ("Assign All") — one technician for every
+  // editable (unassigned) labour line, with optional shared hours/priority.
+  const [bulkTech, setBulkTech] = useState("");
+  const [bulkHours, setBulkHours] = useState("");
+  const [bulkPriority, setBulkPriority] = useState<AssignTechnicianPriority>("MEDIUM");
+  const [bulkUsed, setBulkUsed] = useState(false);
+
   // Costing-only labour lines are never technician work — exclude them entirely
   // from assignment. (no part + no parts cost)
   const assignableItems = useMemo(
@@ -64,7 +71,7 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
 
   useEffect(() => {
     if (!isOpen) return;
-    // Seed fresh row state for every unassigned item.
+    // Seed fresh row state for every unassigned item + reset the Assign-All form.
     setRows(
       Object.fromEntries(
         unassignedItems.map((item) => [
@@ -73,7 +80,30 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
         ]),
       ),
     );
+    setBulkTech("");
+    setBulkHours("");
+    setBulkPriority("MEDIUM");
+    setBulkUsed(false);
   }, [isOpen, unassignedItems]);
+
+  // Assign All — apply the chosen technician (and optional hours/priority) to
+  // every editable row at once. Rows can still be edited individually after.
+  const handleAssignAll = () => {
+    if (!bulkTech || unassignedItems.length === 0) return;
+    setRows((prev) => {
+      const next = { ...prev };
+      for (const item of unassignedItems) {
+        next[item.id] = {
+          technicianId: bulkTech,
+          estimatedHours: bulkHours || prev[item.id]?.estimatedHours || "",
+          priority: bulkPriority,
+        };
+      }
+      return next;
+    });
+    setBulkUsed(true);
+    setError(null);
+  };
 
   const updateRow = (itemId: string, patch: Partial<RowState>) => {
     setRows((prev) => ({ ...prev, [itemId]: { ...prev[itemId], ...patch } }));
@@ -120,7 +150,7 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
     setSubmitting(true);
     setError(null);
     try {
-      const res = await assignTechnician(jobCardId, assignments);
+      const res = await assignTechnician(jobCardId, assignments, bulkUsed);
       // Treat the response as success only when the BE sent its wrapped
       // success envelope. Defensively check for both shapes — a stale FE
       // bundle that returns the raw axios response would lack res.success.
@@ -159,6 +189,52 @@ export function AssignTechnicianModal({ isOpen, jobCardId, items, onClose, onAss
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {unassignedItems.length > 0 && (
+          <div className="border border-[#e5e7eb] rounded-lg p-3 bg-[#fff7f5]">
+            <p className="text-[12px] font-semibold text-[#666] mb-2">
+              Assign all lines to one technician
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2.5 md:items-end">
+              <div>
+                <label className="block text-[11px] font-medium text-[#666] mb-1">Technician</label>
+                <SearchableDropdown
+                  options={technicians.map((t) => {
+                    const skills = t.skills && t.skills.length > 0 ? t.skills.join(", ") : "—";
+                    const load = t.activeItemCount ?? 0;
+                    return { id: t.id, name: `${t.username} · ${skills} · ${load} active` };
+                  })}
+                  value={bulkTech}
+                  onChange={(id) => setBulkTech(id)}
+                  placeholder="Search technician"
+                  loading={loadingList}
+                  disabled={submitting}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-[#666] mb-1">Hours (optional)</label>
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={bulkHours}
+                  onChange={(e) => setBulkHours(e.target.value)}
+                  disabled={submitting}
+                  placeholder="all"
+                  className="w-full md:w-24 h-11 sm:h-12 px-3 rounded-[10px] border border-[#e5e7eb] bg-white text-[14px] text-[#333] focus:outline-none focus:border-[#ff4f31]"
+                />
+              </div>
+              <Button
+                onClick={handleAssignAll}
+                variant="secondary"
+                className="h-11 sm:h-12"
+                disabled={submitting || loadingList || !bulkTech}
+              >
+                Assign All
+              </Button>
+            </div>
           </div>
         )}
 

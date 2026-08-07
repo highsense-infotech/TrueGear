@@ -153,11 +153,18 @@ const CreateJobCard: React.FC = () => {
         }
 
         // Populate the Labour dropdown from the Labour Master (may be empty).
-        if (labourRes?.success && Array.isArray(labourRes.data)) {
-          setLabourOptions(
-            labourRes.data.map((l) => ({ id: l.id, name: l.name })),
-          );
+        const labourOpts =
+          labourRes?.success && Array.isArray(labourRes.data)
+            ? labourRes.data.map((l) => ({ id: l.id, name: l.name }))
+            : [];
+        if (labourOpts.length) {
+          setLabourOptions(labourOpts);
         }
+        // Name → id map so a reloaded labour line whose description matches a
+        // Labour Master item re-selects it in the Labour Type dropdown.
+        const labourIdByName = new Map(
+          labourOpts.map((l) => [l.name.trim().toLowerCase(), l.id]),
+        );
 
         // Populate the Franchise / Service Dept dropdowns (may be empty).
         if (fsdRes?.success && Array.isArray(fsdRes.data)) {
@@ -241,7 +248,10 @@ const CreateJobCard: React.FC = () => {
               if (String(item.partsRequired ?? "").trim().toUpperCase() === "LABOUR") {
                 const line: LabourLine = {
                   id: item.id ? String(item.id) : crypto.randomUUID(),
-                  presetLabel: "",
+                  // Re-select the Labour Type when the saved description matches a
+                  // Labour Master item; otherwise leave unselected (free text).
+                  presetLabel:
+                    labourIdByName.get((item.jobDescription || "").trim().toLowerCase()) ?? "",
                   description: item.jobDescription || "",
                   hours: item.estimatedHours != null ? String(item.estimatedHours) : "",
                   amount: item.labourCost != null ? String(item.labourCost) : "",
