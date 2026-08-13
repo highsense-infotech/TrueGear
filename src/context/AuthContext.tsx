@@ -9,6 +9,9 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   login: (data: AuthData) => void;
+  // Refresh the cached user after a self-service profile update (name, email,
+  // username, avatar). Auth is userId-based so no token refresh is required.
+  updateUser: (partial: Partial<User>) => void;
   logout: () => Promise<void>;
   hasRole: (roleSlug: string) => boolean;
   hasPermission: (resource: string, action: string) => boolean;
@@ -43,6 +46,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, []);
 
+  const updateUser = useCallback((partial: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial };
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? (JSON.parse(raw) as AuthData) : null;
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ token: parsed?.token ?? null, user: next }),
+        );
+      } catch {
+        // best-effort — in-memory state still updates
+      }
+      return next;
+    });
+  }, []);
+
   const logout = useCallback(async () => {
     await logoutApi();
     setUser(null);
@@ -72,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const warrantyOnly: boolean = user?.warrantyOnly ?? false;
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout, hasRole, hasPermission, shopScope, warrantyOnly }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, login, updateUser, logout, hasRole, hasPermission, shopScope, warrantyOnly }}>
       {children}
     </AuthContext.Provider>
   );

@@ -16,6 +16,8 @@ export interface ManagedUser {
   id: string;
   username: string;
   email: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
   isActive: boolean;
   createdAt: string;
   role: { name: string; slug: string };
@@ -83,6 +85,8 @@ export const createUser = (data: {
   username: string;
   email: string;
   password: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
   roleSlug: string;
   shopScope?: ShopScope;
   warrantyOnly?: boolean;
@@ -98,6 +102,9 @@ export const updateUser = (
   data: {
     username?: string;
     email?: string;
+    password?: string;
+    fullName?: string | null;
+    avatarUrl?: string | null;
     roleSlug?: string;
     isActive?: boolean;
     shopScope?: ShopScope;
@@ -109,6 +116,22 @@ export const updateUser = (
   },
 ): Promise<ApiResponse<ManagedUser>> =>
   api.put(`/user-management/users/${id}`, data).then((res) => res.data);
+
+/**
+ * Upload an avatar image for a user being created/edited (admin). Returns the
+ * stored path (send as `avatarUrl` in create/update) plus a signed preview URL.
+ */
+export const uploadUserAvatar = (
+  file: File,
+): Promise<ApiResponse<{ path: string; url: string | null }>> => {
+  const form = new FormData();
+  form.append('file', file);
+  return api
+    .post('/user-management/users/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data);
+};
 
 // ─── Evolve Service Advisor Mapping (admin-only) ───────────────────────────────
 // Maps local service-advisor users to their Evolve SANumber (RO ServiceAdvisorNumber).

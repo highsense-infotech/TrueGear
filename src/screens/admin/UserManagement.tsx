@@ -10,9 +10,12 @@ import {
   Calendar,
   Mail,
   Search,
+  Camera,
+  X,
 } from "lucide-react";
 import Modal from "../../components/common/Modal.tsx";
 import Button from "../../components/common/Button.tsx";
+import Avatar from "../../components/common/Avatar.tsx";
 import SearchableDropdown from "../../components/common/SearchableDropdown.tsx";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { Pagination } from "../../components/common/Pagination.tsx";
@@ -25,6 +28,7 @@ import {
   listUsersPaginated,
   createUser,
   updateUser,
+  uploadUserAvatar,
   deleteUser,
   getRolePermissions,
   updateRolePermissions,
@@ -74,10 +78,6 @@ function getRoleBadge(slug: string, name: string) {
   );
 }
 
-function getInitials(name: string) {
-  return name.slice(0, 2).toUpperCase();
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", {
     day: "2-digit",
@@ -93,6 +93,63 @@ const inputErrorClass =
   "w-full px-3 py-2.5 border border-[#FE2B73] rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-[#FE2B73] focus:border-transparent";
 
 const labelClass = "block text-[13px] font-medium text-[#333] mb-1.5";
+
+// Reusable avatar picker for the Add/Edit User forms. Shows a circular preview
+// (image or initials) with a "Change Photo" button; optional Remove clears it.
+function AvatarPicker({
+  preview,
+  name,
+  fallback,
+  uploading,
+  onFile,
+  onRemove,
+}: {
+  preview: string | null;
+  name?: string | null;
+  fallback?: string | null;
+  uploading: boolean;
+  onFile: (file: File | null) => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative">
+        <Avatar src={preview} name={name} fallback={fallback} size={64} />
+        {uploading && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+            <Loader2 className="w-5 h-5 text-white animate-spin" />
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="inline-flex items-center gap-1.5 cursor-pointer text-[13px] font-medium text-[#ff4f31] hover:underline">
+          <Camera className="w-4 h-4" />
+          {preview ? "Change Photo" : "Upload Photo"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/webp"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              onFile(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        {preview && onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="inline-flex items-center gap-1 text-[12px] text-[#999] hover:text-[#FE2B73]"
+          >
+            <X className="w-3.5 h-3.5" /> Remove
+          </button>
+        )}
+        <p className="text-[11px] text-[#999]">JPG, PNG or WEBP.</p>
+      </div>
+    </div>
+  );
+}
 
 const USERNAME_REGEX = /^[a-z0-9_]*$/;
 
@@ -758,6 +815,8 @@ function UsersTab() {
     username: "",
     email: "",
     password: "",
+    fullName: "",
+    avatarUrl: null as string | null,
     roleSlug: "",
     shopScope: "ALL" as ShopScope,
     warrantyOnly: false,
@@ -766,6 +825,7 @@ function UsersTab() {
     ability: "",
     designationId: "",
   });
+  const [createAvatarPreview, setCreateAvatarPreview] = useState<string | null>(null);
   const [createUsernameError, setCreateUsernameError] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -775,6 +835,9 @@ function UsersTab() {
   const [editForm, setEditForm] = useState({
     username: "",
     email: "",
+    password: "",
+    fullName: "",
+    avatarUrl: null as string | null,
     roleSlug: "",
     shopScope: "ALL" as ShopScope,
     warrantyOnly: false,
@@ -783,8 +846,10 @@ function UsersTab() {
     ability: "",
     designationId: "",
   });
+  const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
   const [editUsernameError, setEditUsernameError] = useState("");
   const [editing, setEditing] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Evolve technicians — lazy-loaded when a technician role is selected in the
   // Add/Edit forms. Reuses the existing Technician Mapping API (no new endpoint).
@@ -945,6 +1010,8 @@ function UsersTab() {
       username: "",
       email: "",
       password: "",
+      fullName: "",
+      avatarUrl: null,
       roleSlug: initialRole,
       shopScope: "ALL",
       warrantyOnly: false,
@@ -953,10 +1020,35 @@ function UsersTab() {
       ability: "",
       designationId: "",
     });
+    setCreateAvatarPreview(null);
     setCreateUsernameError("");
     setCreateModalOpen(true);
     if (initialRole === "technician") loadTechnicianLookups();
     if (initialRole === "service-advisor") void loadEvolveServiceAdvisors();
+  };
+
+  // Upload an avatar image for the Add/Edit forms. Stores the returned path on
+  // the form (sent as avatarUrl on save) and shows the signed URL as a preview.
+  const handleAvatarFile = async (mode: "create" | "edit", file: File | null) => {
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const res = await uploadUserAvatar(file);
+      const path = res.data?.path ?? null;
+      const url = res.data?.url ?? null;
+      if (!path) throw new Error("Upload failed");
+      if (mode === "create") {
+        setCreateForm((f) => ({ ...f, avatarUrl: path }));
+        setCreateAvatarPreview(url);
+      } else {
+        setEditForm((f) => ({ ...f, avatarUrl: path }));
+        setEditAvatarPreview(url);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error?.message || "Failed to upload photo");
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -989,6 +1081,7 @@ function UsersTab() {
     try {
       await createUser({
         ...createForm,
+        fullName: createForm.fullName.trim() || null,
         ability: createForm.ability === "" ? null : Number(createForm.ability),
         designationId: createForm.designationId || null,
       });
@@ -1008,6 +1101,10 @@ function UsersTab() {
     setEditForm({
       username: user.username,
       email: user.email,
+      password: "",
+      fullName: user.fullName ?? "",
+      // null = keep current avatar; a string here is a freshly-uploaded PATH.
+      avatarUrl: null,
       roleSlug: user.role.slug,
       shopScope: user.shopScope ?? "ALL",
       warrantyOnly: user.warrantyOnly ?? false,
@@ -1016,6 +1113,7 @@ function UsersTab() {
       ability: user.ability != null ? String(user.ability) : "",
       designationId: user.designationId ?? "",
     });
+    setEditAvatarPreview(user.avatarUrl ?? null);
     setEditUsernameError("");
     setEditModalOpen(true);
     if (user.role.slug === "technician") loadTechnicianLookups();
@@ -1046,8 +1144,14 @@ function UsersTab() {
     }
     setEditing(true);
     try {
+      const { password, avatarUrl, ...rest } = editForm;
       await updateUser(editTarget.id, {
-        ...editForm,
+        ...rest,
+        fullName: editForm.fullName.trim() || null,
+        // Only send a password when the admin actually typed a new one.
+        ...(password ? { password } : {}),
+        // avatarUrl: null = unchanged (omit); "" = remove (send null); path = set.
+        ...(avatarUrl !== null ? { avatarUrl: avatarUrl || null } : {}),
         ability: editForm.ability === "" ? null : Number(editForm.ability),
         designationId: editForm.designationId || null,
       });
@@ -1189,14 +1293,17 @@ function UsersTab() {
                     {/* User column */}
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="bg-linear-to-b from-[#ff4f31] to-[#fe2b73] rounded-full size-9 flex items-center justify-center shrink-0">
-                          <span className="text-white text-[13px] font-semibold">
-                            {getInitials(user.username)}
-                          </span>
-                        </div>
+                        <Avatar
+                          src={user.avatarUrl}
+                          name={user.fullName}
+                          fallback={user.username}
+                          size={36}
+                        />
                         <div>
-                          <p className="font-semibold text-[#333]">{user.username}</p>
-                          <p className="text-[11px] text-[#aaa] mt-0.5">ID: {user.id.slice(0, 8)}…</p>
+                          <p className="font-semibold text-[#333]">{user.fullName || user.username}</p>
+                          <p className="text-[11px] text-[#aaa] mt-0.5">
+                            {user.fullName ? `@${user.username}` : `ID: ${user.id.slice(0, 8)}…`}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -1283,13 +1390,15 @@ function UsersTab() {
                 {/* Top row: avatar + name + status */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="bg-linear-to-b from-[#ff4f31] to-[#fe2b73] rounded-full size-11 flex items-center justify-center shrink-0">
-                      <span className="text-white text-[14px] font-semibold">
-                        {getInitials(user.username)}
-                      </span>
-                    </div>
+                    <Avatar
+                      src={user.avatarUrl}
+                      name={user.fullName}
+                      fallback={user.username}
+                      size={44}
+                    />
                     <div>
-                      <p className="font-semibold text-[14px] text-[#333]">{user.username}</p>
+                      <p className="font-semibold text-[14px] text-[#333]">{user.fullName || user.username}</p>
+                      {user.fullName && <p className="text-[11px] text-[#aaa]">@{user.username}</p>}
                       <div className="mt-1">{getRoleBadge(user.role.slug, user.role.name)}</div>
                     </div>
                   </div>
@@ -1369,6 +1478,27 @@ function UsersTab() {
         size="sm"
       >
         <div className="flex flex-col gap-4">
+          <AvatarPicker
+            preview={createAvatarPreview}
+            name={createForm.fullName}
+            fallback={createForm.username}
+            uploading={avatarUploading}
+            onFile={(file) => handleAvatarFile("create", file)}
+            onRemove={() => {
+              setCreateForm((f) => ({ ...f, avatarUrl: null }));
+              setCreateAvatarPreview(null);
+            }}
+          />
+          <div>
+            <label className={labelClass}>Full Name</label>
+            <input
+              type="text"
+              placeholder="e.g. John Doe"
+              value={createForm.fullName}
+              onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))}
+              className={inputClass}
+            />
+          </div>
           <div>
             <label className={labelClass}>Username</label>
             <input
@@ -1403,11 +1533,12 @@ function UsersTab() {
             <label className={labelClass}>Password</label>
             <input
               type="password"
-              placeholder="Min. 6 characters"
+              placeholder="Min. 8 characters"
               value={createForm.password}
               onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
               className={inputClass}
             />
+            <p className="text-[11px] text-[#999] mt-1">Min. 8 chars, with upper, lower &amp; a number</p>
           </div>
           <div>
             <label className={labelClass}>Role</label>
@@ -1551,6 +1682,27 @@ function UsersTab() {
         size="sm"
       >
         <div className="flex flex-col gap-4">
+          <AvatarPicker
+            preview={editAvatarPreview}
+            name={editForm.fullName}
+            fallback={editForm.username}
+            uploading={avatarUploading}
+            onFile={(file) => handleAvatarFile("edit", file)}
+            onRemove={() => {
+              setEditForm((f) => ({ ...f, avatarUrl: "" }));
+              setEditAvatarPreview(null);
+            }}
+          />
+          <div>
+            <label className={labelClass}>Full Name</label>
+            <input
+              type="text"
+              placeholder="e.g. John Doe"
+              value={editForm.fullName}
+              onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+              className={inputClass}
+            />
+          </div>
           <div>
             <label className={labelClass}>Username</label>
             <input
@@ -1576,6 +1728,17 @@ function UsersTab() {
               onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
               className={inputClass}
             />
+          </div>
+          <div>
+            <label className={labelClass}>New Password</label>
+            <input
+              type="password"
+              placeholder="Leave blank to keep current"
+              value={editForm.password}
+              onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+              className={inputClass}
+            />
+            <p className="text-[11px] text-[#999] mt-1">Min. 8 chars, with upper, lower &amp; a number</p>
           </div>
           <div>
             <label className={labelClass}>Role</label>
