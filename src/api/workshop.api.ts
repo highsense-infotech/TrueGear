@@ -30,6 +30,14 @@ export const BAY_CATEGORIES: { value: BayCategory; label: string }[] = [
   { value: "PDI", label: "PDI" },
 ];
 
+/** Today's appointment bay reservation (Bay & Time-Slot scheduling). */
+export interface BayReservation {
+  time: string;      // "HH:MM"
+  endTime: string;   // "HH:MM"
+  vehicleReg: string | null;
+  bookingRef: string;
+}
+
 export interface WorkshopBay {
   id: string;
   bayNo: string;
@@ -39,6 +47,8 @@ export interface WorkshopBay {
   isActive: boolean;
   currentAllocationId: string | null;
   occupant: BayOccupant | null;
+  /** Appointment reservations for today (pre-booked, may not be on-site yet). */
+  reservations?: BayReservation[];
 }
 
 export interface ForemanDashboardItem {

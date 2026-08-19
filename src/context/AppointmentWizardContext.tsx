@@ -105,6 +105,10 @@ export interface WizardState {
   // Step 4 — Slot
   appointmentDate:    string | null;  // "2026-03-14"
   appointmentTime:    string | null;  // "09:00"
+  // Optional bay reservation (Bay & Time-Slot scheduling). When set, the
+  // appointment reserves this bay for [appointmentTime, +duration).
+  bayId:              string | null;
+  bayNo:              string;
   pickupRequired:     boolean;
   pickupAddress:      string;
   serviceAdvisorId:   string | null;
@@ -146,6 +150,8 @@ const DEFAULT_STATE: WizardState = {
 
   appointmentDate:    null,
   appointmentTime:    null,
+  bayId:              null,
+  bayNo:              '',
   pickupRequired:     false,
   pickupAddress:      '',
   serviceAdvisorId:   null,

@@ -15,17 +15,23 @@ import {
   CheckSquare,
   Check,
   Info,
-  Loader2,
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
 import {
-  getSlotAvailability,
   listServiceAdvisors,
-  type SlotInfo,
   type ServiceAdvisorUser,
 } from "../../api/appointment.api";
-import { useAppointmentWizard, TIME_LABELS } from "../../context/AppointmentWizardContext";
+import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
+import BaySchedulePicker, { type BaySelection } from "./BaySchedulePicker";
+
+// Format "HH:MM" (24h) → "h:MM AM/PM" for the summary panel.
+const fmt12 = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,15 +44,6 @@ const STEPS = [
 ];
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-type SlotStatus = "available" | "limited" | "full" | "closed";
-
-const SLOT_COLORS: Record<SlotStatus, { bg: string; border: string; text: string }> = {
-  available: { bg: "bg-green-50",  border: "border-green-200", text: "text-green-600" },
-  limited:   { bg: "bg-amber-50",  border: "border-amber-200", text: "text-amber-500" },
-  full:      { bg: "bg-red-50",    border: "border-red-200",   text: "text-red-500"   },
-  closed:    { bg: "bg-[#f5f5f5]", border: "border-[#e5e7eb]", text: "text-[#999]"    },
-};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -69,11 +66,12 @@ const AppointmentSlotSelection: React.FC = () => {
     return state.appointmentDate ? parseISO(state.appointmentDate) : null;
   });
 
-  const [selectedTime, setSelectedTime] = useState<string | null>(state.appointmentTime);
-
-  // Slot data
-  const [slots,        setSlots]        = useState<SlotInfo[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  // ── Bay reservation (duration-aware) — the receptionist scheduling flow ────
+  const durationMinutes = state.estimatedDurationMinutes;
+  const [baySel, setBaySel] = useState<BaySelection>({
+    bayId: state.bayId, bayNo: state.bayNo, time: state.appointmentTime, endTime: null,
+    durationMinutes: state.estimatedDurationMinutes, valid: !!state.bayId,
+  });
 
   // Pickup state
   const [pickupEnabled]  = useState(state.pickupRequired);
@@ -94,30 +92,10 @@ const AppointmentSlotSelection: React.FC = () => {
     });
   }, []);
 
-  // ─── Fetch slots when date changes ────────────────────────────────────────
-  useEffect(() => {
-    if (!selectedDate) return;
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
-    setSlotsLoading(true);
-    getSlotAvailability(dateStr)
-      .then((res) => setSlots(res.data?.slots ?? []))
-      .catch(() => setSlots([]))
-      .finally(() => setSlotsLoading(false));
-    // Reset time when date changes
-    setSelectedTime(null);
-  }, [selectedDate?.toDateString()]);
+  const bayDateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
 
-  const canProceed       = selectedDate && selectedTime;
-  const selectedSlot     = slots.find((s) => s.time === selectedTime);
-  const advisorName      = advisors.find((a) => a.id === selectedAdvisor)?.username ?? "";
-
-  // Returns true if the slot time has already passed (only relevant when date = today)
-  const isSlotPast = (slotTime: string): boolean => {
-    if (!selectedDate || !isToday(selectedDate)) return false;
-    const now = new Date();
-    const [sh, sm] = slotTime.split(":").map(Number);
-    return sh < now.getHours() || (sh === now.getHours() && sm <= now.getMinutes());
-  };
+  const canProceed  = !!(selectedDate && baySel.bayId && baySel.time && baySel.valid);
+  const advisorName = advisors.find((a) => a.id === selectedAdvisor)?.username ?? "";
 
   const monthStart     = startOfMonth(currentMonth);
   const monthEnd       = endOfMonth(currentMonth);
@@ -127,10 +105,14 @@ const AppointmentSlotSelection: React.FC = () => {
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   const handleNext = () => {
-    if (!selectedDate || !selectedTime) return;
+    if (!selectedDate || !baySel.bayId || !baySel.time || !baySel.valid) return;
     setState({
       appointmentDate:    format(selectedDate, "yyyy-MM-dd"),
-      appointmentTime:    selectedTime,
+      appointmentTime:    baySel.time,
+      bayId:              baySel.bayId,
+      bayNo:              baySel.bayNo,
+      // Persist the duration chosen in the picker so Review + create use it.
+      estimatedDurationMinutes: baySel.durationMinutes,
       pickupRequired:     pickupEnabled,
       pickupAddress:      pickupEnabled ? pickupAddress : "",
       serviceAdvisorId:   selectedAdvisor || null,
@@ -256,66 +238,15 @@ const AppointmentSlotSelection: React.FC = () => {
               })}
             </div>
 
-            {/* Time Slots */}
-            <div className="mt-5">
-              <p className="text-sm font-semibold text-[#333] mb-1">Available Time Slots</p>
-              <p className="text-xs text-[#999] mb-3">
-                {selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : "Select a date first"}
-              </p>
-
-              {slotsLoading ? (
-                <div className="flex items-center justify-center py-6 gap-2 text-[#999]">
-                  <Loader2 size={18} className="animate-spin" />
-                  <span className="text-sm">Loading slots...</span>
-                </div>
-              ) : slots.length === 0 && selectedDate ? (
-                <p className="text-sm text-[#999] py-4 text-center">No slot data available for this date.</p>
-              ) : (
-                <div className="grid grid-cols-5 gap-2">
-                  {slots.map(slot => {
-                    const past         = isSlotPast(slot.time);
-                    const isSelected   = selectedTime === slot.time;
-                    const isSelectable = !past && (slot.status === "available" || slot.status === "limited");
-                    const colors       = past ? SLOT_COLORS.closed : SLOT_COLORS[slot.status];
-                    const label        = TIME_LABELS[slot.time] ?? slot.time;
-                    const statusLabel  = past ? "past" : slot.status === "limited" ? `${slot.capacity - slot.booked} left` : slot.status;
-                    return (
-                      <button
-                        key={slot.time}
-                        disabled={!isSelectable}
-                        onClick={() => isSelectable && setSelectedTime(slot.time)}
-                        className={`border rounded-lg p-2.5 text-center transition-all ${
-                          isSelected
-                            ? "border-[#ff5100] bg-[#ff5100]/5"
-                            : `${colors.border} ${colors.bg} ${isSelectable ? "cursor-pointer hover:shadow-sm" : "cursor-not-allowed opacity-70"}`
-                        }`}
-                      >
-                        <p className={`text-xs font-bold ${isSelected ? "text-[#333]" : colors.text}`}>{label}</p>
-                        <p className={`text-[9px] mt-0.5 capitalize ${isSelected ? "text-[#999]" : colors.text}`}>
-                          {statusLabel}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#f0f0f0]">
-              {[
-                { label: "Available", cls: "bg-green-600" },
-                { label: "Limited",   cls: "bg-amber-500" },
-                { label: "Full",      cls: "bg-red-500" },
-                { label: "Closed",    cls: "bg-[#999]" },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-1.5">
-                  <div className={`w-2.5 h-2.5 rounded-full ${item.cls}`} />
-                  <span className="text-xs text-[#999]">{item.label}</span>
-                </div>
-              ))}
-            </div>
           </div>
+
+          {/* Bay & Time-Slot picker (prototype-style) — the receptionist scheduling flow */}
+          <BaySchedulePicker
+            date={bayDateStr}
+            durationMinutes={durationMinutes}
+            value={{ bayId: baySel.bayId, time: baySel.time }}
+            onChange={setBaySel}
+          />
 
           {/* ── Card 2: Pickup & Drop ── */}
           {/* <div className="bg-white border border-[#e5e7eb] rounded-[10px] p-6 shadow-[2px_3px_20px_0px_rgba(0,0,0,0.04)]">
@@ -435,9 +366,16 @@ const AppointmentSlotSelection: React.FC = () => {
               </div>
               <hr className="border-[#f0f0f0]" />
               <div className="flex items-center justify-between">
+                <span className="text-sm text-[#999]">Bay</span>
+                <span className={`text-sm ${baySel.bayNo ? "font-medium text-[#333]" : "text-[#999]"}`}>
+                  {baySel.bayNo || "Not selected"}
+                </span>
+              </div>
+              <hr className="border-[#f0f0f0]" />
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-[#999]">Time</span>
-                <span className={`text-sm ${selectedSlot ? "font-medium text-[#333]" : "text-[#999]"}`}>
-                  {selectedSlot ? (TIME_LABELS[selectedSlot.time] ?? selectedSlot.time) : "Not selected"}
+                <span className={`text-sm ${baySel.time ? "font-medium text-[#333]" : "text-[#999]"}`}>
+                  {baySel.time ? `${fmt12(baySel.time)}${baySel.endTime ? ` – ${fmt12(baySel.endTime)}` : ""}` : "Not selected"}
                 </span>
               </div>
               <hr className="border-[#f0f0f0]" />

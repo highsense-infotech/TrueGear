@@ -10,6 +10,35 @@ export interface SlotInfo {
   status:   'available' | 'limited' | 'full' | 'closed';
 }
 
+// ─── Bay & Time-Slot scheduling ──────────────────────────────────────────────
+export type BayAvailabilityStatus =
+  | 'AVAILABLE'
+  | 'PARTIALLY_AVAILABLE'
+  | 'FULLY_BOOKED'
+  | 'OUT_OF_SERVICE';
+
+export interface BayTimeWindow {
+  start: string; // "HH:MM"
+  end:   string; // "HH:MM"
+}
+
+export interface BayAvailabilityInfo {
+  id:        string;
+  bayNo:     string;
+  category:  string | null;
+  location:  string | null;
+  status:    BayAvailabilityStatus;
+  available: BayTimeWindow[];
+  blocked:   Array<BayTimeWindow & { reason: 'BOOKED' }>;
+}
+
+export interface BayAvailabilityData {
+  date:                 string;
+  operating:            BayTimeWindow;
+  slotIntervalMinutes:  number;
+  bays:                 BayAvailabilityInfo[];
+}
+
 export interface VehicleListItem {
   id:                 string;
   brand:              string;
@@ -41,6 +70,7 @@ export interface CreateAppointmentPayload {
   estimatedDurationMinutes: number;
   appointmentDate:          string;
   appointmentTime:          string;
+  bayId?:                   string;
   pickupRequired:           boolean;
   pickupAddress?:           string;
   internalNotes?:           string;
@@ -135,6 +165,18 @@ export const getSlotAvailability = async (
   date: string,
 ): Promise<ApiResponse<{ date: string; slots: SlotInfo[] }>> => {
   const { data } = await api.get('/appointments/slots', { params: { date } });
+  return data;
+};
+
+// Per-bay, duration-aware availability for a date. `excludeAppointmentId` omits
+// an appointment from its own occupation when editing/rescheduling.
+export const getBayAvailability = async (
+  date: string,
+  excludeAppointmentId?: string,
+): Promise<ApiResponse<BayAvailabilityData>> => {
+  const { data } = await api.get('/appointments/bay-availability', {
+    params: { date, ...(excludeAppointmentId ? { excludeAppointmentId } : {}) },
+  });
   return data;
 };
 

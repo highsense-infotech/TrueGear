@@ -158,6 +158,12 @@ const ForemanDashboard = () => {
           ) : (
             bays.filter((b) => b.isActive).map((b) => {
               const isOcc = !!b.currentAllocationId;
+              const reservations = b.reservations ?? [];
+              // Reserved (by appointment) but not physically occupied yet → blue.
+              const isReserved = !isOcc && reservations.length > 0;
+              const resTitle = reservations
+                .map((r) => `${r.time}–${r.endTime}${r.vehicleReg ? ` ${r.vehicleReg}` : ""} (${r.bookingRef})`)
+                .join(", ");
               return (
                 <div
                   key={b.id}
@@ -166,9 +172,11 @@ const ForemanDashboard = () => {
                       ? "bg-[#fafafa] border-[#e5e7eb] text-[#999]"
                       : isOcc
                         ? "bg-amber-50 border-amber-200 text-amber-700"
-                        : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : isReserved
+                          ? "bg-blue-50 border-blue-200 text-blue-700"
+                          : "bg-emerald-50 border-emerald-200 text-emerald-700"
                   }`}
-                  title={b.location ?? ""}
+                  title={isReserved ? `Reserved: ${resTitle}` : (b.location ?? "")}
                 >
                   {b.bayNo}
                   {isOcc && b.occupant && (
@@ -176,10 +184,29 @@ const ForemanDashboard = () => {
                       · {b.occupant.vehicleReg ?? "—"}
                     </span>
                   )}
+                  {isReserved && (
+                    <span className="ml-1.5 text-[11px] font-normal">
+                      · {reservations[0].vehicleReg ?? "—"} {reservations[0].time}
+                      {reservations.length > 1 ? ` +${reservations.length - 1}` : ""}
+                    </span>
+                  )}
                 </div>
               );
             })
           )}
+        </div>
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-3 mt-2">
+          {[
+            { label: "Free", cls: "bg-emerald-50 border-emerald-200" },
+            { label: "Occupied", cls: "bg-amber-50 border-amber-200" },
+            { label: "Reserved (appointment)", cls: "bg-blue-50 border-blue-200" },
+          ].map((l) => (
+            <span key={l.label} className="flex items-center gap-1.5 text-[11px] text-[#999]">
+              <span className={`w-2.5 h-2.5 rounded border ${l.cls}`} />
+              {l.label}
+            </span>
+          ))}
         </div>
       </div>
 

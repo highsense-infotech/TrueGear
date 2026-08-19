@@ -124,6 +124,7 @@ const AppointmentReview: React.FC = () => {
         estimatedDurationMinutes: state.estimatedDurationMinutes,
         appointmentDate:          state.appointmentDate,
         appointmentTime:          state.appointmentTime,
+        bayId:                    state.bayId ?? undefined,
         pickupRequired:           state.pickupRequired,
         pickupAddress:            state.pickupAddress || undefined,
         internalNotes:            internalNotes || undefined,
@@ -298,6 +299,7 @@ const AppointmentReview: React.FC = () => {
           <SectionCard title="Appointment Slot" onEdit={() => navigate(ROUTES.APPOINTMENT_CREATE_SLOT)}>
             <Row label="Date"            value={slotDateLabel}              bold />
             <Row label="Time"            value={timeLabel} />
+            {state.bayId && <Row label="Bay" value={state.bayNo || "Reserved"} bold />}
             <Row label="Service Advisor" value={state.serviceAdvisorName || "Unassigned"} />
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#999]">Pickup Address</span>
