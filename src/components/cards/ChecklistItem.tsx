@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useState, useEffect } from 'react';
 import Button from '../common/Button';
 import LiveCameraCapture from '../common/LiveCameraCapture';
-import { stampImage, requestGeolocation } from '../../utils/stampImage';
+import { requestGeolocation } from '../../utils/stampImage';
 
 interface Photo {
   id: string;
@@ -57,15 +57,14 @@ export function ChecklistItem({ label, description, status: externalStatus, onSt
   };
 
   // Live-camera capture only (QC photo compliance — gallery is blocked).
-  // Receives a JPEG File from LiveCameraCapture and runs the SAME stamp +
-  // upload path as before, so validation/error handling/preview are unchanged.
+  // LiveCameraCapture hands back an already geo-stamped JPEG, so this just
+  // uploads it; validation/error handling/preview are unchanged.
   const handleCameraCapture = async (file: File) => {
     setCameraOpen(false);
     if (!onPhotoUpload) return;
     setUploading(true);
     try {
-      const stampedFile = await stampImage(file);
-      await onPhotoUpload(stampedFile);
+      await onPhotoUpload(file);
     } catch (err) {
       console.error("Failed to upload photo:", err);
       toast.error("Failed to upload photo.");

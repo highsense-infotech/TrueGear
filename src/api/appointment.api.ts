@@ -180,6 +180,69 @@ export const getBayAvailability = async (
   return data;
 };
 
+// ─── Foreman bay reallocation / displacement swap (Model A) ────────────────────
+export interface BayAlternativeInfo {
+  id: string;
+  bayNo: string;
+  category: string | null;
+  location: string | null;
+  capabilities: string[];
+  isActive: boolean;
+  /** Free for THIS appointment's full [start, end) interval. */
+  fitsInterval: boolean;
+  /** The appointment currently occupying this bay during the interval (if any). */
+  occupiedBy: {
+    appointmentId: string;
+    vehicleReg: string | null;
+    appointmentTime: string;
+    endTime: string;
+  } | null;
+  available: BayTimeWindow[];
+}
+
+export interface BayAlternativesData {
+  appointment: {
+    id: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    endTime: string;
+    estimatedDurationMinutes: number;
+    currentBayId: string | null;
+    currentBayNo: string | null;
+    vehicleReg: string | null;
+    vehicleName: string | null;
+  };
+  operating: BayTimeWindow;
+  bays: BayAlternativeInfo[];
+}
+
+export interface ReallocateBayResult {
+  mode: 'MOVE' | 'SWAP';
+  appointment: { id: string; fromBayId: string | null; toBayId: string };
+  displaced: { id: string; fromBayId: string | null; toBayId: string } | null;
+}
+
+// Bays with fit/occupancy for an appointment's interval (used to pick a target,
+// and — for a detected occupant — to list its replacement bays via the same call).
+export const getAppointmentBayAlternatives = async (
+  appointmentId: string,
+  excludeBayIds?: string[],
+): Promise<ApiResponse<BayAlternativesData>> => {
+  const { data } = await api.get(`/appointments/${appointmentId}/bay-alternatives`, {
+    params: excludeBayIds && excludeBayIds.length ? { excludeBayIds: excludeBayIds.join(',') } : undefined,
+  });
+  return data;
+};
+
+// Atomic bay move/swap. `replacementBayId` is required only when the target is occupied.
+export const reallocateAppointmentBay = async (
+  appointmentId: string,
+  payload: { targetBayId: string; replacementBayId?: string },
+): Promise<ApiResponse<ReallocateBayResult>> => {
+  const { data } = await api.post(`/appointments/${appointmentId}/reallocate-bay`, payload);
+  return data;
+};
+
 export const getVehiclesByCustomer = async (
   customerId: string,
   opts: { page?: number; limit?: number; search?: string } = {},

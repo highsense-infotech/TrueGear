@@ -2,15 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, RotateCcw, Upload, X } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
+import { stampImageWithMeta, requestGeolocation, type CapturedPhoto } from "../../utils/stampImage";
 
 interface Props {
   isOpen: boolean;
   /** Label shown in the modal header (e.g. "Front View"). */
   title?: string;
   onClose: () => void;
-  /** Called with the captured frame as a JPEG File. The caller is responsible
-      for stamping + GPS metadata + upload. */
-  onCapture: (file: File) => void | Promise<void>;
+  /** Called with the ALREADY geo-stamped frame plus its GPS/timestamp
+      metadata. Stamping happens here so every capture site in the app gets
+      the same overlay — callers only handle upload. */
+  onCapture: (file: File, meta: CapturedPhoto) => void | Promise<void>;
 }
 
 /**
@@ -21,6 +23,11 @@ interface Props {
  * picker, no gallery option — strictly live capture. This is the OEM
  * compliance gate Johan asked for; gallery uploads are blocked at the UI
  * level here (and at the server level via the captured_at freshness check).
+ *
+ * Every frame that leaves this component is geo-stamped (GPS Map Camera style
+ * overlay: satellite thumbnail, address, lat/long, local date-time) via
+ * `stampImageWithMeta`, so no capture site can accidentally ship an
+ * unstamped photo.
  */
 export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -45,6 +52,9 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
       setError(null);
       return;
     }
+    // Warm the GPS fix + permission prompt while the user frames the shot so
+    // the stamp is ready the moment they hit Capture.
+    requestGeolocation();
     startStream();
     return () => stopStream();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,7 +146,8 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
         return;
       }
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
-      await onCapture(file);
+      const captured = await stampImageWithMeta(file);
+      await onCapture(captured.file, captured);
       // Caller closes the modal after upload completes.
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Capture failed.");
@@ -149,15 +160,16 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
 
   // Fallback path — use the native file picker with capture="environment".
   // The browser will open the device camera on most mobile / tablet OSes.
-  // We forward the resulting File directly to onCapture — same downstream
-  // flow as a live-stream capture.
+  // The resulting File goes through the same geo-stamp as a live-stream
+  // capture before reaching onCapture.
   const handleFallbackUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = ""; // reset so picking the same file again re-fires
     if (!f) return;
     setCapturing(true);
     try {
-      await onCapture(f);
+      const captured = await stampImageWithMeta(f);
+      await onCapture(captured.file, captured);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {

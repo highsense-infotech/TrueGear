@@ -5,7 +5,7 @@ import { CheckCircle, FileCheckCorner, User, Car, ArrowLeft, Loader2 } from "luc
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { PhotoCaptureCard } from "../../components/cards/PhotoCaptureCard";
-import { stampImageWithMeta, requestGeolocation } from "../../utils/stampImage";
+import { requestGeolocation, type CapturedPhoto } from "../../utils/stampImage";
 import LiveCameraCapture from "../../components/common/LiveCameraCapture";
 import { ConfirmVehicleEntryModal } from "../../components/common/ConfirmVehicleEntryModal";
 import { ROUTES } from "../../constants/routes";
@@ -262,22 +262,26 @@ const AddVehicle: React.FC = () => {
 
   // Receives the live-captured frame from <LiveCameraCapture>. Same upload
   // path as the legacy file-input flow but without the gallery option.
-  const handleCameraCapture = async (file: File) => {
+  const handleCameraCapture = async (file: File, captured: CapturedPhoto) => {
     if (activeSlot === null) return;
     setCameraOpen(false);
-    await processCapturedFile(file, activeSlot);
+    await processCapturedFile(file, activeSlot, captured);
     setActiveSlot(null);
   };
 
   // Extracted from the original handleFileChange so live camera and (legacy)
   // file input both route through one place.
-  const processCapturedFile = async (file: File, slotIndex: number) => {
+  const processCapturedFile = async (
+    file: File,
+    slotIndex: number,
+    captured: CapturedPhoto,
+  ) => {
     const slot = photoSlots[slotIndex];
 
-    // Stamp the image with geolocation + date-time. Returns metadata so the
-    // upload can include lat/lng/capturedAt for compliance audit (3.3).
-    const captured = await stampImageWithMeta(file);
-    const stampedFile = captured.file;
+    // The file arrives already geo-stamped from <LiveCameraCapture>; `captured`
+    // carries the matching lat/lng/capturedAt so the upload can include them
+    // for the compliance audit (3.3).
+    const stampedFile = file;
     const photoMeta = {
       capturedAt: captured.capturedAt,
       gpsLat: captured.gpsLat,

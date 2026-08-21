@@ -4,6 +4,7 @@ import { Loader2, Wrench, Clock, UserPlus } from "lucide-react";
 import { StatCard } from "../../components/cards/StatCard";
 import Button from "../../components/common/Button";
 import { AllocateBayModal } from "../../components/common/AllocateBayModal";
+import BayReallocateModal from "../../components/common/BayReallocateModal";
 import { getFailedWorks, type QcOutFailedWork } from "../../api/qcOutInspection.api";
 import {
   getForemanDashboard,
@@ -43,6 +44,10 @@ const ForemanDashboard = () => {
 
   const [allocateOpen, setAllocateOpen] = useState(false);
   const [allocateTarget, setAllocateTarget] = useState<ForemanDashboardItem | null>(null);
+
+  // Foreman bay reallocation / displacement swap (Model A — appointment reservations).
+  const [reallocateOpen, setReallocateOpen] = useState(false);
+  const [reallocateApptId, setReallocateApptId] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -164,19 +169,26 @@ const ForemanDashboard = () => {
               const resTitle = reservations
                 .map((r) => `${r.time}–${r.endTime}${r.vehicleReg ? ` ${r.vehicleReg}` : ""} (${r.bookingRef})`)
                 .join(", ");
+              // Reserved bays are clickable → open the bay-change (swap) modal.
+              const openReallocate = () => {
+                setReallocateApptId(reservations[0].appointmentId);
+                setReallocateOpen(true);
+              };
               return (
                 <div
                   key={b.id}
-                  className={`px-3 py-1.5 rounded-lg border text-[12px] font-medium ${
+                  role={isReserved ? "button" : undefined}
+                  onClick={isReserved ? openReallocate : undefined}
+                  className={`px-3 py-1.5 rounded-lg border text-[12px] font-medium text-left ${
                     !b.isActive
                       ? "bg-[#fafafa] border-[#e5e7eb] text-[#999]"
                       : isOcc
                         ? "bg-amber-50 border-amber-200 text-amber-700"
                         : isReserved
-                          ? "bg-blue-50 border-blue-200 text-blue-700"
+                          ? "bg-blue-50 border-blue-200 text-blue-700 hover:ring-1 hover:ring-blue-300 cursor-pointer"
                           : "bg-emerald-50 border-emerald-200 text-emerald-700"
                   }`}
-                  title={isReserved ? `Reserved: ${resTitle}` : (b.location ?? "")}
+                  title={isReserved ? `Reserved: ${resTitle} — click to change bay` : (b.location ?? "")}
                 >
                   {b.bayNo}
                   {isOcc && b.occupant && (
@@ -376,6 +388,13 @@ const ForemanDashboard = () => {
         onAllocated={async () => {
           await fetchAll();
         }}
+      />
+
+      <BayReallocateModal
+        isOpen={reallocateOpen}
+        appointmentId={reallocateApptId}
+        onClose={() => setReallocateOpen(false)}
+        onDone={() => { void fetchAll(); }}
       />
     </>
   );

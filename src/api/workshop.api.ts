@@ -32,6 +32,7 @@ export const BAY_CATEGORIES: { value: BayCategory; label: string }[] = [
 
 /** Today's appointment bay reservation (Bay & Time-Slot scheduling). */
 export interface BayReservation {
+  appointmentId: string;
   time: string;      // "HH:MM"
   endTime: string;   // "HH:MM"
   vehicleReg: string | null;

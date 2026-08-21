@@ -324,7 +324,11 @@ const BaySchedulePicker: React.FC<Props> = ({ date, durationMinutes: initialDura
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {bays.map((bay) => {
+            {bays
+              // Hide out-of-service (inactive) bays — a receptionist can only
+              // book an active bay, so there's no reason to show them.
+              .filter((bay) => bay.status !== "OUT_OF_SERVICE")
+              .map((bay) => {
               const style = STATUS_STYLE[bay.status];
               const canFit = hasBookableSlot(bay);
               const selected = bay.id === value.bayId;
