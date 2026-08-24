@@ -300,6 +300,25 @@ const ForemanDashboard = () => {
                         )}
                       </div>
                     )}
+                    {/* Bay reserved by the appointment — shown only while the
+                        vehicle is still awaiting allocation. Same chip row as an
+                        allocation, in blue to match the Bay Occupancy strip. */}
+                    {!it.allocation && it.reservation && (
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                          {it.reservation.bayNo}
+                        </span>
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                          Reserved {it.reservation.time}
+                        </span>
+                        <span className="text-[11px] text-[#666] bg-[#f5f5f5] px-2 py-0.5 rounded">
+                          {it.reservation.bookingRef}
+                        </span>
+                        {it.reservation.reservedByName && (
+                          <span className="text-[11px] text-[#999]">by {it.reservation.reservedByName}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="shrink-0 flex flex-col sm:flex-row gap-2">
                     <Button
@@ -376,6 +395,18 @@ const ForemanDashboard = () => {
                 priority: allocateTarget.allocation.priority,
                 repairCategory: allocateTarget.allocation.repairCategory,
                 notes: allocateTarget.allocation.notes,
+              }
+            : null
+        }
+        prefill={
+          // Seed the bay booked by the appointment so the foreman can confirm
+          // it in one click. Only when nothing is allocated yet.
+          !allocateTarget?.allocation && allocateTarget?.reservation
+            ? {
+                bayId: allocateTarget.reservation.bayId ?? "",
+                category: allocateTarget.reservation.bayCategory,
+                bookingRef: allocateTarget.reservation.bookingRef,
+                time: allocateTarget.reservation.time,
               }
             : null
         }

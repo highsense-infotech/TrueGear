@@ -12,6 +12,19 @@ body {
   }
 }
 
+/* Hide the native number-input spinner (up/down arrows). Pair with an
+   onWheel blur handler on the input so the scroll wheel can't silently
+   change the value while the user is scrolling the page. */
+@utility no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
 /* Chrome, Safari, Edge */
 .date-picker-input::-webkit-calendar-picker-indicator {
   opacity: 0;

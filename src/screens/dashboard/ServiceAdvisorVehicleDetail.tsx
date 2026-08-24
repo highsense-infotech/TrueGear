@@ -9,21 +9,19 @@ import { VehicleInfoBar } from "../../components/cards/VehicleInfoBar";
 import { ServiceProgress } from "../../components/cards/ServiceProgress";
 import { TabNavigation } from "../../components/cards/TabNavigation";
 import { QCReport } from "../../components/cards/QCReport";
-import { VehicleHistory } from "../../components/cards/VehicleHistory";
+import { VehicleVisitTimeline } from "../../components/cards/VehicleVisitTimeline";
 import { JobCardEmpty } from "../../components/cards/JobCardEmpty";
 import { JobCardSummary } from "../../components/cards/JobCardSummary";
 import ROUTES from "../../constants/routes";
-import { useCurrency } from "../../context/CurrencyContext";
 import {
   getVehicleDetail,
   getVehicleQCReport,
-  getVehicleHistory,
   getVehicleJobCards,
   type SAVehicleDetail,
   type SAQCReport,
-  type SAHistoryItem,
   type SAJobCard,
 } from "../../api/serviceAdvisor.api";
+import { getVehicleVisitHistory, type VehicleVisit } from "../../api/vehicle.api";
 import type { Step, StepStatus } from "../../components/cards/ServiceProgress";
 import { Truck, ClipboardCheck, Check, AlertCircle, FileText } from "lucide-react";
 
@@ -31,11 +29,11 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("qcReport");
-  const { formatCurrency } = useCurrency();
 
   const [vehicleDetail, setVehicleDetail] = useState<SAVehicleDetail | null>(null);
   const [qcReport, setQcReport] = useState<SAQCReport | null>(null);
-  const [history, setHistory] = useState<SAHistoryItem[]>([]);
+  // Visit timeline (check-ins + gate passes), not the Evolve-only service history.
+  const [history, setHistory] = useState<VehicleVisit[]>([]);
   const [jobCards, setJobCards] = useState<SAJobCard[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -82,9 +80,9 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
     if (!id) return;
     setHistoryLoading(true);
     try {
-      const res = await getVehicleHistory(id);
+      const res = await getVehicleVisitHistory(id);
       if (res.success && res.data) {
-        setHistory(res.data.history);
+        setHistory(res.data);
       }
     } catch (err) {
       console.error("Failed to fetch vehicle history:", err);
@@ -238,21 +236,11 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
             </div>
           );
         }
-        return (
-          <VehicleHistory
-            historyItems={history.map((h) => ({
-              title: h.serviceType,
-              date: new Date(h.serviceDate).toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }),
-              advisor: h.technicianName || "—",
-              price: h.totalCost ? formatCurrency(Number(h.totalCost)) : "—",
-              duration: h.duration || "—",
-            }))}
-          />
-        );
+        // Full in/out timeline per visit, sourced from check-ins + gate passes.
+        // The old vehicle_service_history list is not used here: that table is
+        // only filled by Evolve imports, so it was empty for every locally
+        // created vehicle — hence the permanent "No service history available".
+        return <VehicleVisitTimeline visits={history} />;
 
       case "jobCard":
         if (jobCardsLoading) {

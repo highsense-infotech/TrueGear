@@ -19,6 +19,7 @@ import { Pagination } from "../../components/common/Pagination";
 import { ROUTES } from "../../constants/routes";
 import { listAppointments, updateAppointmentStatus, getSlotAvailability, rescheduleAppointment, type AppointmentRecord, type AppointmentStats } from "../../api/appointment.api";
 import { useAppointmentWizard } from "../../context/AppointmentWizardContext";
+import BaySchedulePicker from "../appointments/BaySchedulePicker";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,8 @@ const AppointmentDashboard: React.FC = () => {
   const [rescheduleDate,   setRescheduleDate]   = useState("");
   const [rescheduleTime,   setRescheduleTime]   = useState("");
   const [rescheduleReason, setRescheduleReason] = useState("");
+  // Bay chosen in the reschedule modal (bay-scheduled appointments only).
+  const [rescheduleBayId,  setRescheduleBayId]  = useState<string | null>(null);
   const [rescheduleSlots,  setRescheduleSlots]  = useState<{ time: string; booked: number; capacity: number; status: string }[]>([]);
   const [slotsLoading,     setSlotsLoading]     = useState(false);
   const [rescheduling,     setRescheduling]     = useState(false);
@@ -198,6 +201,7 @@ const AppointmentDashboard: React.FC = () => {
     setRescheduleDate("");
     setRescheduleTime("");
     setRescheduleReason("");
+    setRescheduleBayId(appt.bayId ?? null);
     setRescheduleSlots([]);
     setRescheduleError("");
     const d = new Date();
@@ -233,6 +237,9 @@ const AppointmentDashboard: React.FC = () => {
         newDate: rescheduleDate,
         newTime: rescheduleTime,
         reason: rescheduleReason.trim() || undefined,
+        // Only sent for bay-scheduled appointments; omitted otherwise so the
+        // backend leaves the (absent) bay untouched.
+        ...(rescheduleTarget.bayId && rescheduleBayId ? { bayId: rescheduleBayId } : {}),
       });
       if (res.success) {
         setAppointments((prev) =>
@@ -388,7 +395,7 @@ const AppointmentDashboard: React.FC = () => {
         <table className="w-full min-w-200">
           <thead>
             <tr className="border-b border-[#f0f0f0] bg-[#fafafa]">
-              {["Booking ID", "Customer", "Vehicle", "Date & Time", "Service Type", "Advisor", "Status", ""].map((h, i) => (
+              {["Booking ID", "Customer", "Vehicle", "Date & Time", "Service Type", "Advisor", "Created By", "Status", ""].map((h, i) => (
                 <th key={i} className="px-5 py-3 text-left text-[11px] font-semibold text-[#999] uppercase tracking-wide whitespace-nowrap">
                   {h}
                 </th>
@@ -398,7 +405,7 @@ const AppointmentDashboard: React.FC = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-5 py-10 text-center">
+                <td colSpan={9} className="px-5 py-10 text-center">
                   <div className="flex items-center justify-center gap-2 text-[#999]">
                     <Loader2 size={18} className="animate-spin" />
                     <span className="text-sm">Loading appointments...</span>
@@ -407,7 +414,7 @@ const AppointmentDashboard: React.FC = () => {
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-10 text-center text-sm text-[#999]">
+                <td colSpan={9} className="px-5 py-10 text-center text-sm text-[#999]">
                   No appointments match your filters.
                 </td>
               </tr>
@@ -444,6 +451,9 @@ const AppointmentDashboard: React.FC = () => {
                     </td>
                     <td className="px-5 py-4 text-sm text-[#333] whitespace-nowrap">
                       {appt.advisorUsername ?? "—"}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-[#333] whitespace-nowrap">
+                      {appt.createdByName ?? "—"}
                     </td>
                     <td className="px-5 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${badge.badge}`}>
@@ -581,8 +591,17 @@ const AppointmentDashboard: React.FC = () => {
 
       {/* Reschedule Modal */}
       {rescheduleTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6">
+          {/* Height-capped and internally scrollable: the bay picker is far
+              taller than the old date/slot content, and without this the modal
+              overflowed the viewport with no way to reach the actions. Wider
+              only when the bay grid is shown, so the slot-only modal is
+              unchanged. */}
+          <div
+            className={`bg-white rounded-xl shadow-2xl w-full ${
+              rescheduleTarget.bayId ? "max-w-3xl" : "max-w-lg"
+            } max-h-[90vh] overflow-y-auto overscroll-contain p-6`}
+          >
 
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
@@ -668,8 +687,30 @@ const AppointmentDashboard: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Bay & time picker — for appointments that hold a physical bay.
+                    Same component the booking wizard uses, with this appointment
+                    excluded from its own occupation so its current bay reads as
+                    free. Capacity-slot appointments (no bay) keep the slot grid
+                    below, so their scheduling model is not silently changed. */}
+                {rescheduleDate && rescheduleTarget.bayId && (
+                  <div className="mb-4">
+                    <BaySchedulePicker
+                      date={rescheduleDate}
+                      durationMinutes={rescheduleTarget.estimatedDurationMinutes ?? 150}
+                      value={{ bayId: rescheduleBayId, time: rescheduleTime || null }}
+                      excludeAppointmentId={rescheduleTarget.id}
+                      currentSlot={{ bayId: rescheduleTarget.bayId, time: rescheduleTarget.appointmentTime }}
+                      onChange={(sel) => {
+                        setRescheduleBayId(sel.bayId);
+                        setRescheduleTime(sel.time ?? "");
+                        setRescheduleError("");
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* Slot Grid */}
-                {rescheduleDate && (
+                {rescheduleDate && !rescheduleTarget.bayId && (
                   <div className="mb-4">
                     <p className="text-xs font-semibold text-[#999] uppercase mb-2">Available Slots</p>
                     {slotsLoading ? (

@@ -33,6 +33,17 @@ type Props = {
     repairCategory: RepairCategory;
     notes: string | null;
   } | null;
+  // Bay held for this check-in by its appointment. Seeds the bay/category on a
+  // FRESH allocation so the foreman can just confirm the booked bay — unlike
+  // `existing`, it never switches the modal into re-allocate mode. Ignored when
+  // `existing` is set (a live allocation always wins over a reservation).
+  prefill?: {
+    bayId: string;
+    category?: BayCategory | null;
+    // Shown as a hint under the Bay field so the foreman knows why it's filled.
+    bookingRef?: string;
+    time?: string;
+  } | null;
   // Rework mode — pass the failed works (from /qc-out/check-ins/:id/failed-works)
   // to surface the tech-assignment step. When undefined or empty, modal behaves
   // exactly as before.
@@ -41,13 +52,20 @@ type Props = {
   onAllocated: () => void;
 };
 
-export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onClose, onAllocated }: Props) {
+export function AllocateBayModal({ isOpen, checkInId, existing, prefill, failedWorks, onClose, onAllocated }: Props) {
   // Shop-scoped foreman (SERVICE/MAJOR) is locked to their shop's bay category;
   // ALL / super-admin choose freely. PDI is never a user scope. UX only — the
   // backend already rejects out-of-shop allocations.
   const { shopScope } = useAuth();
   const lockedCategory: BayCategory | null =
     shopScope === "SERVICE" || shopScope === "MAJOR" ? (shopScope as BayCategory) : null;
+
+  // Callers build `prefill` as an inline literal, so its identity changes on
+  // every parent render. Depend on these primitives in effects instead — an
+  // object dep would re-seed the form (wiping in-progress edits) and refetch
+  // bays whenever the dashboard re-rendered behind the open modal.
+  const prefillBayId = prefill?.bayId ?? "";
+  const prefillCategory = prefill?.category ?? null;
 
   const [bays, setBays] = useState<WorkshopBay[]>([]);
   const [category, setCategory] = useState<BayCategory | "">("");
@@ -67,22 +85,25 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
   // existing allocation's bay (re-allocate) so the right list loads.
   useEffect(() => {
     if (!isOpen) return;
-    setBayId(existing?.bayId ?? "");
+    // Reservation seeds the bay only on a fresh allocation — `existing` wins.
+    setBayId(existing?.bayId ?? prefillBayId);
     setPriority(existing?.priority ?? "MEDIUM");
     setRepairCategory(existing?.repairCategory ?? "OTHER");
     setNotes(existing?.notes ?? "");
     // Lock to the foreman's shop category when scoped; otherwise seed from the
-    // existing allocation (re-allocate) or leave empty for a fresh allocation.
-    setCategory(lockedCategory ?? existing?.category ?? "");
+    // existing allocation (re-allocate), then the reservation, else empty.
+    setCategory(lockedCategory ?? existing?.category ?? prefillCategory ?? "");
     setError(null);
-  }, [isOpen, existing, lockedCategory]);
+  }, [isOpen, existing, prefillBayId, prefillCategory, lockedCategory]);
 
   // Load bays for the selected category (filtered server-side). A fresh
   // allocation shows nothing until a category is picked; re-allocating a legacy
   // bay with no category falls back to loading all bays so it still shows.
   useEffect(() => {
     if (!isOpen) return;
-    if (!category && !existing) { setBays([]); return; }
+    // A reserved bay may have no category (legacy bays), so `prefill` also
+    // unblocks the list — otherwise the seeded bay would have nothing to match.
+    if (!category && !existing && !prefillBayId) { setBays([]); return; }
     let cancelled = false;
     setLoadingBays(true);
     setError(null);
@@ -95,7 +116,7 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
       .catch(() => { if (!cancelled) setError("Failed to load bays"); })
       .finally(() => { if (!cancelled) setLoadingBays(false); });
     return () => { cancelled = true; };
-  }, [isOpen, category, existing]);
+  }, [isOpen, category, existing, prefillBayId]);
 
   // Rework: load techs + seed one row per failed work with the inspector's
   // note pre-filled as the brief.
@@ -117,9 +138,18 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
     (b) => b.isActive && (!b.currentAllocationId || b.id === existing?.bayId),
   );
 
+  // The reserved bay may have been occupied since the appointment was booked.
+  // Derived (not an effect) so the seeded selection drops the moment the list
+  // confirms it isn't allocatable — submit can never post a bay the foreman
+  // was never actually offered.
+  const reservedBayTaken =
+    !!prefillBayId && !loadingBays && bays.length > 0 &&
+    !availableBays.some((b) => b.id === prefillBayId);
+  const effectiveBayId = reservedBayTaken && bayId === prefillBayId ? "" : bayId;
+
   const handleSubmit = async () => {
     if (!checkInId) return;
-    if (!bayId) { setError("Select a bay"); return; }
+    if (!effectiveBayId) { setError("Select a bay"); return; }
     let reworkAssignments: ReworkAssignment[] | undefined;
     if (isRework) {
       reworkAssignments = [];
@@ -140,7 +170,7 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
     setError(null);
     try {
       const fn = existing ? reallocateBay : allocateToBay;
-      const res = await fn(checkInId, { bayId, priority, repairCategory, notes: notes.trim() || undefined, reworkAssignments });
+      const res = await fn(checkInId, { bayId: effectiveBayId, priority, repairCategory, notes: notes.trim() || undefined, reworkAssignments });
       if (res.success) {
         toast.success(isRework ? "Rework allocated" : existing ? "Bay re-allocated" : "Bay allocated");
         onAllocated();
@@ -186,18 +216,30 @@ export function AllocateBayModal({ isOpen, checkInId, existing, failedWorks, onC
               id: b.id,
               name: `${b.bayNo}${b.location ? ` · ${b.location}` : ""}${b.capabilities?.length ? ` · ${b.capabilities.join(", ")}` : ""}`,
             }))}
-            value={bayId}
+            value={effectiveBayId}
             onChange={(id) => setBayId(id)}
             placeholder={
-              !category && !existing
+              !category && !existing && !prefill
                 ? "Select a category first"
                 : loadingBays
                   ? "Loading bays..."
                   : "Pick an available bay"
             }
             loading={loadingBays}
-            disabled={submitting || (!category && !existing)}
+            disabled={submitting || (!category && !existing && !prefill)}
           />
+          {prefill && !existing && (
+            reservedBayTaken ? (
+              <p className="text-[11px] text-amber-600 mt-1">
+                The bay reserved by {prefill.bookingRef ?? "the appointment"} is no longer free — pick another.
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Pre-filled from appointment {prefill.bookingRef ?? ""}
+                {prefill.time ? ` (${prefill.time})` : ""} — change it if needed.
+              </p>
+            )
+          )}
         </div>
 
         <div>

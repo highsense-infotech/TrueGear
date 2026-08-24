@@ -233,6 +233,9 @@ export interface VehicleDetailData {
     fuelLevel: FuelLevel | null;
     damagesNotes: string | null;
     complaintText: string | null;
+    // Shop the vehicle was routed to, so the confirm modal can pre-select it
+    // when an entry is edited.
+    shop: "SERVICE" | "MAJOR" | "PDI" | null;
     roStatus: string | null;
     odometerReading: number | null;
     checkInTime?: string | null;
@@ -505,6 +508,8 @@ export interface VisitEvent {
     | "WORK_STARTED"
     | "WORK_PAUSED"
     | "WORK_COMPLETED"
+    | "GATE_PASS_ISSUED"
+    | "EXIT"
     | "VISIT_COMPLETED"
     | "VISIT_CANCELLED";
   label: string;

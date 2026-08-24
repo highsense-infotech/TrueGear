@@ -29,7 +29,8 @@ export interface BayAvailabilityInfo {
   location:  string | null;
   status:    BayAvailabilityStatus;
   available: BayTimeWindow[];
-  blocked:   Array<BayTimeWindow & { reason: 'BOOKED' }>;
+  /** Occupied windows, one per booking, each naming who holds it. */
+  blocked:   Array<BayTimeWindow & { reason: 'BOOKED'; bookingRef?: string | null; vehicleReg?: string | null }>;
 }
 
 export interface BayAvailabilityData {
@@ -116,6 +117,8 @@ export interface AppointmentRecord {
   estimatedDurationMinutes: number;
   appointmentDate:          string;
   appointmentTime:          string;
+  /** Physical bay held by this appointment; null for capacity-slot bookings. */
+  bayId:                    string | null;
   pickupRequired:           boolean;
   pickupAddress:            string | null;
   internalNotes:            string | null;
@@ -131,6 +134,8 @@ export interface AppointmentRecord {
   vehicleReg?:              string | null;
   vehicleVin?:              string | null;
   advisorUsername?:         string | null;
+  /** Username of whoever booked the appointment (appointments.created_by). */
+  createdByName?:           string | null;
   rescheduleCount?:        number;
 }
 
@@ -310,6 +315,11 @@ export interface ReschedulePayload {
   newDate: string;
   newTime: string;
   reason?: string;
+  /**
+   * Move the appointment to a different bay as part of the reschedule.
+   * Omit to keep the current bay (previous behaviour).
+   */
+  bayId?: string;
 }
 
 export const rescheduleAppointment = async (

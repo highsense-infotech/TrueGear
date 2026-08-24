@@ -53,7 +53,7 @@ const QualityCheckDashboard: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"ALL" | "URGENT" | "DELAYED" | "COMPLETED">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "PENDING" | "COMPLETED">("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -85,7 +85,7 @@ const QualityCheckDashboard: React.FC = () => {
     }
   }, [isIndexRoute, fetchDashboard, location.pathname]);
 
-  const handleFilterChange = (newFilter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED") => {
+  const handleFilterChange = (newFilter: "ALL" | "PENDING" | "COMPLETED") => {
     setFilter(newFilter);
     setPage(1);
   };

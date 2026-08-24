@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { JobCardPartsGroup } from "../../components/cards/JobCardPartsGroup.tsx";
 import { StatCard } from "../../components/cards/StatCard.tsx";
@@ -33,9 +33,6 @@ const SparePartsDashboard = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  // Track whether this is the initial load (to auto-expand) vs a refresh (preserve state)
-  const isInitialLoad = useRef(true);
-
   // Action loading state: maps requestId -> action type
   const [actionLoading, setActionLoading] = useState<
     Record<string, "markAvailable" | "eta" | "dispatch">
@@ -61,21 +58,9 @@ const SparePartsDashboard = () => {
       if (!res.data) return;
       setStats(res.data.stats);
       setJobCardGroups(res.data.jobCardGroups);
-
-      // Auto-expand groups with actionable parts only on initial load
-      if (isInitialLoad.current) {
-        const initialExpanded = new Set(
-          res.data.jobCardGroups
-            .filter((g) =>
-              g.partRequests.some(
-                (p) => p.status === "pending" || p.status === "available"
-              )
-            )
-            .map((g) => g.jobCardId)
-        );
-        setExpandedGroups(initialExpanded);
-        isInitialLoad.current = false;
-      }
+      // Groups start COLLAPSED. expandedGroups is left untouched here, so a
+      // background refresh also preserves whatever the user has open.
+      // Use Expand All / the group header to open them.
     } catch {
       toast.error("Failed to load parts dashboard");
     } finally {

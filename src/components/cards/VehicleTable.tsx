@@ -1,4 +1,4 @@
-import { Edit2, Trash2, MoreHorizontal, Loader2 } from "lucide-react";
+import { Edit2, Trash2, Loader2 } from "lucide-react";
 import truck from "../../assets/truck.png";
 import { Pagination } from "../common/Pagination";
 import Button from "../common/Button";
@@ -17,6 +17,8 @@ import {
   type VehicleStats,
 } from "../../api/vehicle.api";
 import { ConfirmDeleteModal } from "../common/ConfirmDeleteModal";
+import { usePermission } from "../../hooks/usePermission";
+import { MODULES, ACTIONS } from "../../constants/permissions";
 interface DisplayVehicle {
   id: string;
   vehicleId: string;
@@ -55,7 +57,9 @@ const statusConfig: Record<string, { color: string; bg: string }> = {
   "Completed": { color: "text-[#00C853]", bg: "bg-[#00C853]" },
 };
 
-type StatusFilter = "All" | "Inside" | "Pending Exit";
+type StatusFilter = "All" | "Pending" | "Completed";
+
+const STATUS_TABS: StatusFilter[] = ["All", "Pending", "Completed"];
 
 interface VehicleTableProps {
   searchQuery?: string;
@@ -147,6 +151,14 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const navigate = useNavigate();
+  // Vehicle 360 detail is the vehicle-details view, but its route is gated on
+  // VEHICLE_360:view. Gate keepers don't have it, so only make the registration
+  // clickable for users who can actually land on the page.
+  const canViewVehicle360 = usePermission(MODULES.VEHICLE_360, ACTIONS.VIEW);
+  const openVehicleDetail = (vehicleId: string) => {
+    if (!canViewVehicle360 || !vehicleId) return;
+    navigate(`${ROUTES.VEHICLE_360_DASHBOARD}/${vehicleId}`);
+  };
   const [showVehicleInput, setShowVehicleInput] = useState(false);
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -200,11 +212,12 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
         params.vin = searchQuery.trim();
       }
 
-      // Status filter mapping
-      if (statusFilter === "Pending Exit") {
-        params.filter = "PENDING_EXIT";
-      } else if (statusFilter === "Inside") {
-        params.filter = "INSIDE";
+      // Status filter mapping. PENDING = still in the workshop,
+      // COMPLETED = work finished (awaiting or past gate release).
+      if (statusFilter === "Pending") {
+        params.filter = "PENDING";
+      } else if (statusFilter === "Completed") {
+        params.filter = "COMPLETED";
       }
 
       // Date filter — skip when searching by VIN
@@ -482,39 +495,20 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-2 bg-[#f5f5f5] p-1.25 rounded-[10px]">
-          <Button
-            onClick={() => handleStatusFilterChange("All")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "All"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-            }`}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange("Inside")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "Inside"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-            }`}
-          >
-            Inside
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange("Pending Exit")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "Pending Exit"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-            }`}
-          >
-            Pending Exit
-          </Button>
+          {STATUS_TABS.map((tab) => (
+            <Button
+              key={tab}
+              onClick={() => handleStatusFilterChange(tab)}
+              variant="secondary"
+              className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
+                statusFilter === tab
+                  ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
+                  : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
+              }`}
+            >
+              {tab}
+            </Button>
+          ))}
         </div>
         <DatePicker
           value={selectedDate}
@@ -634,7 +628,18 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                           </div>
                         )}
                         <div>
-                          <p className="text-[#333]">{vehicle.registration.toUpperCase()}</p>
+                          {canViewVehicle360 ? (
+                            <button
+                              type="button"
+                              onClick={() => openVehicleDetail(vehicle.vehicleId)}
+                              title="View vehicle details"
+                              className="text-[#333] hover:text-[#ff4f31] hover:underline text-left cursor-pointer"
+                            >
+                              {vehicle.registration.toUpperCase()}
+                            </button>
+                          ) : (
+                            <p className="text-[#333]">{vehicle.registration.toUpperCase()}</p>
+                          )}
                           <p className="text-[#999] text-xs">{vehicle.model}</p>
                           {vehicle.receivingNo && (
                             <p className="text-[#ff4f31] text-[10px] font-semibold tracking-wide mt-0.5">
@@ -710,12 +715,6 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                             </Button>
                           </>
                         )}
-                        <Button
-                          variant="custom"
-                          className="p-2! h-10! hover:bg-gray-100 rounded-md"
-                        >
-                          <MoreHorizontal size={16} />
-                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -749,9 +748,20 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                       </div>
                     )}
                     <div>
-                      <p className="text-sm font-medium">
-                        {vehicle.registration}
-                      </p>
+                      {canViewVehicle360 ? (
+                        <button
+                          type="button"
+                          onClick={() => openVehicleDetail(vehicle.vehicleId)}
+                          title="View vehicle details"
+                          className="text-sm font-medium hover:text-[#ff4f31] hover:underline text-left cursor-pointer"
+                        >
+                          {vehicle.registration}
+                        </button>
+                      ) : (
+                        <p className="text-sm font-medium">
+                          {vehicle.registration}
+                        </p>
+                      )}
                       <p className="text-xs text-[#999]">{vehicle.model}</p>
                     </div>
                   </div>
@@ -773,9 +783,6 @@ export function VehicleTable({ searchQuery = "", onStatsLoaded: _onStatsLoaded, 
                         </button>
                       </>
                     )}
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreHorizontal size={16} />
-                    </button>
                   </div>
                 </div>
 

@@ -29,6 +29,11 @@ interface Props {
  * `stampImageWithMeta`, so no capture site can accidentally ship an
  * unstamped photo.
  */
+// How long to wait for getUserMedia before showing an actionable error. Long
+// enough for a user to read and accept a permission prompt, short enough that a
+// silently-queued prompt doesn't leave the modal spinning forever.
+const CAMERA_START_TIMEOUT_MS = 20000;
+
 export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,10 +57,13 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
       setError(null);
       return;
     }
-    // Warm the GPS fix + permission prompt while the user frames the shot so
-    // the stamp is ready the moment they hit Capture.
-    requestGeolocation();
-    startStream();
+    // Camera FIRST, geolocation second — deliberately not in the same tick.
+    // Browsers queue permission prompts one at a time, so firing the location
+    // request alongside getUserMedia could put the location prompt in front and
+    // leave the camera prompt pending indefinitely: the user clicks "Add photo"
+    // and never sees a camera popup. Warming GPS after the stream is live still
+    // has the fix ready well before Capture is pressed.
+    void startStream().finally(() => requestGeolocation());
     return () => stopStream();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, facingMode]);
@@ -90,14 +98,26 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
         );
         return;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: facingMode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
+      // getUserMedia never rejects while a permission prompt is open or queued
+      // behind another one — it just stays pending, leaving the modal stuck on
+      // "Starting camera...". Race it so the user always gets an actionable
+      // message and a Retry instead of an indefinite spinner.
+      const stream = await Promise.race([
+        navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('CameraTimeout')),
+            CAMERA_START_TIMEOUT_MS,
+          ),
+        ),
+      ]);
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -107,7 +127,12 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
       const msg = e instanceof Error ? e.message : "Failed to access camera.";
       // Common cases: NotAllowedError (permission denied), NotFoundError (no camera),
       // NotReadableError (camera in use by another app).
-      if (msg.includes("Permission") || msg.includes("NotAllowed")) {
+      if (msg.includes("CameraTimeout")) {
+        setError(
+          "The camera did not start. If your browser is asking for camera permission, allow it and press Retry — " +
+            "if you previously blocked it, re-enable camera access for this site in the address-bar icon.",
+        );
+      } else if (msg.includes("Permission") || msg.includes("NotAllowed")) {
         setError("Camera permission was denied. Please allow access in your browser settings.");
       } else if (msg.includes("NotFound")) {
         setError("No camera detected on this device.");

@@ -527,6 +527,17 @@ export default function QcOutInspectionDashboard() {
             {submitting ? "Submitting..." : "Submit Inspection"}
           </Button>
         </div>
+
+        {/* Live camera capture — MUST be mounted in this branch. The "Add photo"
+            button on a FAIL row lives here, but the modal used to be rendered
+            only in the dashboard return below, so clicking it set cameraForId
+            with nothing listening and no camera ever appeared. */}
+        <LiveCameraCapture
+          isOpen={cameraForId !== null}
+          title="Capture QC Photo"
+          onClose={() => setCameraForId(null)}
+          onCapture={handleQcOutCapture}
+        />
       </div>
     );
   }
@@ -651,14 +662,9 @@ export default function QcOutInspectionDashboard() {
         subtitle={reportSubtitle}
         onClose={() => { setReportCheckInId(null); setReportSubtitle(""); }}
       />
-
-      {/* Live camera capture for QC-out photos (gallery blocked) — AI-6 */}
-      <LiveCameraCapture
-        isOpen={cameraForId !== null}
-        title="Capture QC Photo"
-        onClose={() => setCameraForId(null)}
-        onCapture={handleQcOutCapture}
-      />
+      {/* No LiveCameraCapture here: cameraForId is only ever set from the FAIL
+          row inside the active-inspection branch above, where the modal now
+          lives. A copy here could never open. */}
     </>
   );
 }

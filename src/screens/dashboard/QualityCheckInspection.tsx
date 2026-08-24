@@ -294,12 +294,10 @@ const QualityCheckInspection: React.FC = () => {
     setErrors(newErrors);
     return isValid;
   };
-  // Update all categories and statuses from save response
-  const updateCategoriesFromResponse = (categories: {
-    EXTERIOR: InspectionItem[];
-    INTERIOR: InspectionItem[];
-    BRAKE: InspectionItem[];
-  }) => {
+  // Update all categories and statuses from save response.
+  // Categories are dynamic since the truck checklist (0060); this 3-step wizard
+  // still only consumes the legacy car keys, and reads them defensively.
+  const updateCategoriesFromResponse = (categories: Record<string, InspectionItem[]>) => {
     const ext = categories.EXTERIOR || [];
     setExteriorItems(ext);
     const extStatus: Record<number, ChecklistStatus> = {};

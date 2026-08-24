@@ -71,9 +71,15 @@ const AddVehicle: React.FC = () => {
   // Phase 1 — richer arrival capture
   const [driverName, setDriverName] = useState("");
   const [driverPhone, setDriverPhone] = useState("");
+  // Per-field errors for the now-mandatory driver details, so the inspector is
+  // pointed at the offending input rather than only shown the banner below.
+  const [driverErrors, setDriverErrors] = useState<{ name?: string; phone?: string }>({});
   const [driverLicenceNo, setDriverLicenceNo] = useState("");
   const [fuelLevel, setFuelLevel] = useState<"EMPTY" | "QUARTER" | "HALF" | "THREE_QUARTER" | "FULL" | "">("");
   const [damagesNotes, setDamagesNotes] = useState("");
+  // Shop recorded on the existing check-in, used to pre-select Route to Shop
+  // in the confirm modal when an entry is edited. Null on a first entry.
+  const [entryShop, setEntryShop] = useState<"SERVICE" | "MAJOR" | "PDI" | null>(null);
   const [complaintText, setComplaintText] = useState("");
   const [, setReceivingNo] = useState<string | null>(null);
 
@@ -116,6 +122,7 @@ const AddVehicle: React.FC = () => {
               setFuelLevel(activeCheckIn.fuelLevel ?? "");
               setDamagesNotes(activeCheckIn.damagesNotes ?? "");
               setComplaintText(activeCheckIn.complaintText ?? "");
+              setEntryShop(activeCheckIn.shop ?? null);
               setReceivingNo(activeCheckIn.receivingNo ?? null);
             }
 
@@ -238,7 +245,32 @@ const AddVehicle: React.FC = () => {
   const capturedCount = photoSlots.filter((slot) => slot.capturedImage && !slot.uploadError).length;
   const isAnyUploading = photoSlots.some((slot) => slot.isUploading);
 
+  // Accepts a local number ("0831234567") or an international one
+  // ("+27 83 123 4567"): strip spaces/dashes/brackets and an optional leading
+  // "+", then require 9–15 digits (E.164 range). Deliberately looser than the
+  // customer form's strict 10-digit rule, because the driver at the gate is
+  // often reached on an international number.
+  const isValidDriverPhone = (raw: string): boolean =>
+    /^\d{9,15}$/.test(raw.replace(/[\s()-]/g, "").replace(/^\+/, ""));
+
   const handleConfirmEntry = () => {
+    // Driver details are mandatory — the gate record must identify who brought
+    // the vehicle in and how to reach them.
+    const nextDriverErrors: { name?: string; phone?: string } = {};
+    if (!driverName.trim()) {
+      nextDriverErrors.name = "Driver name is required";
+    }
+    if (!driverPhone.trim()) {
+      nextDriverErrors.phone = "Driver phone is required";
+    } else if (!isValidDriverPhone(driverPhone)) {
+      nextDriverErrors.phone = "Enter a valid phone number (9–15 digits)";
+    }
+    setDriverErrors(nextDriverErrors);
+    if (nextDriverErrors.name || nextDriverErrors.phone) {
+      setValidationError("Driver name and phone number are required before confirming entry.");
+      return;
+    }
+
     if (!odometerInput || isNaN(Number(odometerInput)) || Number(odometerInput) <= 0) {
       setValidationError("Odometer reading is required before confirming entry.");
       return;
@@ -571,7 +603,9 @@ const AddVehicle: React.FC = () => {
                   placeholder="Enter reading"
                   value={odometerInput}
                   onChange={(e) => setOdometerInput(e.target.value)}
-                  className={`w-full pl-2 pr-8 py-1 text-[14px] font-medium text-[#333] bg-white border rounded-md focus:outline-none focus:border-[#ff4f31] ${
+                  // Blur on wheel so scrolling the page never edits the reading.
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className={`no-spinner w-full pl-2 pr-8 py-1 text-[14px] font-medium text-[#333] bg-white border rounded-md focus:outline-none focus:border-[#ff4f31] ${
                     !odometerInput ? "border-[#ff4f31]" : "border-[#e5e7eb]"
                   }`}
                 />
@@ -607,24 +641,44 @@ const AddVehicle: React.FC = () => {
         <p className="text-[14px] font-semibold text-[#333] mb-3">Driver & Vehicle Condition</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
           <div>
-            <label className="text-[11px] text-[#999] mb-1 block">Driver Name</label>
+            <label className="text-[11px] text-[#999] mb-1 block">
+              Driver Name <span className="text-[#ff4f31]">*</span>
+            </label>
             <input
               type="text"
               value={driverName}
-              onChange={(e) => setDriverName(e.target.value)}
+              onChange={(e) => {
+                setDriverName(e.target.value);
+                if (driverErrors.name) setDriverErrors((p) => ({ ...p, name: undefined }));
+              }}
               placeholder="Driver's full name"
-              className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31]"
+              className={`w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border rounded-md focus:outline-none focus:border-[#ff4f31] ${
+                driverErrors.name ? "border-red-500" : "border-[#e5e7eb]"
+              }`}
             />
+            {driverErrors.name && (
+              <p className="text-red-500 text-[11px] mt-1">{driverErrors.name}</p>
+            )}
           </div>
           <div>
-            <label className="text-[11px] text-[#999] mb-1 block">Driver Phone</label>
+            <label className="text-[11px] text-[#999] mb-1 block">
+              Driver Phone <span className="text-[#ff4f31]">*</span>
+            </label>
             <input
               type="tel"
               value={driverPhone}
-              onChange={(e) => setDriverPhone(e.target.value)}
+              onChange={(e) => {
+                setDriverPhone(e.target.value);
+                if (driverErrors.phone) setDriverErrors((p) => ({ ...p, phone: undefined }));
+              }}
               placeholder="+27 …"
-              className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31]"
+              className={`w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border rounded-md focus:outline-none focus:border-[#ff4f31] ${
+                driverErrors.phone ? "border-red-500" : "border-[#e5e7eb]"
+              }`}
             />
+            {driverErrors.phone && (
+              <p className="text-red-500 text-[11px] mt-1">{driverErrors.phone}</p>
+            )}
           </div>
           <div>
             <label className="text-[11px] text-[#999] mb-1 block">Driver Licence #</label>
@@ -656,15 +710,8 @@ const AddVehicle: React.FC = () => {
           ))}
         </div>
 
-        <label className="text-[11px] text-[#999] mb-1 block">Visible Damages</label>
-        <textarea
-          value={damagesNotes}
-          onChange={(e) => setDamagesNotes(e.target.value)}
-          placeholder="e.g. scratch on rear bumper, dent on left door"
-          rows={2}
-          className="w-full px-2 py-1.5 text-[14px] text-[#333] bg-white border border-[#e5e7eb] rounded-md focus:outline-none focus:border-[#ff4f31] resize-y mb-3"
-        />
-
+        {/* Visible Damages lives in the "Entry Notes" card below — it is the
+            same damagesNotes value, so it is not duplicated here. */}
         <label className="text-[11px] text-[#999] mb-1 block">Customer Complaint</label>
         <textarea
           value={complaintText}
@@ -710,7 +757,11 @@ const AddVehicle: React.FC = () => {
           <p className="text-[#999] text-[12px] mb-3">
             Add any observations about the vehicle condition
           </p>
+          {/* Bound to damagesNotes — this box WAS unbound, so anything typed
+              here was silently discarded and never pre-filled on edit. */}
           <textarea
+            value={damagesNotes}
+            onChange={(e) => setDamagesNotes(e.target.value)}
             placeholder="e.g., Minor scratch on left door, customer mentioned AC not cooling properly..."
             className="w-full h-28 sm:h-32 border border-[#e5e7eb] rounded-[10px] p-3 sm:p-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] resize-none outline-none focus:border-[#04c397]"
           />
@@ -761,6 +812,7 @@ const AddVehicle: React.FC = () => {
         entryTime={entryTime}
         isConfirming={isConfirming}
         error={confirmError}
+        initialShop={entryShop}
       />
     </>
   );

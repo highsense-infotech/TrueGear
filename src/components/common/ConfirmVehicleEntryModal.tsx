@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import Button from './Button';
 
@@ -14,6 +14,12 @@ interface ConfirmVehicleEntryModalProps {
   entryTime: string;
   isConfirming?: boolean;
   error?: string | null;
+  /**
+   * Shop already recorded on the check-in, so editing an entry pre-selects the
+   * previous choice instead of silently resetting to SERVICE. Null/undefined on
+   * a first entry → SERVICE.
+   */
+  initialShop?: EntryShop | null;
 }
 
 export function ConfirmVehicleEntryModal({
@@ -26,10 +32,20 @@ export function ConfirmVehicleEntryModal({
   entryTime,
   isConfirming = false,
   error,
+  initialShop,
 }: ConfirmVehicleEntryModalProps) {
   // Shop the vehicle is routed to at the gate. Drives Major/Service scoping
-  // for foreman/controller. Defaults to SERVICE.
-  const [shop, setShop] = useState<EntryShop>('SERVICE');
+  // for foreman/controller. Seeded from the existing check-in when editing an
+  // entry; SERVICE on a first entry.
+  const [shop, setShop] = useState<EntryShop>(initialShop ?? 'SERVICE');
+
+  // The modal stays mounted between opens, so re-sync when it is opened for a
+  // different vehicle (or after the check-in loads). Only while closed→open, so
+  // it never clobbers a choice the user is making.
+  useEffect(() => {
+    if (isOpen) setShop(initialShop ?? 'SERVICE');
+  }, [isOpen, initialShop]);
+
   if (!isOpen) return null;
 
   return (

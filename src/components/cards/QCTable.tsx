@@ -1,18 +1,21 @@
+import { useState } from "react";
 import { Clock } from "lucide-react";
 import truck from "../../assets/truck.png";
 import Button from '../common/Button';
 import { Pagination } from "../common/Pagination";
 import { DatePicker } from "../common/DatePicker";
+import { QCReportModal } from "./QCReportModal";
 import type { QCQueueItem, QCPagination } from '../../api/qc.api';
 
-type StatusFilter = "All" | "Urgent" | "Delayed" | "Completed";
+type StatusFilter = "All" | "Pending" | "Completed";
 
-const statusFilterToApi: Record<StatusFilter, "ALL" | "URGENT" | "DELAYED" | "COMPLETED"> = {
+const statusFilterToApi: Record<StatusFilter, "ALL" | "PENDING" | "COMPLETED"> = {
   All: "ALL",
-  Urgent: "URGENT",
-  Delayed: "DELAYED",
+  Pending: "PENDING",
   Completed: "COMPLETED",
 };
+
+const STATUS_TABS: StatusFilter[] = ["All", "Pending", "Completed"];
 
 type DisplayStatus = 'Inspection (Draft)' | 'Inspection Done' | 'Ready' | 'Pending';
 type DisplayPriority = 'Standard' | 'Urgent' | 'Express' | 'Basic';
@@ -87,8 +90,8 @@ interface QCTableProps {
   queue: QCQueueItem[];
   pagination: QCPagination;
   loading: boolean;
-  filter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED";
-  onFilterChange: (filter: "ALL" | "URGENT" | "DELAYED" | "COMPLETED") => void;
+  filter: "ALL" | "PENDING" | "COMPLETED";
+  onFilterChange: (filter: "ALL" | "PENDING" | "COMPLETED") => void;
   onPageChange: (page: number) => void;
   onItemsPerPageChange?: (limit: number) => void;
   onStartInspection: (vehicle: QCQueueItem) => void;
@@ -99,7 +102,25 @@ interface QCTableProps {
 }
 
 export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onItemsPerPageChange, onStartInspection, onResumeInspection, actionLoadingId = null, selectedDate, onDateChange }: QCTableProps) {
-  const statusFilter: StatusFilter = filter === "ALL" ? "All" : filter === "URGENT" ? "Urgent" : filter === "COMPLETED" ? "Completed" : "Delayed";
+  const statusFilter: StatusFilter = filter === "COMPLETED" ? "Completed" : filter === "PENDING" ? "Pending" : "All";
+
+  // Clicking the registration opens the read-only QC report. Only rows that
+  // actually have an inspection can show one — a vehicle still at 'Vehicle IN'
+  // has no inspectionId yet, so its registration stays plain text.
+  const [reportId, setReportId] = useState<string | null>(null);
+  const renderRegistration = (vehicle: QCQueueItem, className: string) =>
+    vehicle.inspectionId ? (
+      <button
+        type="button"
+        onClick={() => setReportId(vehicle.inspectionId!)}
+        title="View QC report"
+        className={`${className} hover:text-[#ff4f31] hover:underline text-left cursor-pointer`}
+      >
+        {vehicle.registrationNumber?.toUpperCase()}
+      </button>
+    ) : (
+      <p className={className}>{vehicle.registrationNumber?.toUpperCase()}</p>
+    );
 
   const handleStatusFilterChange = (f: StatusFilter) => {
     onFilterChange(statusFilterToApi[f]);
@@ -118,50 +139,20 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
       {/* Tabs and Filter */}
       <div className="flex flex-wrap items-center mb-5 gap-3">
         <div className="flex flex-wrap gap-2 bg-[#f5f5f5] p-1.25 rounded-[10px]">
-          <Button
-            onClick={() => handleStatusFilterChange("All")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "All"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-          }`}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange("Urgent")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "Urgent"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-          }`}
-          >
-            Urgent
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange("Delayed")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "Delayed"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-          }`}
-          >
-            Delayed
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange("Completed")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "Completed"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-          }`}
-          >
-            Completed
-          </Button>
+          {STATUS_TABS.map((tab) => (
+            <Button
+              key={tab}
+              onClick={() => handleStatusFilterChange(tab)}
+              variant="secondary"
+              className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
+                statusFilter === tab
+                  ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
+                  : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
+              }`}
+            >
+              {tab}
+            </Button>
+          ))}
         </div>
         <DatePicker
           value={selectedDate}
@@ -218,7 +209,7 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
                           </div>
                         )}
                         <div>
-                          <p className="text-[#333] text-[16px] mb-0.5">{vehicle.registrationNumber.toUpperCase()}</p>
+                          {renderRegistration(vehicle, "text-[#333] text-[16px] mb-0.5")}
                           <p className="text-[#999] text-[12px]">{vehicle.brand} {vehicle.model}</p>
                         </div>
                       </div>
@@ -291,7 +282,7 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
                     </div>
                   )}
                   <div>
-                    <p className="text-sm font-medium text-[#333]">{vehicle.registrationNumber?.toUpperCase()}</p>
+                    {renderRegistration(vehicle, "text-sm font-medium text-[#333]")}
                     <p className="text-xs text-[#999]">{vehicle.brand} {vehicle.model}</p>
                   </div>
                 </div>
@@ -364,6 +355,12 @@ export function QCTable({ queue, pagination, loading, filter, onFilterChange, on
           onItemsPerPageChange={onItemsPerPageChange}
         />
       )}
+
+      <QCReportModal
+        isOpen={!!reportId}
+        inspectionId={reportId}
+        onClose={() => setReportId(null)}
+      />
     </div>
   );
 }

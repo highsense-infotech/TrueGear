@@ -79,6 +79,19 @@ export interface ForemanDashboardItem {
     allocatedBy: string | null;
     allocatedByName: string | null;
   } | null;
+  // Bay held for this vehicle by its appointment, before any live allocation
+  // exists. Null once `allocation` is set — that becomes the truth.
+  reservation: {
+    checkInId: string | null;
+    bayId: string | null;
+    bayNo: string;
+    bayCategory: BayCategory | null;
+    appointmentId: string;
+    bookingRef: string;
+    time: string;
+    reservedBy: string | null;
+    reservedByName: string | null;
+  } | null;
 }
 
 export interface ForemanDashboardData {

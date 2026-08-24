@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle2,
   Clock,
@@ -154,6 +154,17 @@ interface Props {
   /** Currently selected bay/time (controlled by the wizard). */
   value: { bayId: string | null; time: string | null };
   onChange: (sel: BaySelection) => void;
+  /**
+   * When rescheduling, omit this appointment from its own bay occupation —
+   * otherwise the bay it currently sits in shows as booked against itself.
+   */
+  excludeAppointmentId?: string;
+  /**
+   * Where the appointment being rescheduled currently sits. It is excluded from
+   * the blocked set (so it can keep its own slot), which otherwise makes it look
+   * merely "free" — this labels it "Current" so the move is visibly reflected.
+   */
+  currentSlot?: { bayId: string | null; time: string | null };
 }
 
 /**
@@ -161,17 +172,21 @@ interface Props {
  * per-bay availability API. Used inside the appointment wizard's Slot step.
  * The estimated duration is editable here and drives slot availability live.
  */
-const BaySchedulePicker: React.FC<Props> = ({ date, durationMinutes: initialDuration, value, onChange }) => {
+const BaySchedulePicker: React.FC<Props> = ({ date, durationMinutes: initialDuration, value, onChange, excludeAppointmentId, currentSlot }) => {
   const [dur, setDur] = useState<number>(initialDuration);
   const [bays, setBays] = useState<BayAvailabilityInfo[]>([]);
   const [operating, setOperating] = useState<{ start: string; end: string }>({ start: "07:00", end: "20:00" });
   const [interval, setIntervalMin] = useState(30);
   const [loading, setLoading] = useState(false);
 
+  // Last date we actually loaded for. Null until the first load completes, so
+  // the reset below can tell "first mount" from "user picked another date".
+  const loadedForDate = useRef<string | null>(null);
+
   useEffect(() => {
     if (!date) { setBays([]); return; }
     setLoading(true);
-    getBayAvailability(date)
+    getBayAvailability(date, excludeAppointmentId)
       .then((res) => {
         setBays(res.data?.bays ?? []);
         if (res.data?.operating) setOperating(res.data.operating);
@@ -179,10 +194,17 @@ const BaySchedulePicker: React.FC<Props> = ({ date, durationMinutes: initialDura
       })
       .catch(() => setBays([]))
       .finally(() => setLoading(false));
-    // Reset selection when the date changes.
-    onChange({ bayId: null, bayNo: "", time: null, endTime: null, durationMinutes: dur, valid: false });
+
+    // Clear the selection ONLY when the user moves to a different date — a bay
+    ///time chosen for one day is meaningless on another. Deliberately NOT on
+    // mount: the wizard remounts this step on Previous → Next, and resetting
+    // there wiped the selection the parent had just restored from wizard state.
+    if (loadedForDate.current !== null && loadedForDate.current !== date) {
+      onChange({ bayId: null, bayNo: "", time: null, endTime: null, durationMinutes: dur, valid: false });
+    }
+    loadedForDate.current = date;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [date, excludeAppointmentId]);
 
   // "Now" cut-off — only when the chosen date is today (local), so past start
   // times are disabled. -1 means "not today" → nothing is past.
@@ -406,16 +428,43 @@ const BaySchedulePicker: React.FC<Props> = ({ date, durationMinutes: initialDura
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
             {slotGrid.map((s) => {
               const clickable = s.state === "available" || s.state === "selected";
+              // Name the booking that occupies this start, so a red slot reads
+              // "held by GJ05SK4764" instead of an unexplained block — the usual
+              // misreading is that it is your own just-moved appointment.
+              const holder =
+                s.state === "booked" && selectedBay
+                  ? selectedBay.blocked.find(
+                      (b) => toMin(s.time) < toMin(b.end) && toMin(s.time) + dur > toMin(b.start),
+                    )
+                  : undefined;
+              const title =
+                s.state === "past"
+                  ? "Time already passed"
+                  : holder
+                    ? `Held by ${holder.vehicleReg ?? "another vehicle"}${holder.bookingRef ? ` (${holder.bookingRef})` : ""}, ${fmt12(holder.start)}–${fmt12(holder.end)}`
+                    : s.state === "booked"
+                      ? `Doesn't fit the estimated duration (${durLabel}) before closing`
+                      : undefined;
               return (
                 <button
                   key={s.time}
                   type="button"
                   disabled={!clickable}
-                  title={s.state === "past" ? "Time already passed" : s.state === "booked" ? "Doesn't fit the estimated duration / already booked" : undefined}
+                  title={title}
                   onClick={() => clickable && pickTime(s.time)}
                   className={`py-2 rounded-lg border text-xs font-semibold transition-all ${SLOT_STATE_STYLE[s.state]}`}
                 >
                   {fmt12(s.time)}
+                  {holder?.vehicleReg && (
+                    <span className="block text-[9px] font-normal opacity-80 truncate px-1">
+                      {holder.vehicleReg}
+                    </span>
+                  )}
+                  {!holder &&
+                    currentSlot?.time === s.time &&
+                    currentSlot?.bayId === selectedBay?.id && (
+                      <span className="block text-[9px] font-normal opacity-80">Current</span>
+                    )}
                 </button>
               );
             })}

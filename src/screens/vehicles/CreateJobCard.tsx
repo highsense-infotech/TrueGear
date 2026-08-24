@@ -393,6 +393,16 @@ const CreateJobCard: React.FC = () => {
               }
             });
 
+            // Restore the saved job order. Rows are appended as items are
+            // iterated, and the labour pass above appends any labour-only group
+            // at the END — so without this, on-screen "Job 1" need not be
+            // job_group 1, and a group's parts could appear under a different
+            // job number than its labour. Sort by the group the data actually
+            // carries. (Stable sort keeps same-group rows in insertion order.)
+            reconstructed.sort(
+              (a, b) => Number((a as any).__jobGroup ?? 1) - Number((b as any).__jobGroup ?? 1),
+            );
+
             // Ensure every job shows at least one labour row — reconstructed
             // labour when present, otherwise a single empty default row.
             setJobs(

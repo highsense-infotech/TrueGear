@@ -6,7 +6,7 @@ import type { ApiResponse } from "./types";
 export interface QCDashboardParams {
   page?: number;
   limit?: number;
-  filter?: "ALL" | "URGENT" | "DELAYED" | "COMPLETED";
+  filter?: "ALL" | "PENDING" | "COMPLETED";
   sortOrder?: "asc" | "desc";
   dateFrom?: string;
   dateTo?: string;
@@ -153,6 +153,15 @@ export interface InspectionDetailsData {
     currentStep: number;
     serviceType: string;
     priority: string;
+    // Report fields — when the inspection ran and who signed it off.
+    overallStatus: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    timeIn: string | null;
+    timeOut: string | null;
+    signatureUrl: string | null;
+    createdByName: string | null;
+    completedByName: string | null;
   };
   vehicle: InspectionVehicle;
   appointment: {
@@ -163,11 +172,10 @@ export interface InspectionDetailsData {
     appointmentDate: string;
     appointmentTime: string;
   } | null;
-  categories: {
-    EXTERIOR: InspectionItem[];
-    INTERIOR: InspectionItem[];
-    BRAKE: InspectionItem[];
-  };
+  // Dynamic since the truck checklist (migration 0060): keys are whatever
+  // categories the inspection's items carry (Engine, Cooling System, …).
+  // The three legacy car keys are always present, so older reads stay safe.
+  categories: Record<string, InspectionItem[]>;
   summary: InspectionSummary;
   findings: InspectionFindings;
 }
@@ -192,11 +200,7 @@ export interface SaveStepItemsPayload {
 
 export interface SaveStepItemsData {
   currentStep: number;
-  categories: {
-    EXTERIOR: InspectionItem[];
-    INTERIOR: InspectionItem[];
-    BRAKE: InspectionItem[];
-  };
+  categories: Record<string, InspectionItem[]>;
   summary: InspectionSummary;
 }
 
