@@ -1,4 +1,5 @@
-import { Camera, Image, Loader2, RotateCcw, Trash2, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { Camera, Image, Loader2, RotateCcw, Trash2, AlertTriangle, X } from "lucide-react";
 import Button from '../common/Button';
 
 interface PhotoCaptureCardProps {
@@ -22,6 +23,11 @@ export function PhotoCaptureCard({
   onCapture,
   onDelete,
 }: PhotoCaptureCardProps) {
+  // Full-size viewer for the captured shot. The tile preview is ~170px tall and
+  // crops with object-cover, so the burned-in GPS/timestamp band and the damage
+  // being documented are not readable there.
+  const [viewerOpen, setViewerOpen] = useState(false);
+
   return (
     <div className={`bg-[#eff1f5] rounded-[10px] p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 items-center w-full ${disabled && !isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
       {/* Title */}
@@ -35,11 +41,15 @@ export function PhotoCaptureCard({
         className={`relative bg-white border-2 border-dashed rounded-[10px] w-full h-45 sm:h-41.25 md:h-42.5 flex flex-col items-center justify-center gap-3 px-4 sm:px-6 py-4 overflow-hidden ${uploadError ? 'border-[#DE2020]' : 'border-[#8c8c8c]'}`}>
         {capturedImage ? (
           <>
-            {/* Captured Image */}
+            {/* Captured Image — click to open it full size. The overlays below
+                sit at z-10, so Delete/Retry keep their own clicks. */}
             <img
               src={capturedImage}
               alt={title}
-              className="absolute inset-0 w-full h-full object-cover rounded-[10px]"
+              onClick={() => !isUploading && setViewerOpen(true)}
+              className={`absolute inset-0 w-full h-full object-cover rounded-[10px] ${
+                isUploading ? '' : 'cursor-zoom-in'
+              }`}
             />
 
             {/* Uploading Overlay */}
@@ -94,6 +104,52 @@ export function PhotoCaptureCard({
           </>
         )}
       </div>
+
+      {/* Full-size viewer. Backdrop click closes; the inner panel stops
+          propagation so clicks on the image itself do not. Retake is offered
+          here because the tile has no recapture control once a slot is filled —
+          the Capture button is replaced by the preview. */}
+      {viewerOpen && capturedImage && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-4 py-6"
+          onClick={() => setViewerOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl flex items-center justify-between mb-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-white text-[15px] font-semibold">{title}</p>
+            <button
+              onClick={() => setViewerOpen(false)}
+              className="text-white/70 hover:text-white transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <img
+            src={capturedImage}
+            alt={title}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-3xl w-full max-h-[75vh] object-contain rounded-[10px]"
+          />
+
+          {onCapture && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewerOpen(false);
+                onCapture();
+              }}
+              className="mt-4 inline-flex items-center gap-2 bg-white text-[#333] text-sm font-semibold rounded-lg px-4 py-2 shadow hover:bg-gray-100 cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Retake
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

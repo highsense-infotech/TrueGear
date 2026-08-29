@@ -108,6 +108,10 @@ const AppointmentDashboard: React.FC = () => {
   const [rescheduleReason, setRescheduleReason] = useState("");
   // Bay chosen in the reschedule modal (bay-scheduled appointments only).
   const [rescheduleBayId,  setRescheduleBayId]  = useState<string | null>(null);
+  // Duration the picker is filtering slots by. Seeded from the appointment and
+  // editable in the picker, so it MUST be sent with the reschedule — otherwise
+  // the server would validate the interval against the old duration.
+  const [rescheduleDuration, setRescheduleDuration] = useState<number | null>(null);
   const [rescheduleSlots,  setRescheduleSlots]  = useState<{ time: string; booked: number; capacity: number; status: string }[]>([]);
   const [slotsLoading,     setSlotsLoading]     = useState(false);
   const [rescheduling,     setRescheduling]     = useState(false);
@@ -202,6 +206,9 @@ const AppointmentDashboard: React.FC = () => {
     setRescheduleTime("");
     setRescheduleReason("");
     setRescheduleBayId(appt.bayId ?? null);
+    // Seed from the appointment; the 150 fallback matches what the picker is
+    // given below, so the two never start out of step.
+    setRescheduleDuration(appt.estimatedDurationMinutes ?? 150);
     setRescheduleSlots([]);
     setRescheduleError("");
     const d = new Date();
@@ -240,12 +247,31 @@ const AppointmentDashboard: React.FC = () => {
         // Only sent for bay-scheduled appointments; omitted otherwise so the
         // backend leaves the (absent) bay untouched.
         ...(rescheduleTarget.bayId && rescheduleBayId ? { bayId: rescheduleBayId } : {}),
+        // Likewise duration: only bay-scheduled reschedules expose the picker,
+        // and only send it when it actually differs, so an untouched
+        // reschedule keeps the previous no-op behaviour.
+        ...(rescheduleTarget.bayId &&
+        rescheduleDuration != null &&
+        rescheduleDuration !== rescheduleTarget.estimatedDurationMinutes
+          ? { estimatedDurationMinutes: rescheduleDuration }
+          : {}),
       });
       if (res.success) {
         setAppointments((prev) =>
           prev.map((a) =>
             a.id === rescheduleTarget.id
-              ? { ...a, appointmentDate: rescheduleDate, appointmentTime: rescheduleTime, status: "BOOKED", rescheduleCount: (a.rescheduleCount ?? 0) + 1 }
+              ? {
+                  ...a,
+                  appointmentDate: rescheduleDate,
+                  appointmentTime: rescheduleTime,
+                  // Keep the cached duration in step with what was just saved,
+                  // so reopening the modal seeds the picker correctly.
+                  ...(rescheduleTarget.bayId && rescheduleDuration != null
+                    ? { estimatedDurationMinutes: rescheduleDuration }
+                    : {}),
+                  status: "BOOKED",
+                  rescheduleCount: (a.rescheduleCount ?? 0) + 1,
+                }
               : a,
           ),
         );
@@ -696,13 +722,20 @@ const AppointmentDashboard: React.FC = () => {
                   <div className="mb-4">
                     <BaySchedulePicker
                       date={rescheduleDate}
-                      durationMinutes={rescheduleTarget.estimatedDurationMinutes ?? 150}
+                      // Seed from the CURRENT selection, not the appointment's
+                      // original: stepping to Confirm and back unmounts the
+                      // picker, and re-seeding from the original would silently
+                      // reset the duration the payload is still carrying.
+                      durationMinutes={rescheduleDuration ?? rescheduleTarget.estimatedDurationMinutes ?? 150}
                       value={{ bayId: rescheduleBayId, time: rescheduleTime || null }}
                       excludeAppointmentId={rescheduleTarget.id}
                       currentSlot={{ bayId: rescheduleTarget.bayId, time: rescheduleTarget.appointmentTime }}
                       onChange={(sel) => {
                         setRescheduleBayId(sel.bayId);
                         setRescheduleTime(sel.time ?? "");
+                        // Track the picker's own duration so the payload sends
+                        // exactly what the slot filtering used.
+                        setRescheduleDuration(sel.durationMinutes);
                         setRescheduleError("");
                       }}
                     />

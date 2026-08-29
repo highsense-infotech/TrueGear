@@ -320,6 +320,12 @@ export interface ReschedulePayload {
    * Omit to keep the current bay (previous behaviour).
    */
   bayId?: string;
+  /**
+   * New estimated workshop time. Omit to keep the stored duration. When sent,
+   * the server validates the bay interval against THIS value and persists it —
+   * so it must be the same duration the picker used to filter slots.
+   */
+  estimatedDurationMinutes?: number;
 }
 
 export const rescheduleAppointment = async (
