@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { CheckCircle, FileCheckCorner, User, Car, ArrowLeft, Loader2 } from "lucide-react";
+import { CheckCircle, FileCheckCorner, User, Car, ArrowLeft, Loader2, Camera, AlertCircle, X } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { PhotoCaptureCard } from "../../components/cards/PhotoCaptureCard";
@@ -15,7 +15,47 @@ import {
   replaceVehicleImage,
   deleteVehicleImage,
   confirmVehicleEntry,
+  scanLicence,
+  scanOdometer,
+  scanFuel,
 } from "../../api/vehicle.api";
+
+/** Lifecycle of a Gate Entry vision scan, shown next to the field it fills. */
+type ScanStatus = "idle" | "scanning" | "success" | "partial" | "error";
+
+/**
+ * Inline status for a vision scan. Renders nothing while idle, so the form is
+ * unchanged until a scan is actually run.
+ */
+const ScanStatusLine: React.FC<{ status: ScanStatus; message: string; busyText: string }> = ({
+  status,
+  message,
+  busyText,
+}) => {
+  if (status === "idle") return null;
+  if (status === "scanning") {
+    return (
+      <p className="flex items-center gap-1.5 mt-1.5 text-[11px] text-[#999]">
+        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+        {busyText}
+      </p>
+    );
+  }
+  const ok = status === "success";
+  const colour = ok ? "text-[#16a34a]" : status === "partial" ? "text-[#d97706]" : "text-[#ff4f31]";
+  const text = ok ? message || "Read from photo — check it is correct." : message;
+  if (!text) return null;
+  return (
+    <p className={`flex items-start gap-1.5 mt-1.5 text-[11px] ${colour}`}>
+      {ok ? (
+        <CheckCircle className="w-3 h-3 shrink-0 mt-px" />
+      ) : (
+        <AlertCircle className="w-3 h-3 shrink-0 mt-px" />
+      )}
+      <span>{text}</span>
+    </p>
+  );
+};
 
 interface PhotoSlot {
   title: string;
@@ -82,6 +122,35 @@ const AddVehicle: React.FC = () => {
   const [entryShop, setEntryShop] = useState<"SERVICE" | "MAJOR" | "PDI" | null>(null);
   const [complaintText, setComplaintText] = useState("");
   const [, setReceivingNo] = useState<string | null>(null);
+
+  // ─── Gate Entry vision scans ───────────────────────────────────────────────
+  // Each scan runs on the RAW capture, in parallel with the normal stamped
+  // upload, and may only ever FILL a field the user has not already set.
+  const [licenceScanStatus, setLicenceScanStatus] = useState<ScanStatus>("idle");
+  const [odometerScanStatus, setOdometerScanStatus] = useState<ScanStatus>("idle");
+  const [odometerScanMessage, setOdometerScanMessage] = useState("");
+
+  // Odometer protections. `odoCaptureIdRef` makes a superseded response
+  // discardable; `odoUserTouchedRef` makes a manual edit permanently win.
+  const odoCaptureIdRef = useRef(0);
+  const odoUserTouchedRef = useRef(false);
+
+  // Driver-licence photo captured at Gate Entry. Persisted as the
+  // "Driver Licence" vehicle image, matching the reference implementation.
+  const [licenceImg, setLicenceImg] = useState<{ imageId: string | null; url: string | null; uploading: boolean }>(
+    { imageId: null, url: null, uploading: false },
+  );
+  const [licenceCameraOpen, setLicenceCameraOpen] = useState(false);
+
+  // Fuel-gauge scan. Same two protections as the odometer: a superseded capture
+  // is discarded, and a manual Fuel Level selection permanently wins.
+  const [fuelScanStatus, setFuelScanStatus] = useState<ScanStatus>("idle");
+  const [fuelImg, setFuelImg] = useState<{ imageId: string | null; url: string | null; uploading: boolean }>(
+    { imageId: null, url: null, uploading: false },
+  );
+  const [fuelCameraOpen, setFuelCameraOpen] = useState(false);
+  const fuelCaptureIdRef = useRef(0);
+  const fuelUserTouchedRef = useRef(false);
 
   const initialSlots: PhotoSlot[] = [
     { title: "Vehicle Registration No", required: true },
@@ -294,11 +363,237 @@ const AddVehicle: React.FC = () => {
 
   // Receives the live-captured frame from <LiveCameraCapture>. Same upload
   // path as the legacy file-input flow but without the gallery option.
-  const handleCameraCapture = async (file: File, captured: CapturedPhoto) => {
+  const handleCameraCapture = async (file: File, captured: CapturedPhoto, rawFile?: File) => {
     if (activeSlot === null) return;
+    const slotIndex = activeSlot;
     setCameraOpen(false);
-    await processCapturedFile(file, activeSlot, captured);
+
+    // Vision scans read the RAW frame, before the GPS overlay is burned in —
+    // the stamp sits over the plate / instrument cluster. They run in parallel
+    // with the stamp+upload below and can never affect it.
+    // The number plate is scanned from the Security Dashboard's
+    // "Capture Number Plate" flow, not here — by the time Gate Entry is open
+    // the vehicle has already been identified.
+    if (photoSlots[slotIndex]?.title === "Odometer Reading (KM)") {
+      void runOdometerScan(rawFile ?? file);
+    }
+
+    await processCapturedFile(file, slotIndex, captured);
     setActiveSlot(null);
+  };
+
+  // ─── Gate Entry vision scans ─────────────────────────────────────────────
+
+  /** Human-readable text for a backend rejection code. */
+  const scanReasonText = (reason: string | null, subject: string): string => {
+    switch (reason) {
+      case "NO_NUMBER_PLATE_DETECTED":
+        return "No number plate found in that photo.";
+      case "NO_LICENCE_DETECTED":
+        return "That doesn't look like a driving licence.";
+      case "NO_ODOMETER":
+        return "No odometer reading found in that photo.";
+      case "PLATE_NOT_READABLE":
+      case "NOT_READABLE":
+        return `The ${subject} could not be read clearly — try again.`;
+      case "INVALID_REGISTRATION":
+        return "That registration is not a recognised SA format.";
+      case "IMPLAUSIBLE_VALUE":
+        return "That odometer value looks wrong — enter it manually.";
+      case "LOW_CONFIDENCE":
+        return `Not confident enough reading the ${subject} — enter it manually.`;
+      case "IMAGE_TOO_LARGE":
+        return "That photo is too large to scan.";
+      case "UNSUPPORTED_FORMAT":
+        return "That image format is not supported.";
+      default:
+        return `Could not scan the ${subject} — enter it manually.`;
+    }
+  };
+
+  /**
+   * Fuel gauge → OCR → one of the five levels.
+   *
+   * Two protections, both required:
+   *  * STALE    — a newer capture bumps the id; an older response arriving
+   *               afterwards is discarded.
+   *  * OVERRIDE — picking a Fuel Level by hand sets the touched flag, after
+   *               which a resolving scan must never change the selection.
+   * The manual pills are never disabled while a scan runs.
+   */
+  const handleFuelCapture = async (file: File, captured: CapturedPhoto, rawFile?: File) => {
+    setFuelCameraOpen(false);
+    const captureId = ++fuelCaptureIdRef.current;
+    fuelUserTouchedRef.current = false;
+    setFuelScanStatus("scanning");
+
+    // OCR on the RAW frame, in parallel with the upload below.
+    void (async () => {
+      try {
+        const res = await scanFuel(rawFile ?? file);
+        if (captureId !== fuelCaptureIdRef.current) return; // superseded
+        const d = res.data;
+        if (!d || !d.fuelLevel || d.reason !== null) {
+          setFuelScanStatus("error");
+          return;
+        }
+        if (!fuelUserTouchedRef.current) setFuelLevel(d.fuelLevel);
+        setFuelScanStatus("success");
+      } catch {
+        if (captureId !== fuelCaptureIdRef.current) return;
+        setFuelScanStatus("error");
+      }
+    })();
+
+    if (!vehicleId) return;
+    setFuelImg((cur) => ({ ...cur, uploading: true }));
+    try {
+      const meta = {
+        capturedAt: captured.capturedAt,
+        gpsLat: captured.gpsLat,
+        gpsLng: captured.gpsLng,
+        gpsAccuracyM: captured.gpsAccuracyM,
+        addressText: captured.addressText,
+        deviceUserAgent: captured.deviceUserAgent,
+      };
+      const res = fuelImg.imageId
+        ? await replaceVehicleImage(vehicleId, fuelImg.imageId, file, "Fuel Indicator", meta)
+        : await uploadVehicleImages(vehicleId, [file], "Fuel Indicator", meta);
+      const uploaded = fuelImg.imageId
+        ? (res.data as { id: string; imagePath: string } | undefined)
+        : (res.data as { uploaded: { id: string; imagePath: string }[] } | undefined)?.uploaded?.[0];
+      if (uploaded) {
+        setFuelImg({ imageId: uploaded.id, url: uploaded.imagePath, uploading: false });
+        return;
+      }
+      setFuelImg((cur) => ({ ...cur, uploading: false }));
+    } catch {
+      setFuelImg((cur) => ({ ...cur, uploading: false }));
+      toast.error("Could not upload the fuel gauge photo.");
+    }
+  };
+
+  /** Detach the fuel photo, deleting it server-side when it was uploaded. */
+  const removeFuelImage = async () => {
+    if (fuelImg.imageId && vehicleId) {
+      try {
+        await deleteVehicleImage(vehicleId, fuelImg.imageId);
+      } catch {
+        /* best-effort */
+      }
+    }
+    setFuelImg({ imageId: null, url: null, uploading: false });
+    setFuelScanStatus("idle");
+  };
+
+  /** Detach the licence photo, deleting it server-side when it was uploaded. */
+  const removeLicenceImage = async () => {
+    if (licenceImg.imageId && vehicleId) {
+      try {
+        await deleteVehicleImage(vehicleId, licenceImg.imageId);
+      } catch {
+        /* best-effort — the local reference is cleared either way */
+      }
+    }
+    setLicenceImg({ imageId: null, url: null, uploading: false });
+    setLicenceScanStatus("idle");
+  };
+
+  /**
+   * Odometer photo → OCR → km.
+   *
+   * Two protections, both required:
+   *  * STALE    — a newer capture bumps the id; an older response that arrives
+   *               afterwards is discarded.
+   *  * OVERRIDE — a manual edit sets the touched flag, after which a resolving
+   *               scan must never overwrite what the user typed.
+   */
+  const runOdometerScan = async (file: File) => {
+    const captureId = ++odoCaptureIdRef.current;
+    odoUserTouchedRef.current = false;
+    setOdometerScanStatus("scanning");
+    setOdometerScanMessage("");
+    try {
+      const res = await scanOdometer(file);
+      if (captureId !== odoCaptureIdRef.current) return; // superseded
+      const d = res.data;
+      if (!d || d.odometer == null || d.reason !== null) {
+        setOdometerScanStatus("error");
+        setOdometerScanMessage(scanReasonText(d?.reason ?? null, "odometer"));
+        return;
+      }
+      if (!odoUserTouchedRef.current) setOdometerInput(String(d.odometer));
+      setOdometerScanStatus("success");
+      setOdometerScanMessage("");
+    } catch {
+      if (captureId !== odoCaptureIdRef.current) return;
+      setOdometerScanStatus("error");
+      setOdometerScanMessage("Could not scan the odometer — enter it manually.");
+    }
+  };
+
+  /**
+   * Driver licence → OCR → name + licence number.
+   *
+   * Prefill NEVER clobbers: a value the user typed, or one restored from an
+   * active check-in, always wins. The photo is also stored as the
+   * "Driver Licence" vehicle image, matching the reference implementation.
+   */
+  const handleLicenceCapture = async (file: File, captured: CapturedPhoto, rawFile?: File) => {
+    setLicenceCameraOpen(false);
+    setLicenceScanStatus("scanning");
+
+    // OCR on the RAW frame, in parallel with the upload below.
+    void (async () => {
+      try {
+        const res = await scanLicence(rawFile ?? file);
+        const d = res.data;
+        if (!d || !d.isLicence || d.reason !== null) {
+          setLicenceScanStatus("error");
+          return;
+        }
+        // Functional updates guarantee we read the latest value and never
+        // clobber an existing entry.
+        if (d.name) setDriverName((prev) => (prev.trim() ? prev : d.name!));
+        if (d.licenceNumber) {
+          setDriverLicenceNo((prev) => (prev.trim() ? prev : d.licenceNumber!));
+        }
+        const complete = !!d.name && !!d.licenceNumber;
+        setLicenceScanStatus(complete ? "success" : "partial");
+      } catch {
+        setLicenceScanStatus("error");
+      }
+    })();
+
+    // Persist the stamped photo under the "Driver Licence" category. Requires
+    // a vehicle; on a not-yet-created entry the scan still works, the photo is
+    // simply not stored.
+    if (!vehicleId) return;
+    setLicenceImg((cur) => ({ ...cur, uploading: true }));
+    try {
+      const meta = {
+        capturedAt: captured.capturedAt,
+        gpsLat: captured.gpsLat,
+        gpsLng: captured.gpsLng,
+        gpsAccuracyM: captured.gpsAccuracyM,
+        addressText: captured.addressText,
+        deviceUserAgent: captured.deviceUserAgent,
+      };
+      const res = licenceImg.imageId
+        ? await replaceVehicleImage(vehicleId, licenceImg.imageId, file, "Driver Licence", meta)
+        : await uploadVehicleImages(vehicleId, [file], "Driver Licence", meta);
+      const uploaded = licenceImg.imageId
+        ? (res.data as { id: string; imagePath: string } | undefined)
+        : (res.data as { uploaded: { id: string; imagePath: string }[] } | undefined)?.uploaded?.[0];
+      if (uploaded) {
+        setLicenceImg({ imageId: uploaded.id, url: uploaded.imagePath, uploading: false });
+        return;
+      }
+      setLicenceImg((cur) => ({ ...cur, uploading: false }));
+    } catch {
+      setLicenceImg((cur) => ({ ...cur, uploading: false }));
+      toast.error("Could not upload the licence photo.");
+    }
   };
 
   // Extracted from the original handleFileChange so live camera and (legacy)
@@ -516,6 +811,24 @@ const AddVehicle: React.FC = () => {
         onCapture={handleCameraCapture}
       />
 
+      {/* Driver-licence capture. Separate instance so it never interferes with
+          the photo-slot grid's own camera state. */}
+      <LiveCameraCapture
+        isOpen={licenceCameraOpen}
+        title="Driver Licence"
+        onClose={() => setLicenceCameraOpen(false)}
+        onCapture={handleLicenceCapture}
+      />
+
+      {/* Fuel-gauge capture. Separate instance so it never interferes with the
+          photo-slot grid or the licence camera. */}
+      <LiveCameraCapture
+        isOpen={fuelCameraOpen}
+        title="Fuel Gauge"
+        onClose={() => setFuelCameraOpen(false)}
+        onCapture={handleFuelCapture}
+      />
+
       {/* Breadcrumb */}
       <Breadcrumb
         items={[
@@ -602,7 +915,11 @@ const AddVehicle: React.FC = () => {
                   min={0}
                   placeholder="Enter reading"
                   value={odometerInput}
-                  onChange={(e) => setOdometerInput(e.target.value)}
+                  onChange={(e) => {
+                    // Any manual edit permanently wins over an in-flight scan.
+                    odoUserTouchedRef.current = true;
+                    setOdometerInput(e.target.value);
+                  }}
                   // Blur on wheel so scrolling the page never edits the reading.
                   onWheel={(e) => e.currentTarget.blur()}
                   className={`no-spinner w-full pl-2 pr-8 py-1 text-[14px] font-medium text-[#333] bg-white border rounded-md focus:outline-none focus:border-[#ff4f31] ${
@@ -611,6 +928,11 @@ const AddVehicle: React.FC = () => {
                 />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[#999]">km</span>
               </div>
+              <ScanStatusLine
+                status={odometerScanStatus}
+                message={odometerScanMessage}
+                busyText="Reading odometer…"
+              />
             </div>
             <div className="bg-[#f9f9f9] rounded-[8px] p-3">
               <p className="text-[#999] text-[11px] mb-1">Priority</p>
@@ -692,13 +1014,75 @@ const AddVehicle: React.FC = () => {
           </div>
         </div>
 
+        {/* Driver Licence Photo — capture the card, OCR pre-fills ONLY empty
+            Driver Name / Licence # fields above. The upload and the OCR are
+            independent: a failed scan never affects the stored photo. */}
+        <div className="mb-3">
+          <label className="text-[11px] text-[#999] mb-1 block">Driver Licence Photo</label>
+          <div className="flex items-center gap-2">
+            {licenceImg.url && (
+              <div className="relative">
+                <img
+                  src={licenceImg.url}
+                  alt="Driver licence"
+                  className="w-14 h-14 object-cover rounded border border-[#e5e7eb]"
+                />
+                <button
+                  type="button"
+                  onClick={removeLicenceImage}
+                  className="absolute -top-1 -right-1 bg-white border border-[#e5e7eb] rounded-full w-4 h-4 flex items-center justify-center text-[#ef4444]"
+                  title="Remove"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={licenceImg.uploading}
+              onClick={() => setLicenceCameraOpen(true)}
+              className={`flex items-center gap-1 text-[11px] border border-dashed border-[#e5e7eb] rounded px-2 py-2 disabled:cursor-not-allowed ${licenceImg.uploading ? "opacity-60 text-[#999]" : "cursor-pointer text-[#666] hover:text-[#ff4f31]"}`}
+            >
+              {licenceImg.uploading ? (
+                <><Loader2 size={12} className="animate-spin" /> Uploading…</>
+              ) : (
+                <><Camera size={12} /> {licenceImg.url ? "Change photo" : "Add photo"}</>
+              )}
+            </button>
+          </div>
+
+          {/* OCR auto-fill status — inline, minimal. Does not affect the upload. */}
+          {licenceScanStatus === "scanning" && (
+            <p className="mt-1.5 text-[11px] text-[#666] flex items-center gap-1">
+              <Loader2 size={11} className="animate-spin" /> Scanning licence…
+            </p>
+          )}
+          {licenceScanStatus === "success" && (
+            <p className="mt-1.5 text-[11px] text-[#1DB401]">Auto-filled from licence — please verify</p>
+          )}
+          {licenceScanStatus === "partial" && (
+            <p className="mt-1.5 text-[11px] text-[#E89D00]">
+              Some licence details could not be detected. Please verify.
+            </p>
+          )}
+          {licenceScanStatus === "error" && (
+            <p className="mt-1.5 text-[11px] text-[#ef4444]">
+              Couldn't read the licence — please enter details manually.
+            </p>
+          )}
+        </div>
+
         <label className="text-[11px] text-[#999] mb-1 block">Fuel Level</label>
         <div className="flex gap-1.5 mb-3">
           {(["EMPTY", "QUARTER", "HALF", "THREE_QUARTER", "FULL"] as const).map((f) => (
             <button
               key={f}
               type="button"
-              onClick={() => setFuelLevel(fuelLevel === f ? "" : f)}
+              onClick={() => {
+                // Manual selection wins over any in-flight AI result.
+                fuelUserTouchedRef.current = true;
+                setFuelLevel(fuelLevel === f ? "" : f);
+              }}
               className={`flex-1 h-8 rounded-md border text-[12px] font-medium transition-colors ${
                 fuelLevel === f
                   ? "border-[#ff4f31] bg-[#fff5f2] text-[#ff4f31]"
@@ -708,6 +1092,56 @@ const AddVehicle: React.FC = () => {
               {f === "THREE_QUARTER" ? "¾" : f === "QUARTER" ? "¼" : f === "HALF" ? "½" : f === "FULL" ? "Full" : "Empty"}
             </button>
           ))}
+        </div>
+
+        {/* Fuel Gauge Photo — vision classifies the gauge and auto-selects the
+            Fuel Level above. The manual pills stay enabled throughout, and a
+            manual pick always wins over a resolving scan. */}
+        <div className="mb-3">
+          <label className="text-[11px] text-[#999] mb-1 block">Fuel Gauge Photo</label>
+          <div className="flex items-center gap-2">
+            {fuelImg.url && (
+              <div className="relative">
+                <img src={fuelImg.url} alt="Fuel gauge" className="w-14 h-14 object-cover rounded border border-[#e5e7eb]" />
+                <button
+                  type="button"
+                  onClick={removeFuelImage}
+                  className="absolute -top-1 -right-1 bg-white border border-[#e5e7eb] rounded-full w-4 h-4 flex items-center justify-center text-[#ef4444]"
+                  title="Remove"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={fuelImg.uploading}
+              onClick={() => setFuelCameraOpen(true)}
+              className={`flex items-center gap-1 text-[11px] border border-dashed border-[#e5e7eb] rounded px-2 py-2 disabled:cursor-not-allowed ${fuelImg.uploading ? "opacity-60 text-[#999]" : "cursor-pointer text-[#666] hover:text-[#ff4f31]"}`}
+            >
+              {fuelImg.uploading ? (
+                <><Loader2 size={12} className="animate-spin" /> Uploading…</>
+              ) : (
+                <><Camera size={12} /> {fuelImg.url ? "Change photo" : "Add photo"}</>
+              )}
+            </button>
+          </div>
+
+          {/* Fuel-gauge vision status — inline, minimal. Does not affect upload
+              and never disables the manual Fuel Level controls above. */}
+          {fuelScanStatus === "scanning" && (
+            <p className="mt-1.5 text-[11px] text-[#666] flex items-center gap-1">
+              <Loader2 size={11} className="animate-spin" /> Analyzing fuel level…
+            </p>
+          )}
+          {fuelScanStatus === "success" && (
+            <p className="mt-1.5 text-[11px] text-[#1DB401]">Fuel level detected — please verify</p>
+          )}
+          {fuelScanStatus === "error" && (
+            <p className="mt-1.5 text-[11px] text-[#E89D00]">
+              Could not detect fuel level. Please select manually.
+            </p>
+          )}
         </div>
 
         {/* Visible Damages lives in the "Entry Notes" card below — it is the

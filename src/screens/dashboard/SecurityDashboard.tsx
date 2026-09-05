@@ -7,6 +7,7 @@ import { Truck } from "lucide-react";
 import { VehicleTable } from "../../components/cards/VehicleTable.tsx";
 import { ShopScopeBadge } from "../../components/common/ShopScopeBadge.tsx";
 import { ROUTES } from "../../constants/routes.ts";
+import PlateCaptureModal from "../../components/common/PlateCaptureModal.tsx";
 import type { VehicleStats } from "../../api/vehicle.api";
 
 const SecurityDashboard: React.FC = () => {
@@ -15,6 +16,7 @@ const SecurityDashboard: React.FC = () => {
   const [addVehicleSignal, setAddVehicleSignal] = useState(0);
   const [lookupSignal, setLookupSignal] = useState(0);
   const [lookupBusy, setLookupBusy] = useState(false);
+  const [plateModalOpen, setPlateModalOpen] = useState(false);
   const [stats, setStats] = useState<VehicleStats>({
     vehiclesEnteredToday: 0,
     vehiclesEnteredYesterday: 0,
@@ -115,8 +117,20 @@ const SecurityDashboard: React.FC = () => {
               onSearch={handleSearch}
               onAddNewVehicle={() => setAddVehicleSignal((s) => s + 1)}
               loading={lookupBusy}
+              onCapturePlate={() => setPlateModalOpen(true)}
             />
           </div>
+
+          {/* Capture Number Plate — on a validated plate, reuse the existing
+              handleSearch() flow (no new search API). */}
+          <PlateCaptureModal
+            isOpen={plateModalOpen}
+            onClose={() => setPlateModalOpen(false)}
+            onDetected={(registration) => {
+              setPlateModalOpen(false);
+              handleSearch(registration);
+            }}
+          />
 
           {/* Vehicle Table */}
           <div className="overflow-x-auto">

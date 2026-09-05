@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Camera, Loader2, RotateCcw, Upload, X } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -11,8 +11,19 @@ interface Props {
   onClose: () => void;
   /** Called with the ALREADY geo-stamped frame plus its GPS/timestamp
       metadata. Stamping happens here so every capture site in the app gets
-      the same overlay — callers only handle upload. */
-  onCapture: (file: File, meta: CapturedPhoto) => void | Promise<void>;
+      the same overlay — callers only handle upload.
+
+      `rawFile` is the same frame BEFORE the overlay was burned in. It is
+      optional and additive: existing callers ignore it and are unaffected.
+      Gate Entry uses it for OCR, because the stamp sits over exactly the
+      things the vision models need to read (the plate, the odometer cluster,
+      the licence card). */
+  onCapture: (file: File, meta: CapturedPhoto, rawFile?: File) => void | Promise<void>;
+  /** Optional overlay rendered on top of the live video (e.g. a plate guide
+      frame). Purely visual — it does not intercept pointer events and is not
+      shown in the fallback (native input) path. Existing callers omit this and
+      behave exactly as before. */
+  overlay?: ReactNode;
 }
 
 /**
@@ -34,7 +45,7 @@ interface Props {
 // silently-queued prompt doesn't leave the modal spinning forever.
 const CAMERA_START_TIMEOUT_MS = 20000;
 
-export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }: Props) {
+export default function LiveCameraCapture({ isOpen, title, onClose, onCapture, overlay }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fallbackInputRef = useRef<HTMLInputElement>(null);
@@ -172,7 +183,7 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
       }
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
       const captured = await stampImageWithMeta(file);
-      await onCapture(captured.file, captured);
+      await onCapture(captured.file, captured, file);
       // Caller closes the modal after upload completes.
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Capture failed.");
@@ -194,7 +205,7 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
     setCapturing(true);
     try {
       const captured = await stampImageWithMeta(f);
-      await onCapture(captured.file, captured);
+      await onCapture(captured.file, captured, f);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -269,6 +280,11 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture }:
                   </>
                 )}
               </div>
+            )}
+            {/* Optional visual overlay (e.g. plate guide frame). Non-interactive
+                and hidden while the camera is starting or errored. */}
+            {overlay && !starting && !error && (
+              <div className="absolute inset-0 pointer-events-none">{overlay}</div>
             )}
             <canvas ref={canvasRef} className="hidden" />
           </div>

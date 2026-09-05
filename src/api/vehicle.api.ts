@@ -536,3 +536,122 @@ export const getVehicleVisitHistory = async (vehicleId: string): Promise<ApiResp
   const { data } = await api.get(`/vehicles/${vehicleId}/visit-history`);
   return data;
 };
+
+// ─── Gate Entry vision scans ─────────────────────────────────────────────────
+//
+// Detection, OCR, format validation and the confidence gates all run on the
+// backend — no OCR happens in the browser and the OpenAI key never reaches it.
+// The image is processed in memory server-side and is NOT persisted by these
+// calls (the normal photo uploads above are unaffected).
+//
+// NOTE the multipart field is `image` (singular) — deliberately NOT the
+// `images` field the photo-upload endpoints use.
+//
+// None of these throw for a rejected image: the request succeeds and the
+// rejection is carried in `reason`. Only act on a result when the detection
+// flag is true AND `reason === null`.
+
+const postScan = async <T>(path: string, file: File): Promise<ApiResponse<T>> => {
+  const formData = new FormData();
+  formData.append("image", file);
+  const { data } = await api.post(path, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
+// ---- Number-Plate Scan (Capture Number Plate) ----
+
+/** Mirrors the backend rejection enum (plateScan.dto.ts). */
+export type PlateRejectionReason =
+  | "NO_NUMBER_PLATE_DETECTED"
+  | "IMAGE_TOO_BLURRY"
+  | "IMAGE_TOO_DARK"
+  | "PLATE_NOT_READABLE"
+  | "INVALID_REGISTRATION"
+  | "LOW_CONFIDENCE"
+  | "PROCESSING_ERROR"
+  | "IMAGE_TOO_LARGE"
+  | "UNSUPPORTED_FORMAT";
+
+export interface PlateScanResult {
+  isPlate: boolean;
+  /** Normalised South African registration (e.g. "CWW326GP"), or null. */
+  registration: string | null;
+  confidence: number;
+  reason: PlateRejectionReason | null;
+}
+
+export const scanPlate = (file: File): Promise<ApiResponse<PlateScanResult>> =>
+  postScan<PlateScanResult>("/vehicles/plate-scan", file);
+
+// ---- Driver Licence Scan (OCR auto-fill, any country) ----
+
+/** Mirrors the backend rejection enum (licenceScan.dto.ts). */
+export type LicenceRejectionReason =
+  | "NO_LICENCE_DETECTED"
+  | "NOT_READABLE"
+  | "LOW_CONFIDENCE"
+  | "PROCESSING_ERROR"
+  | "IMAGE_TOO_LARGE"
+  | "UNSUPPORTED_FORMAT";
+
+/**
+ * The national ID is deliberately NOT part of this contract. The backend reads
+ * it only to guarantee it is never returned as the licence number, then
+ * discards it — it never crosses the network.
+ */
+export interface LicenceScanResult {
+  isLicence: boolean;
+  name: string | null;
+  licenceNumber: string | null;
+  confidence: number;
+  reason: LicenceRejectionReason | null;
+}
+
+export const scanLicence = (file: File): Promise<ApiResponse<LicenceScanResult>> =>
+  postScan<LicenceScanResult>("/vehicles/licence-scan", file);
+
+// ---- Odometer Scan (vision auto-fill) ----
+
+/** Mirrors the backend rejection enum (odometerScan.dto.ts). */
+export type OdometerRejectionReason =
+  | "NO_ODOMETER"
+  | "NOT_READABLE"
+  | "LOW_CONFIDENCE"
+  | "IMPLAUSIBLE_VALUE"
+  | "PROCESSING_ERROR"
+  | "IMAGE_TOO_LARGE"
+  | "UNSUPPORTED_FORMAT";
+
+export interface OdometerScanResult {
+  /** Total odometer value in km as shown (no unit conversion); null when unread. */
+  odometer: number | null;
+  confidence: number;
+  reason: OdometerRejectionReason | null;
+}
+
+export const scanOdometer = (file: File): Promise<ApiResponse<OdometerScanResult>> =>
+  postScan<OdometerScanResult>("/vehicles/odometer-scan", file);
+
+// ---- Fuel Gauge Scan (vision auto-fill) ----
+
+/** Mirrors the backend rejection enum (fuelScan.dto.ts). */
+export type FuelRejectionReason =
+  | "NO_FUEL_GAUGE"
+  | "NOT_A_FUEL_GAUGE"
+  | "NOT_READABLE"
+  | "LOW_CONFIDENCE"
+  | "PROCESSING_ERROR"
+  | "IMAGE_TOO_LARGE"
+  | "UNSUPPORTED_FORMAT";
+
+export interface FuelScanResult {
+  /** One of the five levels the `fuel_level` enum allows, or null. */
+  fuelLevel: FuelLevel | null;
+  confidence: number;
+  reason: FuelRejectionReason | null;
+}
+
+export const scanFuel = (file: File): Promise<ApiResponse<FuelScanResult>> =>
+  postScan<FuelScanResult>("/vehicles/fuel-scan", file);

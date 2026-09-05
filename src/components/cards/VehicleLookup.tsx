@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Camera, Loader2, Search } from "lucide-react";
 import Button from "../common/Button";
 import Input from "../common/Input";
 
@@ -9,9 +9,11 @@ interface VehicleLookupProps {
   value?: string;
   /** Parent indicates a lookup is in-flight (Evolve + local DB). */
   loading?: boolean;
+  /** Opens the Capture-Number-Plate camera flow. When omitted the button is hidden. */
+  onCapturePlate?: () => void;
 }
 
-export function VehicleLookup({ onSearch, onAddNewVehicle, value, loading }: VehicleLookupProps) {
+export function VehicleLookup({ onSearch, onAddNewVehicle, value, loading, onCapturePlate }: VehicleLookupProps) {
   const [searchQuery, setSearchQuery] = useState(value ?? "");
 
   useEffect(() => {
@@ -86,6 +88,27 @@ export function VehicleLookup({ onSearch, onAddNewVehicle, value, loading }: Veh
           <Loader2 className="w-3 h-3 animate-spin" />
           Checking Evolve + local records — this can take a few seconds.
         </p>
+      )}
+
+      {/* OR — Capture Number Plate (live camera → detect → search). Additive;
+          the existing Search / Add New flow above is unchanged. */}
+      {onCapturePlate && (
+        <div className="mt-4">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="flex-1 h-px bg-[#ebebeb]" />
+            <span className="text-[12px] text-[#999]">OR</span>
+            <span className="flex-1 h-px bg-[#ebebeb]" />
+          </div>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={onCapturePlate}
+            disabled={loading}
+            icon={<Camera className="w-5 h-5" />}
+          >
+            Capture Number Plate
+          </Button>
+        </div>
       )}
     </div>
   );
