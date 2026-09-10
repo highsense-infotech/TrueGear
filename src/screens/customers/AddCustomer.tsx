@@ -12,6 +12,8 @@ import {
   X,
   Check,
   Loader2,
+  CreditCard,
+  ChevronRight,
 } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
@@ -21,6 +23,7 @@ import {
   createCustomer,
   searchCustomers,
   type CustomerSearchItem,
+  type CustomerArPayload,
 } from "../../api/customer.api";
 import {
   addVehicle,
@@ -37,6 +40,29 @@ import {
   type ServiceTypeItem,
 } from "../../api/serviceType.api";
 import SearchableDropdown from "../../components/common/SearchableDropdown";
+
+/**
+ * Accounts Receivable inputs, kept as a nested object so the eight AR fields
+ * don't dilute the flat CustomerData shape the rest of this screen relies on.
+ *
+ * All values are strings because they come from inputs; conversion to
+ * number/boolean happens once, at the payload boundary in handleSubmit.
+ *
+ * currencyCode and defaultTaxCode sit here in the FORM because that is how the
+ * user thinks of them (part of the account), but they are sent top-level on the
+ * payload because they are stored on the customer record — see the mapping in
+ * handleSubmit.
+ */
+interface ArFormData {
+  arAccountType: string;
+  arAccountNumber: string;
+  termsCode: string;
+  creditLimitAmount: string;
+  currencyCode: string;
+  defaultTaxCode: string;
+  stopCredit: boolean;
+  inactiveAccount: boolean;
+}
 
 interface CustomerData {
   // 'I' = individual, 'C' = company — matches Evolve's one-char CustomerType
@@ -150,6 +176,36 @@ const AddCustomer: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<Partial<CustomerData>>({});
+
+  // AR kept in its own state rather than inside CustomerData: that interface is
+  // flat and drives handleChange ([name]: value), the three formData reset sites
+  // and `errors: Partial<CustomerData>` — nesting an object inside it would
+  // break all three for no benefit.
+  //
+  // Defaults: 'ZAR' matches the application-wide currency default (job_cards
+  // .currency_code, createJobCardSchema). The two booleans match the
+  // customer_ar column defaults. AccountType / TermsCode / DefaultTaxCode are
+  // dealer configuration and are deliberately left blank — nothing is invented.
+  const AR_EMPTY: ArFormData = {
+    arAccountType: "",
+    arAccountNumber: "",
+    termsCode: "",
+    creditLimitAmount: "",
+    currencyCode: "ZAR",
+    defaultTaxCode: "",
+    stopCredit: false,
+    inactiveAccount: false,
+  };
+  const [arForm, setArForm] = useState<ArFormData>(AR_EMPTY);
+  const [arErrors, setArErrors] = useState<Partial<Record<keyof ArFormData, string>>>({});
+  // Section is collapsed until opened. validateForm re-opens it if it flags an
+  // AR field, so an error can never be hidden behind a closed section.
+  const [arOpen, setArOpen] = useState(false);
+
+  const updateAr = (field: keyof ArFormData, value: string | boolean) => {
+    setArForm((prev) => ({ ...prev, [field]: value }));
+    if (arErrors[field]) setArErrors((prev) => ({ ...prev, [field]: "" }));
+  };
 
   // Debounced search customers API call
   const debouncedSearch = useCallback((query: string) => {
@@ -430,6 +486,9 @@ const AddCustomer: React.FC = () => {
     setModels([]);
     setSelectedModelId("");
     setModelCodes([]);
+    setArForm(AR_EMPTY);
+    setArErrors({});
+    setArOpen(false);
     setFormData({
       customerType: "C",
       firstName: "",
@@ -544,8 +603,27 @@ const AddCustomer: React.FC = () => {
       newErrors.modelCode = "Model code is required";
     }
 
+    // AR validation is deliberately light: the whole section is optional, and
+    // Evolve's own requirements for these codes are not yet confirmed, so we
+    // only reject values that are self-evidently malformed. Nothing here can
+    // block a customer who simply has no AR account.
+    const newArErrors: Partial<Record<keyof ArFormData, string>> = {};
+    if (arForm.creditLimitAmount.trim() && !(Number(arForm.creditLimitAmount) >= 0)) {
+      newArErrors.creditLimitAmount = "Enter a credit limit of 0 or more";
+    }
+    if (arForm.defaultTaxCode.trim() && !Number.isInteger(Number(arForm.defaultTaxCode))) {
+      newArErrors.defaultTaxCode = "Tax code must be a whole number";
+    }
+    // A currency code is 3 letters (ISO 4217) — the column is varchar(3).
+    if (arForm.currencyCode.trim() && !/^[A-Z]{3}$/.test(arForm.currencyCode.trim())) {
+      newArErrors.currencyCode = "Use a 3-letter code, e.g. ZAR";
+    }
+    setArErrors(newArErrors);
+    // Never hide an error behind a collapsed section.
+    if (Object.keys(newArErrors).length > 0) setArOpen(true);
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return Object.keys(newErrors).length === 0 && Object.keys(newArErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -661,7 +739,15 @@ const AddCustomer: React.FC = () => {
             }
           : undefined;
 
-        const arData = evolve && ar.DbArSeqID
+        // AR payload = what the user typed, over what an Evolve lookup already
+        // returned. The Evolve-sourced values were the only source before this
+        // form section existed, so they stay as the fallback rather than being
+        // replaced — a looked-up customer keeps dbArSeqId / arTypeDescrip /
+        // creditAvailableAmount, none of which are user-editable.
+        //
+        // Omitted entirely when neither side has anything, so a customer with
+        // no AR data sends no `ar` key at all, exactly as before.
+        const arFromEvolve = evolve && ar.DbArSeqID
           ? {
               dbArSeqId: strOrUndef(ar.DbArSeqID),
               arAccountNumber: strOrUndef(ar.ArAccountNumber),
@@ -673,6 +759,40 @@ const AddCustomer: React.FC = () => {
               creditAvailableAmount: numOrUndef(ar.CreditAvailableAmount),
             }
           : undefined;
+
+        const arFromForm: CustomerArPayload = {
+          arAccountType: strOrUndef(arForm.arAccountType),
+          arAccountNumber: strOrUndef(arForm.arAccountNumber),
+          termsCode: strOrUndef(arForm.termsCode),
+          creditLimitAmount: numOrUndef(arForm.creditLimitAmount),
+          // Booleans are always meaningful (false is a real value, not "unset"),
+          // so they are only sent when some other AR field is present.
+          stopCredit: arForm.stopCredit,
+          inactiveAccount: arForm.inactiveAccount,
+        };
+        // Did the user actually fill anything in? Booleans are excluded from
+        // this test — two unticked checkboxes are not AR data.
+        const arTouched = !!(
+          arFromForm.arAccountType ||
+          arFromForm.arAccountNumber ||
+          arFromForm.termsCode ||
+          arFromForm.creditLimitAmount !== undefined ||
+          arForm.stopCredit ||
+          arForm.inactiveAccount
+        );
+
+        const arData: CustomerArPayload | undefined =
+          arTouched || arFromEvolve
+            ? {
+                ...(arFromEvolve ?? {}),
+                // Only overwrite with a value the user actually provided.
+                ...Object.fromEntries(
+                  Object.entries(arTouched ? arFromForm : {}).filter(
+                    ([, v]) => v !== undefined && v !== "",
+                  ),
+                ),
+              }
+            : undefined;
 
         const customerRes = await createCustomer({
           // The name inputs are hidden for a company, so a value left in them
@@ -748,10 +868,13 @@ const AddCustomer: React.FC = () => {
               : strOrUndef(cd.RegNo),
           taxNo: strOrUndef(cd.TaxNo),
           ficNo: strOrUndef(cd.FICNo),
-          currencyCode: strOrUndef(cd.CurrencyCode),
+          // Part of the AR section in the FORM, but stored on the customer
+          // record — so it stays top-level here. Typed value wins over Evolve's.
+          currencyCode: strOrUndef(arForm.currencyCode) ?? strOrUndef(cd.CurrencyCode),
           leadType: strOrUndef(cd.LeadType) ?? "WALK_IN",
           leadSource: strOrUndef(cd.LeadSource) ?? "DIRECT",
-          defaultTaxCode: numOrUndef(cd.DefaultTaxCode),
+          // Same as currencyCode: AR field in the form, customer column in the DB.
+          defaultTaxCode: numOrUndef(arForm.defaultTaxCode) ?? numOrUndef(cd.DefaultTaxCode),
           fleetNo: strOrUndef(cd.FleetNo),
           notes: strOrUndef(cd.Notes),
           sellingDealer: strOrUndef(cd.SellingDealer),
@@ -846,6 +969,9 @@ const AddCustomer: React.FC = () => {
     setShowNewCustomerForm(false);
     setSelectedMakeId("");
     setModels([]);
+    setArForm(AR_EMPTY);
+    setArErrors({});
+    setArOpen(false);
     setFormData({
       customerType: "C",
       firstName: "",
@@ -1341,6 +1467,222 @@ const AddCustomer: React.FC = () => {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Accounts Receivable Section — becomes Evolve's <AccountsReceivable>
+              block on Customer Maintenance, which creates the AR master record
+              the DMS needs before a labour line can be costed to the RO. */}
+          <div className="bg-white rounded-[10px] p-4 sm:p-5 md:p-6 mb-5">
+            {/* Collapsed by default and clearly marked optional: AR is finance
+                data that most walk-in customers never need, so it should not
+                add eight fields to the common path. Matches the appointment
+                wizard's AR section so both screens behave identically. */}
+            <button
+              type="button"
+              onClick={() => setArOpen((o) => !o)}
+              aria-expanded={arOpen}
+              className="w-full flex items-center justify-between gap-2 text-left"
+            >
+              <span className="text-[#333] text-[14px] sm:text-[15px] font-medium flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-[#ff4f31]" />
+                Accounts Receivable
+                <span className="font-normal text-[#999] text-[13px]">(optional)</span>
+              </span>
+              <ChevronRight
+                className={`w-4 h-4 text-[#999] shrink-0 transition-transform ${arOpen ? "rotate-90" : ""}`}
+              />
+            </button>
+
+            {arOpen && (
+            <>
+            <p className="text-[#999] text-[12px] mt-3 mb-4">
+              Sent to Evolve so the customer gets an AR account — without one,
+              Evolve cannot cost labour to their repair orders. Leave blank if
+              finance will set it up.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Account Type */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Account Type
+                </label>
+                <input
+                  type="text"
+                  value={arForm.arAccountType}
+                  onChange={(e) => updateAr("arAccountType", e.target.value.toUpperCase())}
+                  readOnly={!!selectedCustomer}
+                  maxLength={10}
+                  placeholder="e.g. VH"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors uppercase ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    arErrors.arAccountType
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {arErrors.arAccountType ? (
+                  <p className="text-red-500 text-[11px] mt-1">{arErrors.arAccountType}</p>
+                ) : (
+                  <p className="text-[#999] text-[11px] mt-1">
+                    Evolve department code, e.g. VH (Retail Vehicles), PT (Parts).
+                  </p>
+                )}
+              </div>
+
+              {/* Account Number */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Account Number
+                </label>
+                <input
+                  type="text"
+                  value={arForm.arAccountNumber}
+                  onChange={(e) => updateAr("arAccountNumber", e.target.value.toUpperCase())}
+                  readOnly={!!selectedCustomer}
+                  maxLength={12}
+                  placeholder="Leave blank if Evolve assigns it"
+                  className={`w-full h-11 sm:h-12 border border-[#e5e7eb] rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors focus:border-[#04c397] uppercase ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  }`}
+                />
+                <p className="text-[#999] text-[11px] mt-1">
+                  Only enter an existing Evolve account number. Leave blank for a new account.
+                </p>
+              </div>
+
+              {/* Terms Code */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Terms Code
+                </label>
+                <input
+                  type="text"
+                  value={arForm.termsCode}
+                  onChange={(e) => updateAr("termsCode", e.target.value)}
+                  readOnly={!!selectedCustomer}
+                  maxLength={10}
+                  placeholder="e.g. 30"
+                  className={`w-full h-11 sm:h-12 border border-[#e5e7eb] rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors focus:border-[#04c397] ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  }`}
+                />
+              </div>
+
+              {/* Credit Limit */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Credit Limit
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={arForm.creditLimitAmount}
+                  onChange={(e) => updateAr("creditLimitAmount", e.target.value)}
+                  readOnly={!!selectedCustomer}
+                  placeholder="0.00"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    arErrors.creditLimitAmount
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {arErrors.creditLimitAmount && (
+                  <p className="text-red-500 text-[11px] mt-1">{arErrors.creditLimitAmount}</p>
+                )}
+              </div>
+
+              {/* Currency Code */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Currency Code
+                </label>
+                <input
+                  type="text"
+                  value={arForm.currencyCode}
+                  onChange={(e) => updateAr("currencyCode", e.target.value.toUpperCase())}
+                  readOnly={!!selectedCustomer}
+                  maxLength={3}
+                  placeholder="ZAR"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors uppercase ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    arErrors.currencyCode
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {arErrors.currencyCode && (
+                  <p className="text-red-500 text-[11px] mt-1">{arErrors.currencyCode}</p>
+                )}
+              </div>
+
+              {/* Default Tax Code */}
+              <div>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Default Tax Code
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={arForm.defaultTaxCode}
+                  onChange={(e) => updateAr("defaultTaxCode", e.target.value)}
+                  readOnly={!!selectedCustomer}
+                  placeholder="e.g. 1"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    arErrors.defaultTaxCode
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {arErrors.defaultTaxCode && (
+                  <p className="text-red-500 text-[11px] mt-1">{arErrors.defaultTaxCode}</p>
+                )}
+              </div>
+
+              {/* Flags */}
+              <div className="md:col-span-2 flex flex-wrap items-center gap-6">
+                <label
+                  className={`flex items-center gap-2 text-[14px] text-[#333] ${
+                    selectedCustomer ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={arForm.stopCredit}
+                    disabled={!!selectedCustomer}
+                    onChange={(e) => updateAr("stopCredit", e.target.checked)}
+                    className="w-4 h-4 accent-[#ff4f31]"
+                  />
+                  Stop Credit
+                </label>
+                <label
+                  className={`flex items-center gap-2 text-[14px] text-[#333] ${
+                    selectedCustomer ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={arForm.inactiveAccount}
+                    disabled={!!selectedCustomer}
+                    onChange={(e) => updateAr("inactiveAccount", e.target.checked)}
+                    className="w-4 h-4 accent-[#ff4f31]"
+                  />
+                  Inactive Account
+                </label>
+              </div>
+            </div>
+            </>
+            )}
           </div>
 
           {/* Vehicle Details Section */}

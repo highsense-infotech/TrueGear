@@ -156,6 +156,24 @@ const AppointmentCustomerSearch: React.FC = () => {
   const [newEmail, setNewEmail] = useState(nc?.primaryEmail ?? "");
   const [newAddress, setNewAddress] = useState(nc?.address ?? "");
 
+  // ── Accounts Receivable — entirely optional ────────────────────────────
+  // Collapsed by default: booking is a fast reception path and AR is finance
+  // data, so it must not add friction to the common case. Nothing here is
+  // validated or gates the Next button.
+  const [arOpen, setArOpen] = useState(false);
+  const [newArAccountType, setNewArAccountType] = useState(nc?.ar?.arAccountType ?? "");
+  const [newArAccountNumber, setNewArAccountNumber] = useState(nc?.ar?.arAccountNumber ?? "");
+  const [newArTermsCode, setNewArTermsCode] = useState(nc?.ar?.termsCode ?? "");
+  const [newArCreditLimit, setNewArCreditLimit] = useState(
+    nc?.ar?.creditLimitAmount !== undefined ? String(nc.ar.creditLimitAmount) : "",
+  );
+  const [newArCurrencyCode, setNewArCurrencyCode] = useState(nc?.currencyCode ?? "");
+  const [newArDefaultTaxCode, setNewArDefaultTaxCode] = useState(
+    nc?.defaultTaxCode !== undefined ? String(nc.defaultTaxCode) : "",
+  );
+  const [newArStopCredit, setNewArStopCredit] = useState(nc?.ar?.stopCredit ?? false);
+  const [newArInactive, setNewArInactive] = useState(nc?.ar?.inactiveAccount ?? false);
+
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const validateNewForm = (): boolean => {
@@ -552,6 +570,33 @@ const AppointmentCustomerSearch: React.FC = () => {
           contactNumber: newPhone.trim(),
           primaryEmail: newEmail.trim(),
           address: newAddress.trim(),
+          // ── Accounts Receivable (optional) ────────────────────────────
+          // Sent only when the user actually entered something; the two
+          // checkboxes alone don't count as AR data. `ar` is omitted entirely
+          // otherwise, so an ordinary booking carries no AR key at all.
+          currencyCode: newArCurrencyCode.trim() || undefined,
+          defaultTaxCode: newArDefaultTaxCode.trim()
+            ? Number(newArDefaultTaxCode)
+            : undefined,
+          ...(newArAccountType.trim() ||
+          newArAccountNumber.trim() ||
+          newArTermsCode.trim() ||
+          newArCreditLimit.trim() ||
+          newArStopCredit ||
+          newArInactive
+            ? {
+                ar: {
+                  arAccountType: newArAccountType.trim() || undefined,
+                  arAccountNumber: newArAccountNumber.trim() || undefined,
+                  termsCode: newArTermsCode.trim() || undefined,
+                  creditLimitAmount: newArCreditLimit.trim()
+                    ? Number(newArCreditLimit)
+                    : undefined,
+                  stopCredit: newArStopCredit,
+                  inactiveAccount: newArInactive,
+                },
+              }
+            : {}),
         },
       });
     } else {
@@ -1287,6 +1332,130 @@ const AppointmentCustomerSearch: React.FC = () => {
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
                     />
                   </div>
+                </div>
+
+                {/* ── Accounts Receivable — optional, collapsed by default ──
+                    Booking is a fast reception path and these are finance
+                    values, so the section never blocks Next and stays out of
+                    the way unless someone opens it. */}
+                <div className="border border-[#e5e7eb] rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setArOpen((o) => !o)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-[#333]"
+                  >
+                    <span>
+                      Accounts Receivable{" "}
+                      <span className="font-normal text-[#999]">(optional)</span>
+                    </span>
+                    <ChevronRight
+                      size={16}
+                      className={`text-[#999] transition-transform ${arOpen ? "rotate-90" : ""}`}
+                    />
+                  </button>
+
+                  {arOpen && (
+                    <div className="px-3 pb-3 flex flex-col gap-3 border-t border-[#e5e7eb] pt-3">
+                      <p className="text-xs text-[#999]">
+                        Sent to Evolve so the customer gets an AR account. Leave blank if
+                        finance will set it up — nothing here is required.
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm font-medium text-[#333]">Account Type</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. VH"
+                            value={newArAccountType}
+                            maxLength={10}
+                            onChange={(e) => setNewArAccountType(e.target.value.toUpperCase())}
+                            className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] uppercase"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#333]">Account Number</label>
+                          <input
+                            type="text"
+                            placeholder="Blank if Evolve assigns"
+                            value={newArAccountNumber}
+                            maxLength={12}
+                            onChange={(e) => setNewArAccountNumber(e.target.value.toUpperCase())}
+                            className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] uppercase"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#333]">Terms Code</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 30"
+                            value={newArTermsCode}
+                            maxLength={10}
+                            onChange={(e) => setNewArTermsCode(e.target.value)}
+                            className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#333]">Credit Limit</label>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={newArCreditLimit}
+                            onChange={(e) => setNewArCreditLimit(e.target.value)}
+                            className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#333]">Currency Code</label>
+                          <input
+                            type="text"
+                            placeholder="ZAR"
+                            value={newArCurrencyCode}
+                            maxLength={3}
+                            onChange={(e) => setNewArCurrencyCode(e.target.value.toUpperCase())}
+                            className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] uppercase"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#333]">Default Tax Code</label>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            step="1"
+                            placeholder="e.g. 1"
+                            value={newArDefaultTaxCode}
+                            onChange={(e) => setNewArDefaultTaxCode(e.target.value)}
+                            className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-6">
+                        <label className="flex items-center gap-2 text-sm text-[#333] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newArStopCredit}
+                            onChange={(e) => setNewArStopCredit(e.target.checked)}
+                            className="w-4 h-4 accent-[#ff5100]"
+                          />
+                          Stop Credit
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-[#333] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newArInactive}
+                            onChange={(e) => setNewArInactive(e.target.checked)}
+                            className="w-4 h-4 accent-[#ff5100]"
+                          />
+                          Inactive Account
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-[#ff5100]/5 border border-[#ff5100]/20">

@@ -54,6 +54,19 @@ export interface NewCustomerData {
   // person branch (04a: Title / Initial, *x(8) M).
   title?:         string;
   initial?:       string;
+  // ── Accounts Receivable — entirely optional ──────────────────────────────
+  // currencyCode / defaultTaxCode are separate from `ar` because they are
+  // columns on `customers`, not customer_ar.
+  currencyCode?:  string;
+  defaultTaxCode?: number;
+  ar?: {
+    arAccountType?:     string;
+    arAccountNumber?:   string;
+    termsCode?:         string;
+    creditLimitAmount?: number;
+    stopCredit?:        boolean;
+    inactiveAccount?:   boolean;
+  };
   contactNumber:  string;
   primaryEmail:   string;
   address:        string;

@@ -90,6 +90,18 @@ export interface CreateAppointmentPayload {
     // Individual only — a company has neither.
     title?:          string;
     initial?:        string;
+    // Accounts Receivable — optional. currencyCode/defaultTaxCode are stored on
+    // the customer record, so they stay outside `ar`.
+    currencyCode?:   string;
+    defaultTaxCode?: number;
+    ar?: {
+      arAccountType?:     string;
+      arAccountNumber?:   string;
+      termsCode?:         string;
+      creditLimitAmount?: number;
+      stopCredit?:        boolean;
+      inactiveAccount?:   boolean;
+    };
     contactNumber:   string;
     primaryEmail?:   string;
     address?:        string;

@@ -54,6 +54,19 @@ export interface CustomerProfilePayload {
   csiConsentBulkSms?: boolean;
 }
 
+/**
+ * Accounts Receivable details for a customer → customer_ar, and from there into
+ * Evolve's <AccountsReceivable> block on Customer Maintenance.
+ *
+ * Names follow the existing local/read convention (arAccountNumber,
+ * creditLimitAmount, inactiveAccount), NOT the Evolve write contract's
+ * (AccountNumber, CreditLimit, InActiveAccount). The rename happens once, at
+ * the XML boundary in customerEvolveSync.service.ts.
+ *
+ * currencyCode and defaultTaxCode are deliberately absent: they are stored on
+ * the customer record, so they stay top-level on CreateCustomerPayload even
+ * though Evolve's write contract nests them inside <AccountsReceivable>.
+ */
 export interface CustomerArPayload {
   dbArSeqId?: string;
   arAccountNumber?: string;
@@ -63,6 +76,8 @@ export interface CustomerArPayload {
   stopCredit?: boolean;
   creditLimitAmount?: number;
   creditAvailableAmount?: number;
+  /** Evolve <TermsCode> (returned as <Terms> by IRM_GetARAccounts). A code, so a string. */
+  termsCode?: string;
 }
 
 export interface CreateCustomerPayload {
