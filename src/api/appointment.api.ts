@@ -78,9 +78,18 @@ export interface CreateAppointmentPayload {
   sendWhatsApp:             boolean;
   sendEmail:                boolean;
   newCustomer?: {
+    // 'I' = individual, 'C' = company. Decides which name the backend requires
+    // (companyName vs first + last) and what lands in customers.customer_type.
+    customerType:    "I" | "C";
     firstName:       string;
     lastName:        string;
     companyName?:    string;
+    // idNumber for an individual, regNo (company registration number) for a company.
+    idNumber?:       string;
+    regNo?:          string;
+    // Individual only — a company has neither.
+    title?:          string;
+    initial?:        string;
     contactNumber:   string;
     primaryEmail?:   string;
     address?:        string;

@@ -3,6 +3,7 @@ import Button from "../common/Button";
 import { type DropdownOption } from "../common/SearchableDropdown";
 import { type Job, type JobErrors, type PaidPart, JobRow } from "./JobRow";
 import { type LabourLine } from "./LabourSection";
+import { type ArAccount } from "../../api/customer.api";
 
 interface JobDetailsProps {
   jobs: Job[];
@@ -13,6 +14,10 @@ interface JobDetailsProps {
   jobErrors?: Record<number, JobErrors>;
   serviceTypeOptions?: DropdownOption[];
   jobTypeOptions?: { code: string; name: string }[];
+  // Customer's Evolve AR accounts — passed through to the per-job AR field.
+  arAccountOptions?: ArAccount[];
+  arAccountsLoading?: boolean;
+  arAccountsError?: string | null;
   onServiceCategoryChange?: (
     jobId: number,
     categoryCode: string,
@@ -47,6 +52,9 @@ export function JobDetails({
   jobErrors,
   serviceTypeOptions,
   jobTypeOptions,
+  arAccountOptions,
+  arAccountsLoading,
+  arAccountsError,
   onServiceCategoryChange,
   onAddPaidPart,
   onRemovePaidPart,
@@ -100,6 +108,9 @@ export function JobDetails({
             errors={jobErrors?.[job.id]}
             serviceTypeOptions={serviceTypeOptions}
             jobTypeOptions={jobTypeOptions}
+            arAccountOptions={arAccountOptions}
+            arAccountsLoading={arAccountsLoading}
+            arAccountsError={arAccountsError}
             onServiceCategoryChange={onServiceCategoryChange}
             onAddPaidPart={onAddPaidPart}
             onRemovePaidPart={onRemovePaidPart}

@@ -40,9 +40,20 @@ export const TIME_LABELS: Record<string, string> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface NewCustomerData {
+  // 'I' = individual, 'C' = company — matches Evolve's one-char CustomerType
+  // and the customers.customer_type column.
+  customerType:   "I" | "C";
   firstName:      string;
   lastName:       string;
   companyName?:   string;
+  // Type-specific identifiers: idNumber for an individual, regNo (company
+  // registration number) for a company. Only the applicable one is ever set.
+  idNumber?:      string;
+  regNo?:         string;
+  // Individual only — a company has neither. Both are mandatory on Evolve's
+  // person branch (04a: Title / Initial, *x(8) M).
+  title?:         string;
+  initial?:       string;
   contactNumber:  string;
   primaryEmail:   string;
   address:        string;

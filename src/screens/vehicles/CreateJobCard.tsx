@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { JobCardActions } from "../../components/cards/JobCardActions";
 import { JobCardHeader } from "../../components/cards/JobCardHeader";
 import { JobDetails, type Job } from "../../components/cards/JobDetails";
-import { type JobErrors, type PaidPart, type AutoPart } from "../../components/cards/JobRow";
+import { type JobErrors, type PaidPart, type AutoPart, jobTypeNeedsArAccount } from "../../components/cards/JobRow";
 import {
   type LabourLine,
   createEmptyLabourLine,
@@ -26,6 +26,7 @@ import {
 } from "../../api/serviceAdvisor.api";
 import { listServiceTypes } from "../../api/serviceType.api";
 import { listJobTypes, type JobTypeItem } from "../../api/jobType.api";
+import { listCustomerArAccounts, type ArAccount } from "../../api/customer.api";
 import {
   listActiveLabourDescriptions,
   createLabourDescription,
@@ -91,6 +92,11 @@ const CreateJobCard: React.FC = () => {
   // configured (client-dependent), in which case each job's Job Type control is
   // hidden and the RO push falls back to the 'INT' default.
   const [jobTypeOptions, setJobTypeOptions] = useState<JobTypeItem[]>([]);
+  // Customer's Evolve AR accounts, fetched live when a job needs one (CST).
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [arAccounts, setArAccounts] = useState<ArAccount[]>([]);
+  const [arAccountsLoading, setArAccountsLoading] = useState(false);
+  const [arAccountsError, setArAccountsError] = useState<string | null>(null);
   // Labour Master options (Phase 3). Best-effort: empty falls back to a
   // free-text-only Labour dropdown so the Job Card never breaks.
   const [labourOptions, setLabourOptions] = useState<DropdownOption[]>([]);
@@ -181,6 +187,7 @@ const CreateJobCard: React.FC = () => {
           customerName: c.name || "",
           imageUrl: v.imageUrl ?? null,
         });
+        setCustomerId(c.id ?? null);
 
         // Set inspection ID if available
         if (vehicleRes.data.latestInspection?.id) {
@@ -305,6 +312,7 @@ const CreateJobCard: React.FC = () => {
                     serviceCategory: item.serviceCategory || "",
                     autoParts: [autoPart],
                     jobType: item.jobType || "",
+                    arAccountNo: item.evolveArAccountNo || "",
                     estimatedHours: item.estimatedHours != null ? String(item.estimatedHours) : "",
                     __jobGroup: jobGroup,
                   } as any);
@@ -345,6 +353,7 @@ const CreateJobCard: React.FC = () => {
                     serviceCategory: "",
                     paidParts: [paidPart],
                     jobType: item.jobType || "",
+                    arAccountNo: item.evolveArAccountNo || "",
                     estimatedHours: item.estimatedHours != null ? String(item.estimatedHours) : "",
                     __jobGroup: jobGroup,
                   } as any);
@@ -361,6 +370,7 @@ const CreateJobCard: React.FC = () => {
                   serviceType: item.serviceType || "",
                   serviceCategory: "",
                   jobType: item.jobType || "",
+                  arAccountNo: item.evolveArAccountNo || "",
                   estimatedHours: item.estimatedHours != null ? String(item.estimatedHours) : "",
                   __jobGroup: jobGroup,
                 } as any);
@@ -425,6 +435,34 @@ const CreateJobCard: React.FC = () => {
 
     fetchData();
   }, [vehicleId, editJobCardId]);
+
+  // ─── Customer's Evolve AR accounts ────────────────────────────────────────
+  // Fetched only once a job actually selects a Job Type that needs an account
+  // (CST), so the common case never pays for an Evolve round-trip. The endpoint
+  // queries Evolve live, so a newly opened account shows up without a resync.
+  const needsArAccount = jobs.some((j) => jobTypeNeedsArAccount(j.jobType));
+  useEffect(() => {
+    if (!needsArAccount || !customerId) return;
+    let cancelled = false;
+    setArAccountsLoading(true);
+    setArAccountsError(null);
+    listCustomerArAccounts(customerId)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) setArAccounts(res.data.accounts ?? []);
+        else setArAccountsError(res.error?.message || "Could not load AR accounts");
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        setArAccountsError(
+          err?.response?.data?.error?.message || "Could not load AR accounts from Evolve",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setArAccountsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [needsArAccount, customerId]);
 
   const addJob = () => {
     const newJob: Job = {
@@ -801,6 +839,15 @@ const CreateJobCard: React.FC = () => {
         hasError = true;
       }
 
+      // AR account is mandatory for Job Types charged to an account (CST):
+      // Evolve cannot load a labour line under Cost Jobs without an AR master.
+      if (jobTypeNeedsArAccount(job.jobType) && !job.arAccountNo?.trim()) {
+        err.arAccountNo = arAccounts.length === 0
+          ? "No AR account available in Evolve for this customer"
+          : "AR account is required for this job type";
+        hasError = true;
+      }
+
       if (!job.serviceType) {
         err.serviceType = "Service type is required";
         hasError = true;
@@ -931,6 +978,11 @@ const CreateJobCard: React.FC = () => {
           serviceType: job.serviceType || null,
           serviceCategory: job.serviceCategory || null,
           jobType: job.jobType || null,
+          // Sent only for Job Types that require an account, so a value left
+          // over from a since-changed Job Type is never persisted.
+          arAccountNo: jobTypeNeedsArAccount(job.jobType)
+            ? job.arAccountNo?.trim() || null
+            : null,
           estimatedHours: job.estimatedHours ? Number(job.estimatedHours) : null,
           items: [...items, ...labourItems],
         };
@@ -1384,6 +1436,9 @@ const CreateJobCard: React.FC = () => {
           jobErrors={jobErrors}
           serviceTypeOptions={serviceTypeOptions}
           jobTypeOptions={jobTypeOptions.map((jt) => ({ code: jt.code, name: jt.name }))}
+          arAccountOptions={arAccounts}
+          arAccountsLoading={arAccountsLoading}
+          arAccountsError={arAccountsError}
           onServiceCategoryChange={handleServiceCategoryChange}
           onAddPaidPart={addPaidPart}
           onRemovePaidPart={removePaidPart}

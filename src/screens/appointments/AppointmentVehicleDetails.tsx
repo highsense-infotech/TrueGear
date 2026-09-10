@@ -121,6 +121,11 @@ const AppointmentVehicleDetails: React.FC = () => {
   // New vehicle form — always start blank
   const [regNumber,    setRegNumber]    = useState("");
   const [vin,          setVin]          = useState("");
+  // Evolve needs this on the RO: a CREATE with a blank Engine No bakes the blank
+  // into Evolve's vehicle master and Evolve then refuses to load a labour line
+  // under Cost Jobs. Optional here (the backend DTO is optional too) so an
+  // unknown engine number never blocks booking.
+  const [engineNumber, setEngineNumber] = useState("");
   const [makeId,       setMakeId]       = useState("");
   const [modelId,      setModelId]      = useState("");
   const [fuelType,     setFuelType]     = useState("");
@@ -326,7 +331,12 @@ const AppointmentVehicleDetails: React.FC = () => {
   // window before the picker resolves — that race let vehicles reach Evolve with no
   // ModelCode (created bare). Series that genuinely have no codes may be left blank.
   const modelCodeSatisfied = !loadingModelCodes && (distinctModelCodes.length === 0 || !!modelCodeValue);
-  const isNewFormValid  = showNewForm && regNumber.trim() && vin.trim() && makeId && modelId && fuelType && transmission && year && modelCodeSatisfied;
+  // Engine number is mandatory for a NEW vehicle: Evolve bakes a blank Engine No
+  // into its vehicle master on the RO CREATE and then refuses to load a labour
+  // line under Cost Jobs, so a vehicle created without one is broken in the DMS
+  // in a way no later sync reliably repairs. Capturing it here is the only cheap
+  // moment. The edit path is deliberately NOT gated on it — see the Save button.
+  const isNewFormValid  = showNewForm && regNumber.trim() && vin.trim() && engineNumber.trim() && makeId && modelId && fuelType && transmission && year && modelCodeSatisfied;
   const canProceed      = selectedVehicleId === "__irm__" || selectedVehicleId || isNewFormValid;
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
@@ -403,6 +413,8 @@ const AppointmentVehicleDetails: React.FC = () => {
     setRegNumber((full?.registrationNumber ?? vehicle.registrationNumber) ?? "");
     setVin((full?.vin ?? vehicle.vin) ?? "");
     setFuelType(full?.fuelType ?? vehicle.fuelType ?? "");
+    // VehicleListItem carries no engineNumber — only the full record can prefill it.
+    setEngineNumber(full?.engineNumber ?? "");
     setTransmission(full?.transmissionType ?? vehicle.transmissionType ?? "");
     setYear(String((full?.manufacturingYear ?? vehicle.manufacturingYear) ?? ""));
 
@@ -418,7 +430,7 @@ const AppointmentVehicleDetails: React.FC = () => {
     setShowNewForm(false);
     setRegNumber(""); setVin(""); setMakeId(""); setModelId("");
     setModelCodeValue(""); setModelSearch("");
-    setFuelType(""); setTransmission(""); setYear("");
+    setFuelType(""); setTransmission(""); setYear(""); setEngineNumber("");
   };
 
   // IRM card "edit" — pre-fill the new-vehicle form with IRM values so the
@@ -433,6 +445,7 @@ const AppointmentVehicleDetails: React.FC = () => {
     setRegNumber(irmVehicle.registrationNumber ?? "");
     setVin(irmVehicle.vin ?? "");
     setFuelType(irmVehicle.fuelType ?? "");
+    setEngineNumber(irmVehicle.engineNumber ?? "");
     setTransmission(irmVehicle.transmissionType ?? "");
     setYear(String(irmVehicle.manufacturingYear ?? ""));
 
@@ -453,6 +466,7 @@ const AppointmentVehicleDetails: React.FC = () => {
       const res = await updateVehicle(editingVehicleId, {
         vin:                vin.trim(),
         registrationNumber: regNumber.trim(),
+        engineNumber:       engineNumber.trim() || undefined,
         brand:              selectedMakeName,
         model:              selectedModelName,
         modelCode:          modelCodeValue || undefined,
@@ -527,6 +541,7 @@ const AppointmentVehicleDetails: React.FC = () => {
           manufacturingYear:  Number(year),
           registrationNumber: regNumber.trim(),
           vin:                vin.trim(),
+          engineNumber:       engineNumber.trim() || undefined,
           fuelType,
           transmissionType:   transmission,
           odometerLast:       odometer ? Number(odometer) : 0,
@@ -809,6 +824,22 @@ const AppointmentVehicleDetails: React.FC = () => {
                     onChange={(e) => setVin(e.target.value.toUpperCase())}
                     className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] uppercase"
                   />
+                </div>
+
+                {/* Engine Number — mandatory when creating (Evolve RO CREATE); see isNewFormValid */}
+                <div>
+                  <label className="text-sm font-medium text-[#333]">
+                    Engine Number{!editingVehicleId && <span className="text-red-500"> *</span>}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. G4FCJ123456"
+                    value={engineNumber}
+                    maxLength={100}
+                    onChange={(e) => setEngineNumber(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] uppercase"
+                  />
+                  
                 </div>
 
                 {/* Make + Model */}

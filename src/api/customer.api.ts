@@ -213,3 +213,39 @@ export const addCustomerNote = async (
   const { data } = await api.patch(`/customers/${customerId}/notes`, { notes });
   return data;
 };
+
+// ─── Evolve AR Accounts ──────────────────────────────────────────────────────
+
+/** One Evolve AR (Accounts Receivable) account belonging to a customer. */
+export interface ArAccount {
+  arSeqId: string;
+  /** Posted to Evolve as ROJobHeader <ARAccountNo>. */
+  accountNumber: string;
+  /** Department type code, e.g. "VH", "PT". */
+  accountType: string;
+  /** Human label, e.g. "Retail Vehicles". */
+  typeDescription: string;
+  inactive: boolean;
+  stopCredit: boolean;
+}
+
+export interface CustomerArAccountsData {
+  accounts: ArAccount[];
+  custSequenceId: string | null;
+}
+
+/**
+ * Queried live from Evolve on every call, so an account opened since our last
+ * lookup is never missing. `accounts` is empty when the customer has no Evolve
+ * sequence id yet, or when Evolve returns none — the caller shows that state
+ * rather than treating it as an error.
+ */
+export const listCustomerArAccounts = async (
+  customerId: string,
+  companyId?: string,
+): Promise<ApiResponse<CustomerArAccountsData>> => {
+  const { data } = await api.get(`/customers/${customerId}/ar-accounts`, {
+    params: companyId ? { companyId } : undefined,
+  });
+  return data;
+};

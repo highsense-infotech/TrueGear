@@ -16,6 +16,7 @@ import {
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { ROUTES } from "../../constants/routes";
+import { CUSTOMER_TITLES } from "../../constants/customer";
 import {
   createCustomer,
   searchCustomers,
@@ -38,9 +39,20 @@ import {
 import SearchableDropdown from "../../components/common/SearchableDropdown";
 
 interface CustomerData {
+  // 'I' = individual, 'C' = company — matches Evolve's one-char CustomerType
+  // and the customers.customer_type column.
+  customerType: "I" | "C";
   firstName: string;
   lastName: string;
   companyName: string;
+  // Type-specific identifiers: idNumber for an individual (customers.id_number),
+  // regNo for a company (customers.reg_no). Only the applicable one is shown.
+  idNumber: string;
+  regNo: string;
+  // Individual only — a company has neither. Both are mandatory on Evolve's
+  // person branch (04a: Title / Initial, *x(8) M).
+  title: string;
+  initial: string;
   phoneNumber: string;
   email: string;
   vehicleNumber: string;
@@ -115,9 +127,15 @@ const AddCustomer: React.FC = () => {
   }, []);
 
   const [formData, setFormData] = useState<CustomerData>({
+    // 'C' preserves this screen's previous behaviour as the default.
+    customerType: "C",
     firstName: "",
     lastName: "",
     companyName: "",
+    idNumber: "",
+    regNo: "",
+    title: "",
+    initial: "",
     phoneNumber: "",
     email: "",
     vehicleNumber: "",
@@ -413,9 +431,14 @@ const AddCustomer: React.FC = () => {
     setSelectedModelId("");
     setModelCodes([]);
     setFormData({
+      customerType: "C",
       firstName: "",
       lastName: "",
       companyName: "",
+      idNumber: "",
+      regNo: "",
+      title: "",
+      initial: "",
       phoneNumber: "",
       email: "",
       vehicleNumber: "",
@@ -430,7 +453,10 @@ const AddCustomer: React.FC = () => {
     });
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Widened to HTMLSelectElement so the Title dropdown can share this handler.
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name as keyof CustomerData]) {
@@ -441,13 +467,42 @@ const AddCustomer: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: Partial<CustomerData> = {};
 
-    if (!formData.companyName.trim()) {
-      newErrors.companyName = "Company name is required";
+    // A company is identified by its company name (first/last name are the
+    // optional authorised person); an individual by their own name.
+    if (formData.customerType === "C") {
+      if (!formData.companyName.trim()) {
+        newErrors.companyName = "Company name is required";
+      }
+      if (!formData.regNo.trim()) {
+        newErrors.regNo = "Company reg no is required";
+      }
+    } else {
+      if (!formData.title.trim()) {
+        newErrors.title = "Title is required";
+      }
+      if (!formData.initial.trim()) {
+        newErrors.initial = "Initial is required";
+      }
+      if (!formData.firstName.trim()) {
+        newErrors.firstName = "First name is required";
+      }
+      if (!formData.lastName.trim()) {
+        newErrors.lastName = "Last name is required";
+      }
+      // An ID number is a 13-digit code — check the shape, not just presence,
+      // so a short or mistyped one is caught here rather than by Evolve.
+      if (!formData.idNumber.trim()) {
+        newErrors.idNumber = "ID number is required";
+      } else if (!/^\d{13}$/.test(formData.idNumber.trim())) {
+        newErrors.idNumber = "ID number must be exactly 13 digits";
+      }
     }
     if (!formData.phoneNumber.trim()) {
       newErrors.phoneNumber = "Phone number is required";
-    } else if (!/^\d{10}$/.test(formData.phoneNumber.replace(/\s/g, ""))) {
-      newErrors.phoneNumber = "Enter a valid 10-digit phone number";
+      // 10 digits starting 06, 07 or 08. The trunk zero is stripped downstream
+      // (toEvolvePhone → CellphoneCode "27" + national number).
+    } else if (!/^0[678]\d{8}$/.test(formData.phoneNumber.trim())) {
+      newErrors.phoneNumber = "Enter a 10-digit number starting 06, 07 or 08";
     }
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
@@ -620,10 +675,23 @@ const AddCustomer: React.FC = () => {
           : undefined;
 
         const customerRes = await createCustomer({
-          firstName: formData.firstName.trim() || strOrUndef(cd.FirstName),
-          lastName: formData.lastName.trim() || strOrUndef(cd.LastName),
+          // The name inputs are hidden for a company, so a value left in them
+          // from before the type was switched must not be sent. An Evolve-
+          // supplied contact name is still kept — that is real record data.
+          firstName:
+            formData.customerType === "I"
+              ? formData.firstName.trim() || strOrUndef(cd.FirstName)
+              : strOrUndef(cd.FirstName),
+          lastName:
+            formData.customerType === "I"
+              ? formData.lastName.trim() || strOrUndef(cd.LastName)
+              : strOrUndef(cd.LastName),
+          // Never send a company name for an individual — a stray value typed
+          // before the type was switched must not reach the customer record.
           companyName:
-            formData.companyName.trim() || strOrUndef(cd.CompanyName) || "",
+            formData.customerType === "C"
+              ? formData.companyName.trim() || strOrUndef(cd.CompanyName) || ""
+              : "",
           primaryEmail:
             formData.email.trim() || strOrUndef(cd.PrimaryEmail),
           // Prefer Evolve's CRM identifiers when available — they're the
@@ -638,10 +706,26 @@ const AddCustomer: React.FC = () => {
           // the real DMSReferenceNo.
           custSequenceId:
             strOrUndef(cd.CustSequenceID) ?? crypto.randomUUID(),
-          customerType: strOrUndef(cd.CustomerType) ?? "C",
-          title: strOrUndef(cd.Title),
-          initial: strOrUndef(cd.Initial),
-          idNumber: strOrUndef(cd.IDNumber),
+          // Evolve stays the source of truth when the lookup returned a type;
+          // otherwise the Individual/Company selector decides (was hardcoded 'C').
+          customerType: strOrUndef(cd.CustomerType) ?? formData.customerType,
+          // Individual identifier — the selected value wins, then Evolve's. Not
+          // taken from the form for a company, whose dropdown is hidden.
+          title:
+            formData.customerType === "I"
+              ? formData.title.trim() || strOrUndef(cd.Title)
+              : strOrUndef(cd.Title),
+          // Individual only — mirror of title above.
+          initial:
+            formData.customerType === "I"
+              ? formData.initial.trim() || strOrUndef(cd.Initial)
+              : strOrUndef(cd.Initial),
+          // Individual identifier — the typed value wins, then Evolve's. Not
+          // sent for a company, whose input is hidden and may hold a stale value.
+          idNumber:
+            formData.customerType === "I"
+              ? formData.idNumber.trim() || strOrUndef(cd.IDNumber)
+              : strOrUndef(cd.IDNumber),
           birthDate: strOrUndef(cd.BirthDate),
           gender: strOrUndef(cd.Gender),
           maritalStatus: numOrUndef(cd.MaritalStatus),
@@ -657,7 +741,11 @@ const AddCustomer: React.FC = () => {
           secondaryEmail: strOrUndef(cd.SecondaryEmail),
           webAddress: strOrUndef(cd.WebAddress),
           tradingAs: strOrUndef(cd.TradingAs),
-          regNo: strOrUndef(cd.RegNo),
+          // Company identifier — mirror of idNumber above.
+          regNo:
+            formData.customerType === "C"
+              ? formData.regNo.trim() || strOrUndef(cd.RegNo)
+              : strOrUndef(cd.RegNo),
           taxNo: strOrUndef(cd.TaxNo),
           ficNo: strOrUndef(cd.FICNo),
           currencyCode: strOrUndef(cd.CurrencyCode),
@@ -759,9 +847,14 @@ const AddCustomer: React.FC = () => {
     setSelectedMakeId("");
     setModels([]);
     setFormData({
+      customerType: "C",
       firstName: "",
       lastName: "",
       companyName: "",
+      idNumber: "",
+      regNo: "",
+      title: "",
+      initial: "",
       phoneNumber: "",
       email: "",
       vehicleNumber: "",
@@ -928,8 +1021,53 @@ const AddCustomer: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Company Name */}
+              {/* Customer type — decides which name identifies the customer,
+                  and is stored as customers.customer_type ('I' / 'C'). */}
               <div className="md:col-span-2">
+                <span className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Customer Type <span className="text-red-500">*</span>
+                </span>
+                <div className="flex items-center gap-6">
+                  {([
+                    { value: "I", label: "Individual" },
+                    { value: "C", label: "Company" },
+                  ] as const).map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={`flex items-center gap-2 text-[14px] text-[#333] ${
+                        selectedCustomer ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="customerType"
+                        value={opt.value}
+                        checked={formData.customerType === opt.value}
+                        disabled={!!selectedCustomer}
+                        onChange={() => {
+                          setFormData((prev) => ({ ...prev, customerType: opt.value }));
+                          // Clear the errors that no longer apply to the new type.
+                          setErrors((prev) => ({
+                            ...prev,
+                            companyName: "",
+                            regNo: "",
+                            title: "",
+                            initial: "",
+                            firstName: "",
+                            lastName: "",
+                            idNumber: "",
+                          }));
+                        }}
+                        className="w-4 h-4 accent-[#ff4f31]"
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Company Name */}
+              <div className={formData.customerType === "C" ? "md:col-span-2" : "hidden"}>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
                   Company Name <span className="text-red-500">*</span>
                 </label>
@@ -954,10 +1092,137 @@ const AddCustomer: React.FC = () => {
                   </p>
                 )}
               </div>
-              {/* First Name (Authorised Person) */}
-              <div>
+              {/* Type-specific identifier: company registration number for a
+                  company, ID number for an individual. Stored in
+                  customers.reg_no / customers.id_number respectively. Hidden
+                  rather than unmounted, to keep the grid cells stable. */}
+              <div className={formData.customerType === "C" ? "md:col-span-2" : "hidden"}>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
-                  Authorised Person — First Name
+                  Company Reg No <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="regNo"
+                  value={formData.regNo}
+                  onChange={handleChange}
+                  readOnly={!!selectedCustomer}
+                  maxLength={20}
+                  placeholder="Enter company registration number"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    errors.regNo
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {errors.regNo && (
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.regNo}
+                  </p>
+                )}
+              </div>
+
+              <div className={formData.customerType === "I" ? "md:col-span-2" : "hidden"}>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  ID Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="idNumber"
+                  inputMode="numeric"
+                  value={formData.idNumber}
+                  // Digits only — strips spaces and separators as typed or
+                  // pasted, so the stored value is always the bare code. Needs
+                  // its own handler rather than the shared handleChange.
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "");
+                    setFormData((prev) => ({ ...prev, idNumber: digits }));
+                    if (errors.idNumber) setErrors((prev) => ({ ...prev, idNumber: "" }));
+                  }}
+                  readOnly={!!selectedCustomer}
+                  maxLength={13}
+                  placeholder="Enter 13-digit ID number"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    errors.idNumber
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {errors.idNumber && (
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.idNumber}
+                  </p>
+                )}
+              </div>
+
+              {/* Title — individual only; Evolve carries <Title> on the person
+                  branch only. Hidden rather than unmounted, like the rest. */}
+              <div className={formData.customerType === "I" ? "md:col-span-2" : "hidden"}>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Title <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  disabled={!!selectedCustomer}
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] outline-none transition-colors ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : "bg-white"
+                  } ${formData.title ? "text-[#333]" : "text-[#bfbfbf]"} ${
+                    errors.title
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                >
+                  <option value="">Select title</option>
+                  {CUSTOMER_TITLES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                {errors.title && (
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.title}
+                  </p>
+                )}
+              </div>
+
+              {/* Initial — individual only; the contract's other mandatory
+                  person field alongside Title. */}
+              <div className={formData.customerType === "I" ? "md:col-span-2" : "hidden"}>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  Initial <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="initial"
+                  value={formData.initial}
+                  onChange={handleChange}
+                  readOnly={!!selectedCustomer}
+                  maxLength={8}
+                  placeholder="e.g. J"
+                  className={`w-full h-11 sm:h-12 border rounded-[10px] px-3 sm:px-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors uppercase ${
+                    selectedCustomer ? "bg-[#f9f9f9] cursor-not-allowed" : ""
+                  } ${
+                    errors.initial
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#e5e7eb] focus:border-[#04c397]"
+                  }`}
+                />
+                {errors.initial && (
+                  <p className="text-red-500 text-[11px] mt-1">
+                    {errors.initial}
+                  </p>
+                )}
+              </div>
+
+              {/* First Name — individual only; a company is identified by its
+                  company name alone. Hidden (not unmounted) to keep the grid. */}
+              <div className={formData.customerType === "I" ? "" : "hidden"}>
+                <label className="block text-[#333] text-[13px] font-medium mb-1.5">
+                  First Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -981,10 +1246,10 @@ const AddCustomer: React.FC = () => {
                 )}
               </div>
 
-              {/* Last Name (Authorised Person) */}
-              <div>
+              {/* Last Name — individual only (see First Name above). */}
+              <div className={formData.customerType === "I" ? "" : "hidden"}>
                 <label className="block text-[#333] text-[13px] font-medium mb-1.5">
-                  Authorised Person — Last Name
+                  Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1018,10 +1283,18 @@ const AddCustomer: React.FC = () => {
                   <input
                     type="tel"
                     name="phoneNumber"
+                    inputMode="numeric"
                     value={formData.phoneNumber}
-                    onChange={handleChange}
+                    // Digits only — strips spaces and separators as typed or
+                    // pasted, so "082 123 4567" becomes "0821234567".
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      setFormData((prev) => ({ ...prev, phoneNumber: digits }));
+                      if (errors.phoneNumber) setErrors((prev) => ({ ...prev, phoneNumber: "" }));
+                    }}
                     readOnly={!!selectedCustomer?.contactNumber}
-                    placeholder="Enter phone number"
+                    maxLength={10}
+                    placeholder="0600000000"
                     className={`w-full h-11 sm:h-12 border rounded-[10px] pl-10 pr-3 sm:pr-4 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none transition-colors ${
                       selectedCustomer?.contactNumber
                         ? "bg-[#f9f9f9] cursor-not-allowed"

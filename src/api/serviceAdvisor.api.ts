@@ -84,6 +84,8 @@ export interface SAVehicleDetail {
     imageUrl: string | null;
   };
   customer: {
+    /** Used to fetch the customer's Evolve AR accounts on Create Job Card. */
+    id: string | null;
     name: string | null;
     email: string | null;
     phone: string | null;
@@ -330,6 +332,8 @@ export interface SAJobCardItem {
   partExpectedTime: string | null;
   assignedTechnicianId: string | null;
   estimatedHours: string | null;
+  /** Evolve AR account this job is charged to → ROJobHeader <ARAccountNo>. */
+  evolveArAccountNo?: string | null;
   priority: AssignTechnicianPriority | null;
   assignedAt: string | null;
   completedAt: string | null;

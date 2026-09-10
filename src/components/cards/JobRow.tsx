@@ -8,6 +8,7 @@ import SearchableDropdown from "../common/SearchableDropdown";
 import { LabourSection, type LabourLine } from "./LabourSection";
 import { useCurrency } from "../../context/CurrencyContext";
 import api from "../../api/axios";
+import { type ArAccount } from "../../api/customer.api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,8 @@ export interface Job {
   serviceType: string;
   serviceCategory: string;
   jobType?: string;
+  /** Evolve AR account this job is charged to → ROJobHeader <ARAccountNo>. */
+  arAccountNo?: string;
   estimatedHours?: string;
   autoParts?: AutoPart[];
   autoPartsLoading?: boolean;
@@ -62,8 +65,20 @@ export interface JobErrors {
   serviceType?: string;
   serviceCategory?: string;
   jobType?: string;
+  arAccountNo?: string;
   paidParts?: string;
 }
+
+/**
+ * Job Types that must be charged to an Evolve AR account. Evolve cannot load a
+ * labour line under Cost Jobs when the customer has no AR master record, so the
+ * account is captured up front for these types rather than discovered later.
+ * A single list so adding another type is a one-line change.
+ */
+export const AR_ACCOUNT_JOB_TYPES = ["CST"] as const;
+
+export const jobTypeNeedsArAccount = (jobType?: string): boolean =>
+  AR_ACCOUNT_JOB_TYPES.includes((jobType ?? "").trim().toUpperCase() as (typeof AR_ACCOUNT_JOB_TYPES)[number]);
 
 interface PartSearchResult {
   id: string;
@@ -142,6 +157,11 @@ interface JobRowProps {
   serviceTypeOptions?: DropdownOption[];
   // Evolve Job Type options (from the job_types lookup); shown per job.
   jobTypeOptions?: { code: string; name: string }[];
+  // The customer's Evolve AR accounts, fetched live. Shown only for Job Types
+  // that require one (see AR_ACCOUNT_JOB_TYPES).
+  arAccountOptions?: ArAccount[];
+  arAccountsLoading?: boolean;
+  arAccountsError?: string | null;
   onServiceCategoryChange?: (
     jobId: number,
     categoryCode: string,
@@ -183,6 +203,9 @@ export function JobRow({
   errors,
   serviceTypeOptions,
   jobTypeOptions,
+  arAccountOptions,
+  arAccountsLoading,
+  arAccountsError,
   onServiceCategoryChange,
   onAddPaidPart,
   onRemovePaidPart,
@@ -339,6 +362,56 @@ export function JobRow({
           </select>
           {errors?.jobType && (
             <p className="text-red-500 text-xs mt-1">{errors.jobType}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── AR Account (Evolve ROJobHeader <ARAccountNo>) — only for Job Types
+             that must be charged to an account, e.g. CST ── */}
+      {jobTypeNeedsArAccount(job.jobType) && (
+        <div>
+          <label className={labelClass}>
+            AR Account <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={job.arAccountNo || ""}
+            onChange={(e) => onUpdate(job.id, "arAccountNo", e.target.value)}
+            disabled={arAccountsLoading || !!arAccountsError || (arAccountOptions?.length ?? 0) === 0}
+            className={`mt-2 w-full border rounded-lg px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-[#ff4f31] disabled:bg-[#f9f9f9] disabled:cursor-not-allowed ${
+              job.arAccountNo ? "text-[#333]" : "text-[#999]"
+            } ${errors?.arAccountNo ? "border-red-500" : "border-[#e5e7eb]"}`}
+          >
+            <option value="">
+              {arAccountsLoading
+                ? "Loading accounts from Evolve…"
+                : arAccountsError
+                ? "Could not load accounts"
+                : (arAccountOptions?.length ?? 0) === 0
+                ? "No AR accounts in Evolve for this customer"
+                : "Select AR account…"}
+            </option>
+            {(arAccountOptions ?? []).map((ar) => (
+              <option key={ar.accountNumber} value={ar.accountNumber}>
+                {ar.accountNumber}
+                {ar.typeDescription ? ` — ${ar.typeDescription}` : ar.accountType ? ` — ${ar.accountType}` : ""}
+                {ar.inactive ? " (inactive)" : ""}
+                {ar.stopCredit ? " (credit stopped)" : ""}
+              </option>
+            ))}
+          </select>
+          {errors?.arAccountNo ? (
+            <p className="text-red-500 text-xs mt-1">{errors.arAccountNo}</p>
+          ) : arAccountsError ? (
+            <p className="text-red-500 text-xs mt-1">{arAccountsError}</p>
+          ) : !arAccountsLoading && (arAccountOptions?.length ?? 0) === 0 ? (
+            <p className="text-[#999] text-xs mt-1">
+              Evolve returned no AR account for this customer. One must be created in Evolve
+              before a {job.jobType} job can post labour under Cost Jobs.
+            </p>
+          ) : (
+            <p className="text-[#999] text-xs mt-1">
+              Charged to this Evolve account. Required for {job.jobType} jobs.
+            </p>
           )}
         </div>
       )}

@@ -19,6 +19,7 @@ import {
 import Button from "../../components/common/Button";
 import Modal from "../../components/common/Modal";
 import { ROUTES } from "../../constants/routes";
+import { CUSTOMER_TITLES } from "../../constants/customer";
 import {
   irmCustomerSearch,
   searchInternalCustomers,
@@ -140,9 +141,17 @@ const AppointmentCustomerSearch: React.FC = () => {
 
   // New-customer form — pre-fill from context if already filled
   const nc = state.newCustomerData;
+  // 'C' keeps the previous behaviour as the default (this form only ever created
+  // companies). Drives which name field identifies the customer — see validateNewForm.
+  const [newCustomerType, setNewCustomerType] = useState<"I" | "C">(nc?.customerType ?? "C");
   const [newFirstName, setNewFirstName] = useState(nc?.firstName ?? "");
   const [newLastName, setNewLastName] = useState(nc?.lastName ?? "");
   const [newCompanyName, setNewCompanyName] = useState(nc?.companyName ?? "");
+  // Type-specific identifiers — only the one matching newCustomerType is shown.
+  const [newTitle, setNewTitle] = useState(nc?.title ?? "");
+  const [newInitial, setNewInitial] = useState(nc?.initial ?? "");
+  const [newIdNumber, setNewIdNumber] = useState(nc?.idNumber ?? "");
+  const [newRegNo, setNewRegNo] = useState(nc?.regNo ?? "");
   const [newPhone, setNewPhone] = useState(nc?.contactNumber ?? "");
   const [newEmail, setNewEmail] = useState(nc?.primaryEmail ?? "");
   const [newAddress, setNewAddress] = useState(nc?.address ?? "");
@@ -151,10 +160,29 @@ const AppointmentCustomerSearch: React.FC = () => {
 
   const validateNewForm = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!newCompanyName.trim()) errors.companyName = "Company name is required";
+    // A company is identified by its company name (first/last name are the
+    // optional authorised person); an individual by their own name. Mirrors the
+    // superRefine on the backend newCustomer schema.
+    if (newCustomerType === "C") {
+      if (!newCompanyName.trim()) errors.companyName = "Company name is required";
+      if (!newRegNo.trim()) errors.regNo = "Company reg no is required";
+    } else {
+      if (!newTitle.trim()) errors.title = "Title is required";
+      if (!newInitial.trim()) errors.initial = "Initial is required";
+      if (!newFirstName.trim()) errors.firstName = "First name is required";
+      if (!newLastName.trim()) errors.lastName = "Last name is required";
+      // An ID number is a 13-digit code — check the shape, not just presence,
+      // so a short or mistyped one is caught here rather than by Evolve.
+      if (!newIdNumber.trim()) errors.idNumber = "ID number is required";
+      else if (!/^\d{13}$/.test(newIdNumber.trim()))
+        errors.idNumber = "ID number must be exactly 13 digits";
+    }
+    // 10 digits starting 06, 07 or 08. The trunk zero is stripped downstream
+    // (toEvolvePhone → CellphoneCode "27" + national number), so entering the
+    // local form here is correct — the normalisation is not our concern.
     if (!newPhone.trim()) errors.phone = "Phone number is required";
-    else if (!/^\+?[\d\s\-()]{7,20}$/.test(newPhone.trim()))
-      errors.phone = "Enter a valid phone number";
+    else if (!/^0[678]\d{8}$/.test(newPhone.trim()))
+      errors.phone = "Enter a 10-digit number starting 06, 07 or 08";
     if (!newEmail.trim()) errors.email = "Email address is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim()))
       errors.email = "Enter a valid email address";
@@ -163,8 +191,10 @@ const AppointmentCustomerSearch: React.FC = () => {
   };
 
   const isNewFormValid =
-    newCompanyName.trim() &&
-    newPhone.trim() &&
+    (newCustomerType === "C"
+      ? newCompanyName.trim() && newRegNo.trim()
+      : newTitle.trim() && newInitial.trim() && newFirstName.trim() && newLastName.trim() && /^\d{13}$/.test(newIdNumber.trim())) &&
+    /^0[678]\d{8}$/.test(newPhone.trim()) &&
     newEmail.trim();
   // Mandatory company selection (Phase D): backend mode uses WizardState.companyId,
   // legacy fallback uses the local interface-code selection. No silent default.
@@ -468,9 +498,21 @@ const AppointmentCustomerSearch: React.FC = () => {
           customerEmail: selected.email,
           isNewCustomer: true,
           newCustomerData: {
+            // Trust Evolve's CustomerType when it gave us one, otherwise infer
+            // from the presence of a company name — the same rule the backend
+            // uses in evolveCustomerPersist.service.ts.
+            customerType:
+              selected.customerType === "I" || selected.customerType === "C"
+                ? selected.customerType
+                : selected.companyName?.trim()
+                ? "C"
+                : "I",
             firstName: selected.firstName,
             lastName: selected.lastName,
             companyName: selected.companyName ?? "",
+            // The IRM search result carries idNumber but no reg number, so only
+            // this one can be prefilled from a lookup.
+            idNumber: selected.idNumber || undefined,
             contactNumber: selected.phone,
             primaryEmail: selected.email,
             address: "",
@@ -483,16 +525,30 @@ const AppointmentCustomerSearch: React.FC = () => {
       }
     } else if (activeTab === "new") {
       if (!validateNewForm()) return;
+      const isCompany = newCustomerType === "C";
       setState({
         customerId: null,
-        customerName: `${newFirstName.trim()} ${newLastName.trim()}`,
+        // A company is named by its company name, an individual by their own —
+        // the two are mutually exclusive, so only one is ever populated.
+        customerName: isCompany
+          ? newCompanyName.trim()
+          : `${newFirstName.trim()} ${newLastName.trim()}`.trim(),
         customerPhone: newPhone.trim(),
         customerEmail: newEmail.trim(),
         isNewCustomer: true,
         newCustomerData: {
-          firstName: newFirstName.trim(),
-          lastName: newLastName.trim(),
-          companyName: newCompanyName.trim(),
+          customerType: newCustomerType,
+          // Whichever pair the chosen type does not use is sent empty, so a
+          // value typed before the type was switched is never stored.
+          firstName: isCompany ? "" : newFirstName.trim(),
+          lastName: isCompany ? "" : newLastName.trim(),
+          companyName: isCompany ? newCompanyName.trim() : undefined,
+          // Same rule as the names: only the identifier for the chosen type is
+          // sent, so a value typed before switching type is never stored.
+          idNumber: isCompany ? undefined : newIdNumber.trim() || undefined,
+          regNo: isCompany ? newRegNo.trim() || undefined : undefined,
+          title: isCompany ? undefined : newTitle.trim() || undefined,
+          initial: isCompany ? undefined : newInitial.trim() || undefined,
           contactNumber: newPhone.trim(),
           primaryEmail: newEmail.trim(),
           address: newAddress.trim(),
@@ -945,30 +1001,176 @@ const AppointmentCustomerSearch: React.FC = () => {
               </p>
 
               <div className="flex flex-col gap-4">
+                {/* Customer type — decides which name identifies the customer,
+                    and is stored as customers.customer_type ('I' / 'C'). */}
                 <div>
-                  <label className="text-sm font-medium text-[#333]">
-                    Company Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Company name"
-                    value={newCompanyName}
-                    onChange={(e) => {
-                      setNewCompanyName(e.target.value);
-                      setFormErrors((p) => ({ ...p, companyName: "" }));
-                    }}
-                    className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.companyName ? "border-red-400" : "border-[#e5e7eb]"}`}
-                  />
-                  {formErrors.companyName && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {formErrors.companyName}
-                    </p>
-                  )}
+                  <span className="text-sm font-medium text-[#333]">
+                    Customer Type <span className="text-red-500">*</span>
+                  </span>
+                  <div className="flex items-center gap-6 mt-2">
+                    {([
+                      { value: "I", label: "Individual" },
+                      { value: "C", label: "Company" },
+                    ] as const).map((opt) => (
+                      <label
+                        key={opt.value}
+                        className="flex items-center gap-2 text-sm text-[#333] cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name="customerType"
+                          value={opt.value}
+                          checked={newCustomerType === opt.value}
+                          onChange={() => {
+                            setNewCustomerType(opt.value);
+                            // Clear the errors that no longer apply to the new type.
+                            setFormErrors((p) => ({
+                              ...p,
+                              companyName: "",
+                              regNo: "",
+                              title: "",
+                              initial: "",
+                              firstName: "",
+                              lastName: "",
+                              idNumber: "",
+                            }));
+                          }}
+                          className="w-4 h-4 accent-[#ff5100]"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {newCustomerType === "C" && (
+                  <div>
+                    <label className="text-sm font-medium text-[#333]">
+                      Company Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Company name"
+                      value={newCompanyName}
+                      onChange={(e) => {
+                        setNewCompanyName(e.target.value);
+                        setFormErrors((p) => ({ ...p, companyName: "" }));
+                      }}
+                      className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.companyName ? "border-red-400" : "border-[#e5e7eb]"}`}
+                    />
+                    {formErrors.companyName && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {formErrors.companyName}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Type-specific identifier: company registration number for a
+                    company, ID number for an individual. Stored in
+                    customers.reg_no / customers.id_number respectively. */}
+                {newCustomerType === "C" ? (
+                  <div>
+                    <label className="text-sm font-medium text-[#333]">
+                      Company Reg No <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Company registration number"
+                      value={newRegNo}
+                      maxLength={20}
+                      onChange={(e) => {
+                        setNewRegNo(e.target.value);
+                        setFormErrors((p) => ({ ...p, regNo: "" }));
+                      }}
+                      className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.regNo ? "border-red-400" : "border-[#e5e7eb]"}`}
+                    />
+                    {formErrors.regNo && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {formErrors.regNo}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-sm font-medium text-[#333]">
+                      ID Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="13-digit ID number"
+                      value={newIdNumber}
+                      maxLength={13}
+                      onChange={(e) => {
+                        // Digits only — strips spaces and separators as typed
+                        // or pasted, so the stored value is always the bare code.
+                        setNewIdNumber(e.target.value.replace(/\D/g, ""));
+                        setFormErrors((p) => ({ ...p, idNumber: "" }));
+                      }}
+                      className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.idNumber ? "border-red-400" : "border-[#e5e7eb]"}`}
+                    />
+                    {formErrors.idNumber && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {formErrors.idNumber}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* Individual only — a company is identified by its company name
+                    alone, so the person-name pair is not shown for one. */}
+                {newCustomerType === "I" && (
+                <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-[#333]">
+                      Title <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={newTitle}
+                      onChange={(e) => {
+                        setNewTitle(e.target.value);
+                        setFormErrors((p) => ({ ...p, title: "" }));
+                      }}
+                      className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] bg-white ${formErrors.title ? "border-red-400" : "border-[#e5e7eb]"} ${newTitle ? "text-[#333]" : "text-[#999]"}`}
+                    >
+                      <option value="">Select title</option>
+                      {CUSTOMER_TITLES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    {formErrors.title && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {formErrors.title}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-[#333]">
+                      Initial <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. J"
+                      value={newInitial}
+                      maxLength={8}
+                      onChange={(e) => {
+                        setNewInitial(e.target.value.toUpperCase());
+                        setFormErrors((p) => ({ ...p, initial: "" }));
+                      }}
+                      className={`w-full px-3 py-2 mt-1 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] uppercase ${formErrors.initial ? "border-red-400" : "border-[#e5e7eb]"}`}
+                    />
+                    {formErrors.initial && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {formErrors.initial}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-[#333]">
-                      Authorised Person — First Name
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -988,7 +1190,7 @@ const AppointmentCustomerSearch: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-[#333]">
-                      Authorised Person — Last Name
+                      Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1007,6 +1209,8 @@ const AppointmentCustomerSearch: React.FC = () => {
                     )}
                   </div>
                 </div>
+                </>
+                )}
 
                 <div>
                   <label className="text-sm font-medium text-[#333]">
@@ -1019,10 +1223,14 @@ const AppointmentCustomerSearch: React.FC = () => {
                     />
                     <input
                       type="text"
-                      placeholder="+27 60 000 0000"
+                      inputMode="numeric"
+                      placeholder="0600000000"
                       value={newPhone}
+                      maxLength={10}
                       onChange={(e) => {
-                        setNewPhone(e.target.value);
+                        // Digits only — strips spaces and separators as typed
+                        // or pasted, so "082 123 4567" becomes "0821234567".
+                        setNewPhone(e.target.value.replace(/\D/g, ""));
                         setFormErrors((p) => ({ ...p, phone: "" }));
                       }}
                       className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333] ${formErrors.phone ? "border-red-400" : "border-[#e5e7eb]"}`}
