@@ -1,14 +1,25 @@
-import { CheckCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 import Button from './Button';
+
+export type EntryShop = 'SERVICE' | 'MAJOR' | 'PDI';
 
 interface ConfirmVehicleEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (shop: EntryShop) => void;
   registration: string;
   owner: string;
   photosCaptured: string;
   entryTime: string;
+  isConfirming?: boolean;
+  error?: string | null;
+  /**
+   * Shop already recorded on the check-in, so editing an entry pre-selects the
+   * previous choice instead of silently resetting to SERVICE. Null/undefined on
+   * a first entry → SERVICE.
+   */
+  initialShop?: EntryShop | null;
 }
 
 export function ConfirmVehicleEntryModal({
@@ -18,8 +29,23 @@ export function ConfirmVehicleEntryModal({
   registration,
   owner,
   photosCaptured,
-  entryTime
+  entryTime,
+  isConfirming = false,
+  error,
+  initialShop,
 }: ConfirmVehicleEntryModalProps) {
+  // Shop the vehicle is routed to at the gate. Drives Major/Service scoping
+  // for foreman/controller. Seeded from the existing check-in when editing an
+  // entry; SERVICE on a first entry.
+  const [shop, setShop] = useState<EntryShop>(initialShop ?? 'SERVICE');
+
+  // The modal stays mounted between opens, so re-sync when it is opened for a
+  // different vehicle (or after the check-in loads). Only while closed→open, so
+  // it never clobbers a choice the user is making.
+  useEffect(() => {
+    if (isOpen) setShop(initialShop ?? 'SERVICE');
+  }, [isOpen, initialShop]);
+
   if (!isOpen) return null;
 
   return (
@@ -51,20 +77,51 @@ export function ConfirmVehicleEntryModal({
           </div>
         </div>
 
+        {/* Shop routing — picks which workshop (and which foreman/controller
+            scope) this vehicle belongs to. */}
+        <div className="mb-6">
+          <p className="text-[#999] text-[12px] mb-1.5">Route to Shop</p>
+          <div className="flex gap-2">
+            {(['SERVICE', 'MAJOR', 'PDI'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setShop(s)}
+                disabled={isConfirming}
+                className={`flex-1 h-11 rounded-[10px] border text-[14px] font-medium transition-colors ${
+                  shop === s
+                    ? 'border-[#ff4f31] bg-[#fff5f2] text-[#ff4f31]'
+                    : 'border-[#e5e7eb] bg-white text-[#555] hover:bg-[#fafafa]'
+                }`}
+              >
+                {s === 'SERVICE' ? 'Service' : s === 'MAJOR' ? 'Major' : 'PDI'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-[10px]">
+            <p className="text-red-600 text-[13px]">{error}</p>
+          </div>
+        )}
+
         {/* Horizontal Line */}
         <div className="border-t border-[#CACACA] my-6"></div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isConfirming}>
             Cancel
           </Button>
-          <Button 
-            variant="gradient" 
-            onClick={onConfirm}
-            icon={<CheckCircle className="w-5 h-5" />}
+          <Button
+            variant="gradient"
+            onClick={() => onConfirm(shop)}
+            disabled={isConfirming}
+            icon={isConfirming ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
           >
-            Confirm Entry!
+            {isConfirming ? "Confirming..." : "Confirm Entry!"}
           </Button>
         </div>
       </div>

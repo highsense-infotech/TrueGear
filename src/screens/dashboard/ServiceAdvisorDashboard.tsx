@@ -1,23 +1,91 @@
+import { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
 import { StatCard } from "../../components/cards/StatCard.tsx";
-import { Truck, Clock, CheckCircle, Calendar } from "lucide-react";
+import { Truck, Clock, CheckCircle, Calendar, Loader2 } from "lucide-react";
 import { ServiceAdvisorTable } from "../../components/cards/ServiceAdvisorTable.tsx";
+import { ShopScopeBadge } from "../../components/common/ShopScopeBadge.tsx";
+import { WarrantyScopeBadge } from "../../components/common/WarrantyScopeBadge.tsx";
 import { Outlet, useLocation } from "react-router-dom";
 import ROUTES from "../../constants/routes.ts";
+import {
+  getServiceAdvisorDashboard,
+  type SAStats,
+  type SAVehicle,
+  type SAPagination,
+  type SAFilterStatus,
+} from "../../api/serviceAdvisor.api";
 
 const ServiceAdvisorDashboard: React.FC = () => {
   const location = useLocation();
   const isIndexRoute = location.pathname === ROUTES.SERVICE_ADVISOR_DASHBOARD;
 
+  const formatChange = (today: number, yesterday: number): string => {
+    const diff = today - yesterday;
+    if (diff === 0) return "";
+    return diff > 0 ? `+${diff}` : `${diff}`;
+  };
+
+  const [stats, setStats] = useState<SAStats | null>(null);
+  const [vehicles, setVehicles] = useState<SAVehicle[]>([]);
+  const [pagination, setPagination] = useState<SAPagination | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<SAFilterStatus>("ALL");
+  const [page, setPage] = useState(1);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [limit, setLimit] = useState(10);
+
+  const fetchDashboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getServiceAdvisorDashboard({
+        page,
+        limit,
+        filter,
+        sortOrder: "desc",
+        ...(selectedDate ? { dateFrom: selectedDate, dateTo: selectedDate } : {}),
+      });
+      if (res.success && res.data) {
+        setStats(res.data.stats);
+        setVehicles(res.data.activeVehicles);
+        setPagination(res.data.pagination);
+      }
+    } catch (err) {
+      console.error("Failed to fetch SA dashboard:", err);
+      toast.error("Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, [page, limit, filter, selectedDate]);
+
+  useEffect(() => {
+    if (isIndexRoute) {
+      fetchDashboard();
+    }
+  }, [isIndexRoute, fetchDashboard]);
+
+  const handleFilterChange = (newFilter: SAFilterStatus) => {
+    setFilter(newFilter);
+    setPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
   return (
     <>
       {isIndexRoute && (
         <>
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <ShopScopeBadge />
+            <WarrantyScopeBadge />
+          </div>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-7.5">
             <StatCard
-              title="QC Complete"
-              value="05"
-              change="+12%"
+              title="Inspection Done"
+              value={stats ? String(stats.inspectionDone).padStart(2, "0") : "--"}
+              change={stats ? formatChange(stats.inspectionDone, stats.inspectionDoneYesterday) : ""}
               icon={
                 <CheckCircle
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -26,9 +94,9 @@ const ServiceAdvisorDashboard: React.FC = () => {
               }
             />
             <StatCard
-              title="Awaiting Approval"
-              value="12"
-              change="+12%"
+              title="Pending Approval"
+              value={stats ? String(stats.pendingApproval).padStart(2, "0") : "--"}
+              change={stats ? formatChange(stats.pendingApproval, stats.pendingApprovalYesterday) : ""}
               icon={
                 <Calendar
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -38,8 +106,8 @@ const ServiceAdvisorDashboard: React.FC = () => {
             />
             <StatCard
               title="In Service"
-              value="05"
-              change="+12%"
+              value={stats ? String(stats.inService).padStart(2, "0") : "--"}
+              change={stats ? formatChange(stats.inService, stats.inServiceYesterday) : ""}
               icon={
                 <Truck
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -49,8 +117,8 @@ const ServiceAdvisorDashboard: React.FC = () => {
             />
             <StatCard
               title="Ready for Billing"
-              value="03"
-              change="+12%"
+              value={stats ? String(stats.readyForBilling).padStart(2, "0") : "--"}
+              change={stats ? formatChange(stats.readyForBilling, stats.readyForBillingYesterday) : ""}
               icon={
                 <Clock
                   className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]"
@@ -62,7 +130,25 @@ const ServiceAdvisorDashboard: React.FC = () => {
 
           {/* Service Queue Table */}
           <div className="overflow-x-auto">
-            <ServiceAdvisorTable />
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <ServiceAdvisorTable
+                vehicles={vehicles}
+                pagination={pagination}
+                filter={filter}
+                onFilterChange={handleFilterChange}
+                onPageChange={handlePageChange}
+                onItemsPerPageChange={(l) => {
+                  setLimit(l);
+                  setPage(1);
+                }}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+              />
+            )}
           </div>
         </>
       )}

@@ -1,6 +1,6 @@
 import { cn } from "../utils/cn";
 
-type Status = "pass" | "fail" | "warning";
+type Status = "pass" | "fail" | "warning" | "na";
 
 interface QCItemProps {
   label: string;
@@ -18,6 +18,8 @@ export function QCItem({ label, subLabel, status, statusText }: QCItemProps) {
         return "bg-[#FFC7C7] text-[#D40920] border-[#fff]";
       case "warning":
         return "bg-[#FFE1B7] text-[#E89D00] border-[#fff]";
+      case "na":
+        return "bg-gray-100 text-gray-500 border-[#fff]";
       default:
         return "bg-gray-100 text-gray-600";
     }
@@ -32,6 +34,8 @@ export function QCItem({ label, subLabel, status, statusText }: QCItemProps) {
         return "Fail";
       case "warning":
         return "Warning";
+      case "na":
+        return "NA";
       default:
         return "";
     }

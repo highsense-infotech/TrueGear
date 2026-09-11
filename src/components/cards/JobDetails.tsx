@@ -1,21 +1,73 @@
 import { Plus } from "lucide-react";
 import Button from "../common/Button";
-import { type Job, JobRow } from "./JobRow";
+import { type DropdownOption } from "../common/SearchableDropdown";
+import { type Job, type JobErrors, type PaidPart, JobRow } from "./JobRow";
+import { type LabourLine } from "./LabourSection";
+import { type ArAccount } from "../../api/customer.api";
 
 interface JobDetailsProps {
   jobs: Job[];
   onAddJob: () => void;
-  onUpdateJob: (id: number, field: keyof Job, value: string | number) => void;
+  onUpdateJob: (id: number, field: keyof Job, value: string | number | boolean) => void;
   onRemoveJob: (id: number) => void;
   calculateLineTotal: (job: Job) => number;
+  jobErrors?: Record<number, JobErrors>;
+  serviceTypeOptions?: DropdownOption[];
+  jobTypeOptions?: { code: string; name: string }[];
+  // Customer's Evolve AR accounts — passed through to the per-job AR field.
+  arAccountOptions?: ArAccount[];
+  arAccountsLoading?: boolean;
+  arAccountsError?: string | null;
+  onServiceCategoryChange?: (
+    jobId: number,
+    categoryCode: string,
+    categoryName: string,
+    serviceTypeId: string,
+  ) => void;
+  onAddPaidPart?: (jobId: number, part: PaidPart) => void;
+  onRemovePaidPart?: (jobId: number, partId: string) => void;
+  onUpdatePaidPart?: (jobId: number, partId: string, quantity: number) => void;
+  onUpdateAutoPartPrice?: (jobId: number, partId: string, unitPrice: string) => void;
+  onResetAutoPartPrice?: (jobId: number, partId: string) => void;
+  onUpdatePaidPartPrice?: (jobId: number, partId: string, unitPrice: number) => void;
+  onResetPaidPartPrice?: (jobId: number, partId: string) => void;
+  onAddLabour?: (jobId: number) => void;
+  onUpdateLabour?: (
+    jobId: number,
+    lineId: string,
+    field: keyof LabourLine,
+    value: string,
+  ) => void;
+  onRemoveLabour?: (jobId: number, lineId: string) => void;
+  labourOptions?: DropdownOption[];
+  onCreateLabourOption?: (name: string) => DropdownOption;
 }
 
-export function JobDetails({ 
-  jobs, 
-  onAddJob, 
-  onUpdateJob, 
+export function JobDetails({
+  jobs,
+  onAddJob,
+  onUpdateJob,
   onRemoveJob,
-  calculateLineTotal 
+  calculateLineTotal,
+  jobErrors,
+  serviceTypeOptions,
+  jobTypeOptions,
+  arAccountOptions,
+  arAccountsLoading,
+  arAccountsError,
+  onServiceCategoryChange,
+  onAddPaidPart,
+  onRemovePaidPart,
+  onUpdatePaidPart,
+  onUpdateAutoPartPrice,
+  onResetAutoPartPrice,
+  onUpdatePaidPartPrice,
+  onResetPaidPartPrice,
+  onAddLabour,
+  onUpdateLabour,
+  onRemoveLabour,
+  labourOptions,
+  onCreateLabourOption,
 }: JobDetailsProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-5 shadow-sm">
@@ -24,9 +76,7 @@ export function JobDetails({
           <h3 className="text-base font-semibold text-gray-800">
             Job Details
           </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            Add jobs and their costs
-          </p>
+          <p className="text-xs text-gray-400 mt-1">Add jobs and their costs</p>
         </div>
         <Button
           variant="custom"
@@ -55,6 +105,26 @@ export function JobDetails({
             onUpdate={onUpdateJob}
             onRemove={onRemoveJob}
             calculateLineTotal={calculateLineTotal}
+            errors={jobErrors?.[job.id]}
+            serviceTypeOptions={serviceTypeOptions}
+            jobTypeOptions={jobTypeOptions}
+            arAccountOptions={arAccountOptions}
+            arAccountsLoading={arAccountsLoading}
+            arAccountsError={arAccountsError}
+            onServiceCategoryChange={onServiceCategoryChange}
+            onAddPaidPart={onAddPaidPart}
+            onRemovePaidPart={onRemovePaidPart}
+            onUpdatePaidPart={onUpdatePaidPart}
+            onUpdateAutoPartPrice={onUpdateAutoPartPrice}
+            onResetAutoPartPrice={onResetAutoPartPrice}
+            onUpdatePaidPartPrice={onUpdatePaidPartPrice}
+            onResetPaidPartPrice={onResetPaidPartPrice}
+            onAddLabour={onAddLabour}
+            onUpdateLabour={onUpdateLabour}
+            onRemoveLabour={onRemoveLabour}
+            labourOptions={labourOptions}
+            onCreateLabourOption={onCreateLabourOption}
+            totalJobs={jobs.length}
           />
         ))}
       </div>
@@ -64,4 +134,3 @@ export function JobDetails({
 
 export type { JobDetailsProps };
 export type { Job };
-

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { Loader2 } from "lucide-react";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
 import Button from "../../components/common/Button";
 import { BackButton } from "../../components/cards/BackButton";
@@ -7,149 +9,160 @@ import { VehicleInfoBar } from "../../components/cards/VehicleInfoBar";
 import { ServiceProgress } from "../../components/cards/ServiceProgress";
 import { TabNavigation } from "../../components/cards/TabNavigation";
 import { QCReport } from "../../components/cards/QCReport";
-import { VehicleHistory } from "../../components/cards/VehicleHistory";
+import { VehicleVisitTimeline } from "../../components/cards/VehicleVisitTimeline";
 import { JobCardEmpty } from "../../components/cards/JobCardEmpty";
+import { JobCardSummary } from "../../components/cards/JobCardSummary";
 import ROUTES from "../../constants/routes";
-
-interface VehicleData {
-  id: string;
-  registration: string;
-  model: string;
-  serviceType: string;
-  advisor: string;
-  waitingTime: string;
-  status: string;
-  customerName: string;
-  customerPhone: string;
-  odometer: string;
-  fuelLevel: string;
-  entryDate: string;
-}
-
-// Mock data - in real app, this would come from API
-const mockVehicleData: Record<string, VehicleData> = {
-  "1": {
-    id: "1",
-    registration: "BL 00 MY ZN",
-    model: "Vehicle Model Name",
-    serviceType: "Standard Service",
-    advisor: "John Doe",
-    waitingTime: "45 Mins",
-    status: "In Service",
-    customerName: "John Customer",
-    customerPhone: "+91 98765 43210",
-    odometer: "45,000 km",
-    fuelLevel: "50%",
-    entryDate: "2024-01-15",
-  },
-  "2": {
-    id: "2",
-    registration: "BL 01 MY ZN",
-    model: "Vehicle Model X",
-    serviceType: "Premium Service",
-    advisor: "Jane Smith",
-    waitingTime: "60 Mins",
-    status: "Awaiting Approval",
-    customerName: "Jane Customer",
-    customerPhone: "+91 98765 43211",
-    odometer: "32,000 km",
-    fuelLevel: "75%",
-    entryDate: "2024-01-14",
-  },
-  "3": {
-    id: "3",
-    registration: "BL 02 MY ZN",
-    model: "Vehicle Model Y",
-    serviceType: "Standard Service",
-    advisor: "John Doe",
-    waitingTime: "30 Mins",
-    status: "QC Complete",
-    customerName: "Mike Customer",
-    customerPhone: "+91 98765 43212",
-    odometer: "28,000 km",
-    fuelLevel: "40%",
-    entryDate: "2024-01-13",
-  },
-  "4": {
-    id: "4",
-    registration: "BL 03 MY ZN",
-    model: "Vehicle Model Z",
-    serviceType: "Express Service",
-    advisor: "Mike Johnson",
-    waitingTime: "20 Mins",
-    status: "Ready for Billing",
-    customerName: "Sarah Customer",
-    customerPhone: "+91 98765 43213",
-    odometer: "55,000 km",
-    fuelLevel: "60%",
-    entryDate: "2024-01-12",
-  },
-  "5": {
-    id: "5",
-    registration: "BL 04 MY ZN",
-    model: "Vehicle Model A",
-    serviceType: "Comprehensive Service",
-    advisor: "Jane Smith",
-    waitingTime: "90 Mins",
-    status: "In Service",
-    customerName: "Alex Customer",
-    customerPhone: "+91 98765 43214",
-    odometer: "12,000 km",
-    fuelLevel: "80%",
-    entryDate: "2024-01-11",
-  },
-  "6": {
-    id: "6",
-    registration: "BL 05 MY ZN",
-    model: "Vehicle Model B",
-    serviceType: "Basic Service",
-    advisor: "Mike Johnson",
-    waitingTime: "25 Mins",
-    status: "Awaiting Approval",
-    customerName: "Chris Customer",
-    customerPhone: "+91 98765 43215",
-    odometer: "67,000 km",
-    fuelLevel: "30%",
-    entryDate: "2024-01-10",
-  },
-  "7": {
-    id: "7",
-    registration: "BL 06 MY ZN",
-    model: "Vehicle Model C",
-    serviceType: "Standard Service",
-    advisor: "John Doe",
-    waitingTime: "35 Mins",
-    status: "QC Complete",
-    customerName: "Emma Customer",
-    customerPhone: "+91 98765 43216",
-    odometer: "41,000 km",
-    fuelLevel: "55%",
-    entryDate: "2024-01-09",
-  },
-  "8": {
-    id: "8",
-    registration: "BL 07 MY ZN",
-    model: "Vehicle Model D",
-    serviceType: "Premium Service",
-    advisor: "Jane Smith",
-    waitingTime: "50 Mins",
-    status: "Ready for Billing",
-    customerName: "David Customer",
-    customerPhone: "+91 98765 43217",
-    odometer: "38,000 km",
-    fuelLevel: "45%",
-    entryDate: "2024-01-08",
-  },
-};
+import {
+  getVehicleDetail,
+  getVehicleQCReport,
+  getVehicleJobCards,
+  type SAVehicleDetail,
+  type SAQCReport,
+  type SAJobCard,
+} from "../../api/serviceAdvisor.api";
+import { getVehicleVisitHistory, type VehicleVisit } from "../../api/vehicle.api";
+import type { Step, StepStatus } from "../../components/cards/ServiceProgress";
+import { Truck, ClipboardCheck, Check, AlertCircle, FileText } from "lucide-react";
 
 const ServiceAdvisorVehicleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("qcReport");
 
-  const vehicle = id ? mockVehicleData[id] : null;
+  const [vehicleDetail, setVehicleDetail] = useState<SAVehicleDetail | null>(null);
+  const [qcReport, setQcReport] = useState<SAQCReport | null>(null);
+  // Visit timeline (check-ins + gate passes), not the Evolve-only service history.
+  const [history, setHistory] = useState<VehicleVisit[]>([]);
+  const [jobCards, setJobCards] = useState<SAJobCard[]>([]);
 
-  if (!vehicle) {
+  const [loading, setLoading] = useState(true);
+  const [qcLoading, setQcLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [jobCardsLoading, setJobCardsLoading] = useState(false);
+
+  // Fetch vehicle details on mount
+  const fetchVehicleDetail = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await getVehicleDetail(id);
+      if (res.success && res.data) {
+        setVehicleDetail(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vehicle detail:", err);
+      toast.error("Failed to load vehicle details");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  // Fetch QC report
+  const fetchQCReport = useCallback(async () => {
+    if (!id) return;
+    setQcLoading(true);
+    try {
+      const res = await getVehicleQCReport(id);
+      if (res.success && res.data) {
+        setQcReport(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch QC report:", err);
+      toast.error("Failed to load QC report");
+    } finally {
+      setQcLoading(false);
+    }
+  }, [id]);
+
+  // Fetch vehicle history
+  const fetchHistory = useCallback(async () => {
+    if (!id) return;
+    setHistoryLoading(true);
+    try {
+      const res = await getVehicleVisitHistory(id);
+      if (res.success && res.data) {
+        setHistory(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vehicle history:", err);
+      toast.error("Failed to load vehicle history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [id]);
+
+  // Fetch job cards
+  const fetchJobCards = useCallback(async () => {
+    if (!id) return;
+    setJobCardsLoading(true);
+    try {
+      const res = await getVehicleJobCards(id);
+      if (res.success && res.data) {
+        setJobCards(res.data.jobCards);
+      }
+    } catch (err) {
+      console.error("Failed to fetch job cards:", err);
+      toast.error("Failed to load job cards");
+    } finally {
+      setJobCardsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchVehicleDetail();
+  }, [fetchVehicleDetail]);
+
+  // Fetch tab data when tab changes
+  useEffect(() => {
+    if (activeTab === "qcReport" && !qcReport) {
+      fetchQCReport();
+    } else if (activeTab === "vehicleHistory" && history.length === 0) {
+      fetchHistory();
+    } else if (activeTab === "jobCard" && jobCards.length === 0) {
+      fetchJobCards();
+    }
+  }, [activeTab, qcReport, history.length, jobCards.length, fetchQCReport, fetchHistory, fetchJobCards]);
+
+  // Map API service progress to ServiceProgress steps
+  const buildProgressSteps = (): Step[] => {
+    if (!vehicleDetail) return [];
+    const sp = vehicleDetail.serviceProgress;
+    const mapStatus = (s: string): StepStatus => {
+      if (s === "completed") return "completed";
+      if (s === "in_progress") return "current";
+      return "pending";
+    };
+    return [
+      { label: "Entry", icon: Truck, status: mapStatus(sp.entry.status) },
+      { label: "QC", icon: ClipboardCheck, status: mapStatus(sp.qc.status) },
+      { label: "Approval", icon: Check, status: mapStatus(sp.approval.status) },
+      { label: "Service", icon: AlertCircle, status: mapStatus(sp.service.status) },
+      { label: "Billing", icon: FileText, status: mapStatus(sp.billing.status) },
+    ];
+  };
+
+  // Map QC report items to component format
+  const mapQCResult = (result: string): "pass" | "fail" | "warning" | "na" => {
+    if (result === "PASS") return "pass";
+    if (result === "FAIL") return "fail";
+    if (result === "NA") return "na";
+    return "warning";
+  };
+
+  const handleTabChange = (tabKey: string) => {
+    setActiveTab(tabKey);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!vehicleDetail) {
     return (
       <>
         <Breadcrumb
@@ -169,18 +182,97 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
     );
   }
 
-  const handleTabChange = (tabKey: string) => {
-    setActiveTab(tabKey);
-  };
+  const { vehicle, customer } = vehicleDetail;
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "qcReport":
-        return <QCReport />;
+        if (qcLoading) {
+          return (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          );
+        }
+        if (!qcReport) {
+          return (
+            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center shadow-sm">
+              <p className="text-[#999] text-sm">No QC report available</p>
+            </div>
+          );
+        }
+        return (
+          <QCReport
+            exteriorItems={qcReport.categories.EXTERIOR.map((item) => ({
+              label: item.itemLabel,
+              subLabel: item.comment || undefined,
+              status: mapQCResult(item.result),
+            }))}
+            interiorEngineItems={qcReport.categories.INTERIOR.map((item) => ({
+              label: item.itemLabel,
+              subLabel: item.comment || undefined,
+              status: mapQCResult(item.result),
+            }))}
+            brakeItems={qcReport.categories.BRAKE.map((item) => ({
+              label: item.itemLabel,
+              subLabel: item.comment || undefined,
+              status: mapQCResult(item.result),
+            }))}
+          />
+        );
+
       case "vehicleHistory":
-        return <VehicleHistory />;
+        if (historyLoading) {
+          return (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          );
+        }
+        if (history.length === 0) {
+          return (
+            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center shadow-sm">
+              <p className="text-[#999] text-sm">No service history available</p>
+            </div>
+          );
+        }
+        // Full in/out timeline per visit, sourced from check-ins + gate passes.
+        // The old vehicle_service_history list is not used here: that table is
+        // only filled by Evolve imports, so it was empty for every locally
+        // created vehicle — hence the permanent "No service history available".
+        return <VehicleVisitTimeline visits={history} />;
+
       case "jobCard":
-        return <JobCardEmpty onButtonClick={() => navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card/${id}`)} />;
+        if (jobCardsLoading) {
+          return (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          );
+        }
+        if (jobCards.length === 0) {
+          return (
+            <JobCardEmpty
+              onButtonClick={() =>
+                navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card/${id}`)
+              }
+            />
+          );
+        }
+        return (
+          <div className="flex flex-col gap-4">
+            {jobCards.map((jobCard) => (
+              <JobCardSummary
+                key={jobCard.id}
+                jobCard={jobCard}
+                onViewClick={() =>
+                  navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card-detail/${jobCard.id}`)
+                }
+              />
+            ))}
+          </div>
+        );
+
       default:
         return null;
     }
@@ -197,17 +289,23 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
         </div>
 
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">{vehicle.registration}</h2>
-          <p className="text-sm text-gray-400">{vehicle.model}</p>
+          <h2 className="text-2xl font-bold text-gray-800">{vehicle.registrationNumber?.toUpperCase()}</h2>
+          <p className="text-sm text-gray-400">
+            {vehicle.brand} {vehicle.model}
+            {vehicle.modelVariant ? ` ${vehicle.modelVariant}` : ""}
+          </p>
         </div>
 
         <VehicleInfoBar
-          customerName={vehicle.customerName}
-          customerPhone={vehicle.customerPhone}
-          onCreateJobCard={() => navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card/${id}`)}
+          customerName={customer.name || "Unknown Customer"}
+          customerPhone={customer.phone || "—"}
+          imageUrl={vehicle.imageUrl}
+          onCreateJobCard={() =>
+            navigate(`${ROUTES.SERVICE_ADVISOR_DASHBOARD}/job-card/${id}`)
+          }
         />
 
-        <ServiceProgress />
+        <ServiceProgress steps={buildProgressSteps()} />
 
         <TabNavigation
           activeTab={activeTab}
@@ -221,4 +319,3 @@ const ServiceAdvisorVehicleDetail: React.FC = () => {
 };
 
 export default ServiceAdvisorVehicleDetail;
-

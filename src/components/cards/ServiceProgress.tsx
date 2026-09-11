@@ -24,9 +24,11 @@ const defaultSteps: Step[] = [
 
 export function ServiceProgress({ steps = defaultSteps }: ServiceProgressProps) {
   const getProgressWidth = () => {
-    const completedCount = steps.filter(s => s.status === "completed").length;
+    const lastCompletedIdx = steps.reduce((acc, s, i) => s.status === "completed" ? i : acc, -1);
+    const currentIdx = steps.findIndex(s => s.status === "current");
+    const targetIdx = currentIdx >= 0 ? (lastCompletedIdx + currentIdx) / 2 + 0.5 : lastCompletedIdx;
     const totalSteps = steps.length;
-    return `${(completedCount / (totalSteps - 1)) * 100}%`;
+    return `${(Math.max(targetIdx, 0) / (totalSteps - 1)) * 100}%`;
   };
 
   return (
@@ -59,15 +61,22 @@ export function ServiceProgress({ steps = defaultSteps }: ServiceProgressProps) 
                       : "items-center",
                 )}
               >
-                <div
-                  className={cn(
-                    "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 shadow-sm",
-                    step.status === "completed" || step.status === "current"
-                      ? "bg-linear-to-b from-[#ff4f31] to-[#fe2b73] border-transparent text-white"
-                      : "bg-white border-gray-200 text-gray-400",
+                <div className="relative">
+                  {step.status === "current" && (
+                    <div className="absolute -inset-1 rounded-full border-2 border-[#ff4f31] animate-ping opacity-30" />
                   )}
-                >
-                  <step.icon size={16} strokeWidth={2} className="md:w-5 md:h-5" />
+                  <div
+                    className={cn(
+                      "w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 shadow-sm",
+                      step.status === "completed"
+                        ? "bg-linear-to-b from-[#ff4f31] to-[#fe2b73] border-transparent text-white"
+                        : step.status === "current"
+                          ? "bg-white border-[#ff4f31] text-[#ff4f31] animate-pulse"
+                          : "bg-white border-gray-200 text-gray-400",
+                    )}
+                  >
+                    <step.icon size={16} strokeWidth={2} className="md:w-5 md:h-5" />
+                  </div>
                 </div>
 
                 <span className="text-xs md:text-sm font-medium text-gray-800 whitespace-nowrap">

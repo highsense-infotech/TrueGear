@@ -1,59 +1,82 @@
-import { Clock, SlidersHorizontal } from "lucide-react";
+import { useState } from "react";
+import { Clock } from "lucide-react";
 import truck from "../../assets/truck.png";
 import Button from '../common/Button';
-import { useState } from 'react';
 import { Pagination } from "../common/Pagination";
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../constants/routes';
+import { DatePicker } from "../common/DatePicker";
+import { QCReportModal } from "./QCReportModal";
+import type { QCQueueItem, QCPagination } from '../../api/qc.api';
 
-interface VehicleQueueRow {
-  registration: string;
-  model: string;
-  serviceType: string;
-  waitingTime: string;
-  status: 'In Progress' | 'Scheduled' | 'Completed' | 'Pending';
-  priority: 'Standard' | 'Urgent' | 'Express' | 'Basic';
+type StatusFilter = "All" | "Pending" | "Completed";
+
+const statusFilterToApi: Record<StatusFilter, "ALL" | "PENDING" | "COMPLETED"> = {
+  All: "ALL",
+  Pending: "PENDING",
+  Completed: "COMPLETED",
+};
+
+const STATUS_TABS: StatusFilter[] = ["All", "Pending", "Completed"];
+
+type DisplayStatus = 'Inspection (Draft)' | 'Inspection Done' | 'Ready' | 'Pending';
+type DisplayPriority = 'Standard' | 'Urgent' | 'Express' | 'Basic';
+
+function mapStatus(apiStatus: string): DisplayStatus {
+  switch (apiStatus) {
+    case 'Inspection (Draft)': return 'Inspection (Draft)';
+    case 'Inspection Done':
+    case 'Job Card (Draft)':
+    case 'Job Card (Pending Cust. Approval)':
+    case 'Job Card (Partial Cust. Approval)':
+    case 'Job Card (Full Cust. Approval)':
+    case 'In Service':
+    case 'Ready for Billing':
+    case 'Completed':
+      return 'Inspection Done';
+    case 'Vehicle IN':
+    case 'Entry (Draft)': return 'Ready';
+    default: return 'Pending';
+  }
 }
-type StatusFilter = "All" | "Urgent" | "Delayed";
 
-const vehicles: VehicleQueueRow[] = [
-  { registration: 'BL 00 MY ZN', model: 'Vehicle Model Name', serviceType: 'Standard Service', waitingTime: '45 Mins', status: 'In Progress', priority: 'Standard' },
-  { registration: 'BL 01 MY ZN', model: 'Vehicle Model X', serviceType: 'Premium Service', waitingTime: '60 Mins', status: 'Scheduled', priority: 'Urgent' },
-  { registration: 'BL 02 MY ZN', model: 'Vehicle Model Y', serviceType: 'Standard Service', waitingTime: '30 Mins', status: 'Completed', priority: 'Standard' },
-  { registration: 'BL 03 MY ZN', model: 'Vehicle Model Z', serviceType: 'Express Service', waitingTime: '20 Mins', status: 'Pending', priority: 'Express' },
-  { registration: 'BL 04 MY ZN', model: 'Vehicle Model A', serviceType: 'Comprehensive Service', waitingTime: '90 Mins', status: 'In Progress', priority: 'Urgent' },
-  { registration: 'BL 05 MY ZN', model: 'Vehicle Model B', serviceType: 'Basic Service', waitingTime: '25 Mins', status: 'Scheduled', priority: 'Basic' },
-  { registration: 'BL 06 MY ZN', model: 'Vehicle Model C', serviceType: 'Standard Service', waitingTime: '35 Mins', status: 'In Progress', priority: 'Standard' },
-  { registration: 'BL 07 MY ZN', model: 'Vehicle Model D', serviceType: 'Premium Service', waitingTime: '50 Mins', status: 'Completed', priority: 'Express' },
-];
+function mapPriority(apiPriority: string): DisplayPriority {
+  switch (apiPriority.toUpperCase()) {
+    case 'URGENT': return 'Urgent';
+    case 'EXPRESS': return 'Express';
+    case 'BASIC': return 'Basic';
+    case 'STANDARD':
+    default: return 'Standard';
+  }
+}
 
-function StatusBadge({ status }: { status: VehicleQueueRow['status'] }) {
+function StatusBadge({ status }: { status: DisplayStatus }) {
   const styles = {
-    'In Progress': 'bg-[#e8f4ff] text-[#0066cc] border-[#b3d9ff]',
-    'Scheduled': 'bg-[#fff4e6] text-[#ff9500] border-[#ffd699]',
-    'Completed': 'bg-[#e6f7ed] text-[#00a651] border-[#99d9b8]',
-    'Pending': 'bg-[#ffe6e6] text-[#ff0000] border-[#ffb3b3]',
+    'Inspection (Draft)': ' text-[#0066cc] ',
+    'Inspection Done': ' text-[#00a651]',
+    'Ready': ' text-[#ff9500] ',
+    'Pending': ' text-[#ff0000] ',
+  };
+
+  const dotColors = {
+    'Inspection (Draft)': 'bg-[#0066cc]',
+    'Inspection Done': 'bg-[#00a651]',
+    'Ready': 'bg-[#ff9500]',
+    'Pending': 'bg-[#ff0000]',
   };
 
   return (
-    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[20px] border ${styles[status]}`}>
-      <div className={`w-1.5 h-1.5 rounded-full ${
-        status === 'In Progress' ? 'bg-[#0066cc]' :
-        status === 'Scheduled' ? 'bg-[#ff9500]' :
-        status === 'Completed' ? 'bg-[#00a651]' :
-        'bg-[#ff0000]'
-      }`} />
+    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[20px]  ${styles[status]}`}>
+      <div className={`w-1.5 h-1.5 rounded-full ${dotColors[status]}`} />
       <span className="text-[14px]">{status}</span>
     </div>
   );
 }
 
-function PriorityBadge({ priority }: { priority: VehicleQueueRow['priority'] }) {
+function PriorityBadge({ priority }: { priority: DisplayPriority }) {
   const styles = {
-    'Standard': 'bg-white text-[#0066cc] border-[#b3d9ff]',
-    'Urgent': 'bg-white text-[#ff0000] border-[#ffb3b3]',
-    'Express': 'bg-white text-[#ff9500] border-[#ffd699]',
-    'Basic': 'bg-white text-[#999] border-[#e5e7eb]',
+    'Standard': 'bg-[#e8f4ff] text-[#0066cc] border-[#b3d9ff]',
+    'Urgent': 'bg-[#FFDEDE66] text-[#ff0000] border-[#FF0000]',
+    'Express': 'bg-[#FFC38B3D] text-[#FF7A00] border-[#FFC38B]',
+    'Basic': 'bg-[#BFBFBF1F] text-[#999999] border-[#CACACA]',
   };
 
   return (
@@ -63,38 +86,47 @@ function PriorityBadge({ priority }: { priority: VehicleQueueRow['priority'] }) 
   );
 }
 
-export function QCTable() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
-  const itemsPerPage = 5;
-  const navigate = useNavigate();
+interface QCTableProps {
+  queue: QCQueueItem[];
+  pagination: QCPagination;
+  loading: boolean;
+  filter: "ALL" | "PENDING" | "COMPLETED";
+  onFilterChange: (filter: "ALL" | "PENDING" | "COMPLETED") => void;
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (limit: number) => void;
+  onStartInspection: (vehicle: QCQueueItem) => void;
+  onResumeInspection: (vehicle: QCQueueItem) => void;
+  actionLoadingId?: string | null;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
+}
 
-  const handleStatusFilterChange = (filter: StatusFilter) => {
-    setStatusFilter(filter);
+export function QCTable({ queue, pagination, loading, filter, onFilterChange, onPageChange, onItemsPerPageChange, onStartInspection, onResumeInspection, actionLoadingId = null, selectedDate, onDateChange }: QCTableProps) {
+  const statusFilter: StatusFilter = filter === "COMPLETED" ? "Completed" : filter === "PENDING" ? "Pending" : "All";
+
+  // Clicking the registration opens the read-only QC report. Only rows that
+  // actually have an inspection can show one — a vehicle still at 'Vehicle IN'
+  // has no inspectionId yet, so its registration stays plain text.
+  const [reportId, setReportId] = useState<string | null>(null);
+  const renderRegistration = (vehicle: QCQueueItem, className: string) =>
+    vehicle.inspectionId ? (
+      <button
+        type="button"
+        onClick={() => setReportId(vehicle.inspectionId!)}
+        title="View QC report"
+        className={`${className} hover:text-[#ff4f31] hover:underline text-left cursor-pointer`}
+      >
+        {vehicle.registrationNumber?.toUpperCase()}
+      </button>
+    ) : (
+      <p className={className}>{vehicle.registrationNumber?.toUpperCase()}</p>
+    );
+
+  const handleStatusFilterChange = (f: StatusFilter) => {
+    onFilterChange(statusFilterToApi[f]);
   };
 
-  const handleStartInspection = (_registration: string) => {
-    navigate(ROUTES.QUALITY_CHECK_INSPECTION);
-  };
-
-  // Filter vehicles based on status filter
-  const filteredVehicles = vehicles.filter((vehicle) => {
-    if (statusFilter === "All") return true;
-    if (statusFilter === "Urgent") return vehicle.priority === "Urgent";
-    if (statusFilter === "Delayed") return vehicle.status === "Pending" || vehicle.status === "In Progress";
-    return true;
-  });
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedVehicles = filteredVehicles.slice(startIndex, startIndex + itemsPerPage);
-  const isEmpty = filteredVehicles.length === 0;
-
-  // Reset to page 1 when filter changes
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
+  const isEmpty = queue.length === 0;
 
   return (
     <div className="bg-white rounded-xl p-4 md:p-5">
@@ -107,47 +139,35 @@ export function QCTable() {
       {/* Tabs and Filter */}
       <div className="flex flex-wrap items-center mb-5 gap-3">
         <div className="flex flex-wrap gap-2 bg-[#f5f5f5] p-1.25 rounded-[10px]">
-          <Button
-            onClick={() => handleStatusFilterChange("All")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "All"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-          }`}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange("Urgent")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "Urgent"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-          }`}
-          >
-            Urgent
-          </Button>
-          <Button
-            onClick={() => handleStatusFilterChange("Delayed")}
-            variant="secondary"
-            className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
-              statusFilter === "Delayed"
-                ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
-                : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
-          }`}
-          >
-            Delayed
-          </Button>
+          {STATUS_TABS.map((tab) => (
+            <Button
+              key={tab}
+              onClick={() => handleStatusFilterChange(tab)}
+              variant="secondary"
+              className={`rounded-lg px-4 h-10! py-2 text-sm transition-colors focus:outline-none ${
+                statusFilter === tab
+                  ? "bg-white border border-[#e5e7eb] shadow-sm text-gray-700! hover:bg-white"
+                  : "bg-[#f5f5f5]! text-gray-700! hover:bg-[#e8e8e8]!"
+              }`}
+            >
+              {tab}
+            </Button>
+          ))}
         </div>
-        <Button variant="outline" icon={<SlidersHorizontal className="w-4 h-4" />} className="text-[#333]">
-          Filter
-        </Button>
+        <DatePicker
+          value={selectedDate}
+          onChange={onDateChange}
+          label="Date"
+          className="cursor-pointer"
+        />
       </div>
 
-      {/* Empty State */}
-      {isEmpty ? (
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <p className="text-[#999] text-base">Loading...</p>
+        </div>
+      ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
           <p className="text-black text-base">No Vehicle Found!</p>
         </div>
@@ -167,25 +187,35 @@ export function QCTable() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedVehicles.map((vehicle, index) => (
-                  <tr key={index} className="border-b border-[#E5E7EB] last:border-0 hover:bg-[#fafafa]">
+                {queue.map((vehicle) => (
+                  <tr key={vehicle.vehicleCheckInId} className="border-b border-[#E5E7EB] last:border-0 hover:bg-[#fafafa]">
                     <td className="py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                          <img
-                            src={truck}
-                            alt="Vehicle"
-                            className="max-w-17.5 object-contain "
-                          />
-                        </div>
+                        {vehicle.frontImage ? (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                            <img
+                              src={vehicle.frontImage}
+                              alt="Vehicle"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                            <img
+                              src={truck}
+                              alt="Vehicle"
+                              className="max-w-17.5 object-contain"
+                            />
+                          </div>
+                        )}
                         <div>
-                          <p className="text-[#333] text-[16px] mb-0.5">{vehicle.registration}</p>
-                          <p className="text-[#999] text-[12px]">{vehicle.model}</p>
+                          {renderRegistration(vehicle, "text-[#333] text-[16px] mb-0.5")}
+                          <p className="text-[#999] text-[12px]">{vehicle.brand} {vehicle.model}</p>
                         </div>
                       </div>
                     </td>
                     <td>
-                      <p className="text-[#333] text-[14px]">{vehicle.serviceType}</p>
+                      <p className="text-[#333] text-[14px]">{vehicle.serviceType || "—"}</p>
                     </td>
                     <td>
                       <div className="flex items-center gap-1.5 text-[#999] text-[14px]">
@@ -194,15 +224,33 @@ export function QCTable() {
                       </div>
                     </td>
                     <td>
-                      <StatusBadge status={vehicle.status} />
+                      <StatusBadge status={mapStatus(vehicle.status)} />
                     </td>
                     <td>
-                      <PriorityBadge priority={vehicle.priority} />
+                      <PriorityBadge priority={mapPriority(vehicle.priority)} />
                     </td>
                     <td>
-                      <Button variant="gradient" onClick={() => handleStartInspection(vehicle.registration)}>
-                        Start Inspection
-                      </Button>
+                      {vehicle.status === 'Vehicle IN' ? (
+                        <Button variant="gradient" onClick={() => onStartInspection(vehicle)} disabled={!!actionLoadingId}>
+                          {actionLoadingId === vehicle.vehicleCheckInId ? (
+                            <span className="flex items-center gap-2">
+                              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Starting...
+                            </span>
+                          ) : 'Start Inspection'}
+                        </Button>
+                      ) : vehicle.status === 'Inspection (Draft)' && vehicle.inspectionId ? (
+                        <Button variant="gradient" onClick={() => onResumeInspection(vehicle)} disabled={!!actionLoadingId}>
+                          {actionLoadingId === vehicle.vehicleCheckInId ? (
+                            <span className="flex items-center gap-2">
+                              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Resuming...
+                            </span>
+                          ) : 'Resume Inspection'}
+                        </Button>
+                      ) : (
+                        ""
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -212,20 +260,30 @@ export function QCTable() {
 
           {/* Mobile / Tablet Card Layout */}
           <div className="sm:block md:hidden space-y-3 mt-4">
-            {paginatedVehicles.map((vehicle, index) => (
-              <div key={index} className="border rounded-xl p-3">
+            {queue.map((vehicle) => (
+              <div key={vehicle.vehicleCheckInId} className="border rounded-xl p-3">
                 {/* Top Row */}
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden">
-                    <img
-                      src={truck}
-                      alt="Vehicle"
-                      className="max-w-15 object-contain"
-                    />
-                  </div>
+                  {vehicle.frontImage ? (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+                      <img
+                        src={vehicle.frontImage}
+                        alt="Vehicle"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-linear-to-b from-[#FFC38B] to-[#FF4F31] overflow-hidden shrink-0">
+                      <img
+                        src={truck}
+                        alt="Vehicle"
+                        className="max-w-15 object-contain"
+                      />
+                    </div>
+                  )}
                   <div>
-                    <p className="text-sm font-medium text-[#333]">{vehicle.registration}</p>
-                    <p className="text-xs text-[#999]">{vehicle.model}</p>
+                    {renderRegistration(vehicle, "text-sm font-medium text-[#333]")}
+                    <p className="text-xs text-[#999]">{vehicle.brand} {vehicle.model}</p>
                   </div>
                 </div>
 
@@ -233,7 +291,7 @@ export function QCTable() {
                 <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
                   <div>
                     <p className="text-[#999] text-xs">Service Type</p>
-                    <p className="text-[#333]">{vehicle.serviceType}</p>
+                    <p className="text-[#333]">{vehicle.serviceType || "—"}</p>
                   </div>
 
                   <div>
@@ -246,20 +304,39 @@ export function QCTable() {
 
                   <div>
                     <p className="text-[#999] text-xs">Status</p>
-                    <StatusBadge status={vehicle.status} />
+                    <StatusBadge status={mapStatus(vehicle.status)} />
                   </div>
 
                   <div>
                     <p className="text-[#999] text-xs">Priority</p>
-                    <PriorityBadge priority={vehicle.priority} />
+                    <PriorityBadge priority={mapPriority(vehicle.priority)} />
                   </div>
                 </div>
 
                 {/* Action Button */}
                 <div className="mt-4">
-                  <Button variant="gradient" onClick={() => handleStartInspection(vehicle.registration)}>
-                    Start Inspection
-                  </Button>
+                  {vehicle.status === 'Vehicle IN' ? (
+                    <Button variant="gradient" onClick={() => onStartInspection(vehicle)} disabled={!!actionLoadingId}>
+                      {actionLoadingId === vehicle.vehicleCheckInId ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Starting...
+                        </span>
+                      ) : 'Start Inspection'}
+                    </Button>
+                  ) : vehicle.status === 'Inspection (Draft)' && vehicle.inspectionId ? (
+                    <Button variant="gradient" onClick={() => onResumeInspection(vehicle)} disabled={!!actionLoadingId}>
+                      {actionLoadingId === vehicle.vehicleCheckInId ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Resuming...
+                        </span>
+                      ) : 'Resume Inspection'}
+
+                    </Button>
+                  ) : (
+                    <StatusBadge status={mapStatus(vehicle.status)} />
+                  )}
                 </div>
               </div>
             ))}
@@ -268,16 +345,22 @@ export function QCTable() {
       )}
 
       {/* Pagination */}
-      {!isEmpty && (
+      {!isEmpty && !loading && (
         <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredVehicles.length}
-          itemsPerPage={itemsPerPage}
-          onPageChange={handlePageChange}
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={onPageChange}
+          onItemsPerPageChange={onItemsPerPageChange}
         />
       )}
+
+      <QCReportModal
+        isOpen={!!reportId}
+        inspectionId={reportId}
+        onClose={() => setReportId(null)}
+      />
     </div>
   );
 }
-

@@ -6,14 +6,18 @@ interface PaginationProps {
   totalItems: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (limit: number) => void;
+  pageSizeOptions?: number[];
 }
 
-export function Pagination({ 
-  currentPage, 
-  totalPages, 
-  totalItems, 
+export function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
   itemsPerPage,
-  onPageChange 
+  onPageChange,
+  onItemsPerPageChange,
+  pageSizeOptions = [10, 25, 50, 100],
 }: PaginationProps) {
   // Calculate showing range
   const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -40,44 +44,61 @@ export function Pagination({
   // Generate page numbers to display
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
-    
-    if (totalPages <= 5) {
-      // Show all pages
+
+    if (totalPages <= 3) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      // Show first page, current range, and last page
+      // Always show first page
       pages.push(1);
-      
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      
-      if (start > 2) {
+
+      if (currentPage > 3) {
         pages.push('...');
       }
-      
+
+      // Show pages around current
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
       for (let i = start; i <= end; i++) {
         pages.push(i);
       }
-      
-      if (end < totalPages - 1) {
+
+      if (currentPage < totalPages - 2) {
         pages.push('...');
       }
-      
+
+      // Always show last page
       pages.push(totalPages);
     }
-    
+
     return pages;
   };
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 sm:px-5">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 my-5 sm:px-5">
 
-      {/* Showing Text */}
-      <p className="text-[#666] text-xs sm:text-sm text-center sm:text-left">
-        Showing {startItem} - {endItem} of {totalItems}
-      </p>
+      {/* Showing Text + Page Size */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <p className="text-[#666] text-xs sm:text-sm text-center sm:text-left">
+          Showing {startItem} - {endItem} of {totalItems}
+        </p>
+        {onItemsPerPageChange && (
+          <div className="flex items-center gap-2 justify-center sm:justify-start">
+            <label className="text-[#666] text-xs sm:text-sm">Rows:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+              className="border border-[#e5e7eb] rounded-md px-2 py-1 text-xs sm:text-sm text-[#333] bg-white focus:outline-none focus:ring-1 focus:ring-[#ff4f31] cursor-pointer"
+            >
+              {pageSizeOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       {/* ===== Desktop / Tablet Pagination ===== */}
       <div className="hidden sm:flex items-center gap-2">

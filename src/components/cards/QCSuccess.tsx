@@ -42,7 +42,7 @@ const QCSuccess: React.FC = () => {
                 <div className="bg-[rgba(77,0,193,0.1)] flex items-center justify-center px-4 py-2 rounded-[40px] border border-[rgba(77,0,193,0.4)]">
                   <p className="font-['Poppins',sans-serif] text-[#4d00c1] text-[12px]">
                     <span className="font-bold">Status:</span>
-                    <span className="font-medium"> Pending Service Advisor</span>
+                    <span className="font-medium"> Inspection Done</span>
                   </p>
                 </div>
               </div>
