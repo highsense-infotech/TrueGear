@@ -107,9 +107,40 @@ const CreateJobCard: React.FC = () => {
   // the UI shows "No Franchises configured." and the RO falls back to '1'/'1'.
   // The selected pair's id is stored on the job card.
   const [fsdOptions, setFsdOptions] = useState<FranchiseServiceDeptItem[]>([]);
+  // The vehicle's owning company, from the vehicle-detail response. The
+  // franchise list is fetched for THIS company (see the effect below) so the
+  // advisor can only pick a franchise that belongs to the dealership the RO
+  // will actually be posted to. `companyResolved` separates "not loaded yet"
+  // from "loaded, but the company is unknown" — the latter still fetches, just
+  // unfiltered, so the dropdown never goes empty because of a missing company.
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyResolved, setCompanyResolved] = useState(false);
   const [franchiseLabel, setFranchiseLabel] = useState<string>("");
   const [franchiseServiceDeptId, setFranchiseServiceDeptId] =
     useState<string>("");
+
+  // Franchise / Service Dept pairs (AI-3), scoped to the vehicle's company.
+  // Waits for the vehicle detail so the very first request already carries the
+  // company — fetching unfiltered first and correcting afterwards would briefly
+  // offer the other dealership's franchises, which is exactly the bug this
+  // scoping exists to prevent.
+  //
+  // Best-effort, as before: on failure the list stays empty, the UI shows
+  // "No Franchises configured." and the RO keeps its '1'/'1' default.
+  useEffect(() => {
+    if (!companyResolved) return;
+    let cancelled = false;
+    (async () => {
+      const res = await listFranchiseServiceDepts(companyId ?? undefined).catch(
+        () => null,
+      );
+      if (cancelled) return;
+      if (res?.success && Array.isArray(res.data)) setFsdOptions(res.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyResolved, companyId]);
 
   // Derive the Franchise dropdown value from a stored pair id (edit-mode
   // prefill): once the options load, resolve which franchise the saved pair
@@ -137,7 +168,10 @@ const CreateJobCard: React.FC = () => {
 
     const fetchData = async () => {
       try {
-        const [vehicleRes, suggestedRes, stRes, jtRes, fsdRes, labourRes] =
+        // Franchise / Service Dept is NOT fetched here: it depends on the
+        // vehicle's company, which only the vehicle-detail response knows.
+        // It has its own effect, keyed on that company.
+        const [vehicleRes, suggestedRes, stRes, jtRes, labourRes] =
           await Promise.all([
             getVehicleDetail(vehicleId),
             getSuggestedJobs(vehicleId),
@@ -145,13 +179,16 @@ const CreateJobCard: React.FC = () => {
             // Job Types (AI-1). Best-effort: on any failure the dropdown falls back
             // to the empty "No Job Types configured." state and booking proceeds.
             listJobTypes().catch(() => null),
-            // Franchise / Service Dept pairs (AI-3). Best-effort — empty falls back
-            // to "No Franchises configured." and the RO keeps its '1'/'1' default.
-            listFranchiseServiceDepts().catch(() => null),
             // Labour Master (Phase 3). Best-effort — empty leaves the Labour
             // dropdown blank while the Description textbox stays fully editable.
             listActiveLabourDescriptions().catch(() => null),
           ]);
+
+        // Release the franchise fetch as soon as the company is known. Done
+        // BEFORE the guard below so a vehicle with no suggested jobs still
+        // gets its franchise list.
+        setCompanyId(vehicleRes.data?.companyId ?? null);
+        setCompanyResolved(true);
 
         // Populate the Job Type dropdown from the backend lookup (may be empty).
         if (jtRes?.success && Array.isArray(jtRes.data)) {
@@ -171,11 +208,6 @@ const CreateJobCard: React.FC = () => {
         const labourIdByName = new Map(
           labourOpts.map((l) => [l.name.trim().toLowerCase(), l.id]),
         );
-
-        // Populate the Franchise / Service Dept dropdowns (may be empty).
-        if (fsdRes?.success && Array.isArray(fsdRes.data)) {
-          setFsdOptions(fsdRes.data);
-        }
 
         // Set vehicle info
         if (!vehicleRes.data || !suggestedRes.data) return;

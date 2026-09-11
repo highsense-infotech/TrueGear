@@ -83,6 +83,13 @@ export interface SAVehicleDetail {
     status: string;
     imageUrl: string | null;
   };
+  /**
+   * The company (dealership) this vehicle belongs to, resolved server-side with
+   * the same chain the RO push uses to pick the Evolve InterfaceCode
+   * (vehicle ownership → appointment → unknown). Create Job Card filters the
+   * Franchise / Service Dept options by it. null = unknown → no filtering.
+   */
+  companyId: string | null;
   customer: {
     /** Used to fetch the customer's Evolve AR accounts on Create Job Card. */
     id: string | null;
