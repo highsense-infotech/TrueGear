@@ -34,9 +34,14 @@ const Modal: React.FC<Props> = ({ isOpen, onClose, title, children, size = 'md' 
         className={`${getWidthClass()} max-h-[90vh] shadow-xl my-8`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Header.
+            z-10 is required, not decorative: `sticky` alone leaves the header
+            at z-index auto, so the scrollable content below it in DOM order
+            paints ON TOP of it — the Edit User avatar was covering the title.
+            Kept below the overlay's zIndex: 50 so it only lifts the header
+            above this modal's own body. */}
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white">
+          <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-white z-10">
             <h3 className="text-[18px] font-semibold text-[#333]">{title}</h3>
             <button 
               onClick={onClose}
