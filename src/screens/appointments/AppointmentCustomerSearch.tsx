@@ -208,11 +208,27 @@ const AppointmentCustomerSearch: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // PRESENCE ONLY — deliberately no format rules here.
+  //
+  // This getter disables Next; the FORMAT rules live in validateNewForm, which
+  // only runs on click. A format rule in here is therefore unexplainable: the
+  // user fills every field, Next stays greyed out, and the message that would
+  // tell them why (e.g. "Enter a 10-digit number starting 06, 07 or 08") is
+  // never reached because they cannot click. A phone of 7656754323 produced
+  // exactly that dead end.
+  //
+  // Nothing is weakened: validateNewForm still rejects the same input on
+  // submit, with the reason attached to the field. Keep new format checks
+  // there, not here.
   const isNewFormValid =
     (newCustomerType === "C"
       ? newCompanyName.trim() && newRegNo.trim()
-      : newTitle.trim() && newInitial.trim() && newFirstName.trim() && newLastName.trim() && /^\d{13}$/.test(newIdNumber.trim())) &&
-    /^0[678]\d{8}$/.test(newPhone.trim()) &&
+      : newTitle.trim() &&
+        newInitial.trim() &&
+        newFirstName.trim() &&
+        newLastName.trim() &&
+        newIdNumber.trim()) &&
+    newPhone.trim() &&
     newEmail.trim();
   // Mandatory company selection (Phase D): backend mode uses WizardState.companyId,
   // legacy fallback uses the local interface-code selection. No silent default.
