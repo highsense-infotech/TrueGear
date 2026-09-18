@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle2,
   Clock,
@@ -42,6 +42,24 @@ const fits = (bay: BayAvailabilityInfo, start: string, durationMin: number): boo
   const s = toMin(start);
   const e = s + durationMin;
   return bay.available.some((w) => s >= toMin(w.start) && e <= toMin(w.end));
+};
+
+/**
+ * Message for a failed bay-availability load.
+ *
+ * Reads the backend's error envelope ({ error: { message } }) and falls back to
+ * a plain sentence, so the user is told what happened rather than shown a raw
+ * Axios string. Local to this file ON PURPOSE: the shared typed error model is
+ * Phase 2 of the error-handling work, and adding a second ad-hoc parser that
+ * would then need unpicking is worse than one temporary local helper. Replace
+ * this with the shared model when it lands.
+ */
+const bayLoadErrorMessage = (err: unknown): string => {
+  const message = (err as { response?: { data?: { error?: { message?: unknown } } } })
+    ?.response?.data?.error?.message;
+  return typeof message === "string" && message.trim()
+    ? message
+    : "Could not load bay availability. Check your connection and try again.";
 };
 
 // ─── Status presentation ──────────────────────────────────────────────────────
@@ -178,22 +196,45 @@ const BaySchedulePicker: React.FC<Props> = ({ date, durationMinutes: initialDura
   const [operating, setOperating] = useState<{ start: string; end: string }>({ start: "07:00", end: "20:00" });
   const [interval, setIntervalMin] = useState(30);
   const [loading, setLoading] = useState(false);
+  // Why a dedicated error state rather than another empty list: an empty `bays`
+  // renders the "No Bay is available" panel, whose copy makes a factual claim
+  // ("no bay has a continuous free window … try another date"). A failed
+  // request is not that, and telling a receptionist the workshop is full when
+  // the request merely failed can cost a booking.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Last date we actually loaded for. Null until the first load completes, so
   // the reset below can tell "first mount" from "user picked another date".
   const loadedForDate = useRef<string | null>(null);
 
+  // Extracted so Retry can re-run exactly the same request. It deliberately
+  // does NOT touch the selection-reset logic below — that belongs to a date
+  // CHANGE, not to a reload of the same date.
+  const loadBays = useCallback(
+    (forDate: string) => {
+      setLoading(true);
+      setLoadError(null);
+      getBayAvailability(forDate, excludeAppointmentId)
+        .then((res) => {
+          setBays(res.data?.bays ?? []);
+          if (res.data?.operating) setOperating(res.data.operating);
+          if (res.data?.slotIntervalMinutes) setIntervalMin(res.data.slotIntervalMinutes);
+        })
+        .catch((err: unknown) => {
+          // Clear the bays as well: leaving a previous date's bays behind an
+          // error panel would let the user select a slot that was never
+          // validated against this date.
+          setBays([]);
+          setLoadError(bayLoadErrorMessage(err));
+        })
+        .finally(() => setLoading(false));
+    },
+    [excludeAppointmentId],
+  );
+
   useEffect(() => {
-    if (!date) { setBays([]); return; }
-    setLoading(true);
-    getBayAvailability(date, excludeAppointmentId)
-      .then((res) => {
-        setBays(res.data?.bays ?? []);
-        if (res.data?.operating) setOperating(res.data.operating);
-        if (res.data?.slotIntervalMinutes) setIntervalMin(res.data.slotIntervalMinutes);
-      })
-      .catch(() => setBays([]))
-      .finally(() => setLoading(false));
+    if (!date) { setBays([]); setLoadError(null); return; }
+    loadBays(date);
 
     // Clear the selection ONLY when the user moves to a different date — a bay
     ///time chosen for one day is meaningless on another. Deliberately NOT on
@@ -334,6 +375,28 @@ const BaySchedulePicker: React.FC<Props> = ({ date, durationMinutes: initialDura
           </div>
         ) : !date ? (
           <p className="text-sm text-[#999] py-6 text-center">Choose a date to see bay availability.</p>
+        ) : loadError ? (
+          // MUST stay above the !anyBookable branch. A failed load leaves
+          // `bays` empty, so without this the fall-through would render "No Bay
+          // is available" — telling the user the workshop is full when the
+          // request simply failed.
+          <div className="flex flex-col items-center text-center py-8">
+            <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+              <AlertTriangle size={24} className="text-amber-500" />
+            </div>
+            <p className="text-base font-bold text-[#333]">Could not load bay availability</p>
+            <p className="text-sm text-[#999] mt-1 max-w-xs">{loadError}</p>
+            <p className="text-xs text-[#999] mt-2 max-w-xs">
+              This is not the same as the workshop being full — availability is unknown until this loads.
+            </p>
+            <button
+              type="button"
+              onClick={() => loadBays(date)}
+              className="mt-4 px-4 py-2 rounded-lg text-sm font-medium border border-[#e5e7eb] text-[#333] hover:bg-[#f5f5f5] transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         ) : !anyBookable ? (
           <div className="flex flex-col items-center text-center py-8">
             <div className="w-14 h-14 rounded-full bg-[#f5f5f5] flex items-center justify-center mb-3">

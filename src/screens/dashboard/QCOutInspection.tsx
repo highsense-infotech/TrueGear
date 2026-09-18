@@ -183,6 +183,15 @@ function SignOffModal({ open, onOpenChange, onSubmit }: SignOffModalProps) {
                 <option value="parts_issue">Parts Issue</option>
                 <option value="other">Other</option>
               </select>
+              {/* Choosing Fail adds a requirement that was previously only
+                  expressed by the Submit button greying out again, with no
+                  explanation. Rendered inside the fail-only block, so it can
+                  never appear for a Pass. */}
+              {!failureReason && (
+                <p className="text-[11px] text-red-500">
+                  Select a reason for failure to submit.
+                </p>
+              )}
               <textarea
                 placeholder="Inspector Notes..."
                 value={notes}

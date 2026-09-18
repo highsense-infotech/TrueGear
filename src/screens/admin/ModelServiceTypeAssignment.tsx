@@ -420,8 +420,18 @@ const ModelServiceTypeAssignment: React.FC = () => {
       toast.error("Part code is required");
       return;
     }
-    if (!editQuantity.trim() || isNaN(parseFloat(editQuantity))) {
-      toast.error("Valid quantity is required");
+    // Must match the CREATE path above, which already requires
+    // `Number(p.quantity) > 0`. The old check was isNaN-only, so -5, 0 and
+    // Infinity all passed here and persisted — this endpoint has no server-side
+    // schema (model-service-types/service.ts reads `request.body as any`), so
+    // nothing downstream rejected them.
+    //
+    // Fractional values stay allowed on purpose: the column is
+    // numeric(10, 2) and both paths parse with parseFloat, unlike
+    // job_card_items / part_requests which are integer columns.
+    const quantityValue = parseFloat(editQuantity);
+    if (!editQuantity.trim() || !Number.isFinite(quantityValue) || quantityValue <= 0) {
+      toast.error("Quantity must be greater than 0");
       return;
     }
 
@@ -430,7 +440,7 @@ const ModelServiceTypeAssignment: React.FC = () => {
       await updateAssignment(editingId, {
         partName: editPartName.trim(),
         partCode: editPartCode.trim(),
-        quantity: parseFloat(editQuantity),
+        quantity: quantityValue,
       });
       toast.success("Assignment updated");
       closeEditModal();

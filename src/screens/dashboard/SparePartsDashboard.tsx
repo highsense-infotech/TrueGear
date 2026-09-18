@@ -186,7 +186,29 @@ const SparePartsDashboard = () => {
     .slice(0, 16);
 
   const handleSubmitETA = async () => {
-    if (!etaPartId || !etaValue) return;
+    if (!etaPartId) return;
+    // The input's `min` is not enforced: this field is not inside a native
+    // <form>, so the browser never applies it, and the endpoint
+    // (PUT /parts/:partId/mark-unavailable) has no request schema — a past ETA
+    // was persisted with no complaint from either side.
+    //
+    // Compared as TIMESTAMPS, not strings. `minDateTime` is built with
+    // toISOString() (UTC) while a datetime-local value is local wall-clock, so
+    // the two strings are not comparable. `new Date(etaValue)` parses the local
+    // value into the right instant, which is also exactly what formatETA does.
+    if (!etaValue) {
+      toast.error("Select an expected arrival date and time");
+      return;
+    }
+    const etaDate = new Date(etaValue);
+    if (Number.isNaN(etaDate.getTime())) {
+      toast.error("Enter a valid date and time");
+      return;
+    }
+    if (etaDate.getTime() <= Date.now()) {
+      toast.error("ETA must be in the future");
+      return;
+    }
     setSubmittingETA(true);
     try {
       await markPartUnavailable(etaPartId, formatETA(etaValue));

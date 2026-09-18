@@ -25,6 +25,12 @@ import { listServiceTypes, type ServiceTypeItem } from "../../api/serviceType.ap
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// Mirrors the server's estimatedDurationMinutesField (appointments/dto.ts):
+// an integer from 15 to 480. Kept identical so the client rejects exactly what
+// the API would, instead of letting the user discover it two steps later.
+const MIN_DURATION_MINUTES = 15;
+const MAX_DURATION_MINUTES = 480;
+
 const STEPS = [
   { label: "Customer", icon: User },
   { label: "Vehicle",  icon: Car },
@@ -58,6 +64,7 @@ const AppointmentServiceDetails: React.FC = () => {
   // Pre-fill from context — no default so user must explicitly choose
   const [selectedService, setSelectedService] = useState(state.serviceType || "");
   const [serviceError,    setServiceError]    = useState("");
+  const [durationError,   setDurationError]   = useState("");
   const [complaints,      setComplaints]      = useState<string[]>(state.complaints.length ? state.complaints : []);
   const [complaintText,   setComplaintText]   = useState("");
   const [overrideEnabled, setOverrideEnabled] = useState(state.isOverrideEnabled);
@@ -122,10 +129,39 @@ const AppointmentServiceDetails: React.FC = () => {
 
   const handleNext = () => {
     console.log("Selected Service:", selectedService);
+    setServiceError("");
+    setDurationError("");
+
     if (!selectedService) {
       setServiceError("Please select a service type to continue.");
       return;
     }
+
+    // Duration is only user-editable while the override is on; the automatic
+    // value comes from the service type and is already within range.
+    //
+    // Checked HERE rather than relying on the inputs' min/max: these inputs are
+    // not inside a native <form>, so the browser never enforces those
+    // attributes. Without this an empty field reads as Number("") === 0, which
+    // travels through slot selection (where a 0-minute job "fits" every window)
+    // and is only rejected by the API two steps later.
+    //
+    // The bounds mirror the server's estimatedDurationMinutesField exactly —
+    // integer, 15..480 — so the two cannot disagree.
+    if (overrideEnabled) {
+      const mins = effectiveDurationMinutes;
+      if (!Number.isFinite(mins) || !Number.isInteger(mins)) {
+        setDurationError("Enter the duration as whole hours and minutes.");
+        return;
+      }
+      if (mins < MIN_DURATION_MINUTES || mins > MAX_DURATION_MINUTES) {
+        setDurationError(
+          `Duration must be between ${MIN_DURATION_MINUTES} and ${MAX_DURATION_MINUTES} minutes.`,
+        );
+        return;
+      }
+    }
+
     setState({
       serviceType:              selectedService,
       serviceTypeBackend:       SERVICE_TYPE_MAP[selectedService] || selectedService.toUpperCase(),
@@ -315,7 +351,7 @@ const AppointmentServiceDetails: React.FC = () => {
                     <input
                       type="number" min="0" max="24"
                       value={overrideHours}
-                      onChange={(e) => setOverrideHours(e.target.value)}
+                      onChange={(e) => { setOverrideHours(e.target.value); setDurationError(""); }}
                       className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
                     />
                   </div>
@@ -324,11 +360,14 @@ const AppointmentServiceDetails: React.FC = () => {
                     <input
                       type="number" min="0" max="59"
                       value={overrideMinutes}
-                      onChange={(e) => setOverrideMinutes(e.target.value)}
+                      onChange={(e) => { setOverrideMinutes(e.target.value); setDurationError(""); }}
                       className="w-full px-3 py-2 mt-1 text-sm border border-[#e5e7eb] rounded-lg focus:outline-none focus:border-[#ff5100] text-[#333]"
                     />
                   </div>
                 </div>
+                {durationError && (
+                  <p className="text-xs text-red-500">{durationError}</p>
+                )}
                 <p className="text-xs text-[#999]">
                   Original estimate: {autoHours}h {autoMins}m ({selectedServiceLabel} — Standard)
                 </p>
@@ -408,7 +447,11 @@ const AppointmentServiceDetails: React.FC = () => {
           <Button variant="outline" onClick={() => navigate(ROUTES.APPOINTMENT_CREATE_VEHICLE)}>
             Previous
           </Button>
-          <Button variant="gradient" onClick={handleNext} disabled={!selectedService}>
+          {/* Deliberately NOT disabled on !selectedService. handleNext already
+              sets serviceError for that case, and while the button was disabled
+              that branch was unreachable — the user saw a greyed-out Next and
+              was never told a service type was missing. */}
+          <Button variant="gradient" onClick={handleNext}>
             Next
             <ChevronRight size={16} />
           </Button>
