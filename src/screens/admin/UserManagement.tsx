@@ -164,6 +164,22 @@ function sanitizeUsername(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9_]/g, "");
 }
 
+/**
+ * Mirrors the server's passwordStrength (auth/dto.ts): >= 8 characters, one
+ * lowercase, one number. No uppercase rule — it was removed from that schema,
+ * so adding one here would reject passwords the API accepts.
+ *
+ * Returns "" when acceptable. Blank is acceptable on EDIT, where an empty
+ * field means "keep the current password"; callers check for a typed value
+ * before calling this.
+ */
+function validatePassword(value: string): string {
+  if (value.length < 8) return "At least 8 characters";
+  if (!/[a-z]/.test(value)) return "Include a lowercase letter";
+  if (!/[0-9]/.test(value)) return "Include a number";
+  return "";
+}
+
 // Permission grid constants
 const ALL_MODULES = [
   { key: MODULES.GATE_ENTRY, label: "Gate Entry" },
@@ -827,6 +843,7 @@ function UsersTab() {
   });
   const [createAvatarPreview, setCreateAvatarPreview] = useState<string | null>(null);
   const [createUsernameError, setCreateUsernameError] = useState("");
+  const [createPasswordError, setCreatePasswordError] = useState("");
   const [creating, setCreating] = useState(false);
 
   // Edit modal
@@ -848,6 +865,7 @@ function UsersTab() {
   });
   const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
   const [editUsernameError, setEditUsernameError] = useState("");
+  const [editPasswordError, setEditPasswordError] = useState("");
   const [editing, setEditing] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
@@ -1022,6 +1040,7 @@ function UsersTab() {
     });
     setCreateAvatarPreview(null);
     setCreateUsernameError("");
+    setCreatePasswordError("");
     setCreateModalOpen(true);
     if (initialRole === "technician") loadTechnicianLookups();
     if (initialRole === "service-advisor") void loadEvolveServiceAdvisors();
@@ -1060,6 +1079,13 @@ function UsersTab() {
     const usernameErr = validateUsername(username);
     if (usernameErr) {
       setCreateUsernameError(usernameErr);
+      return;
+    }
+    // Presence is already covered by the all-fields check above; this is the
+    // strength rule, matched to the server schema.
+    const passwordErr = validatePassword(password);
+    if (passwordErr) {
+      setCreatePasswordError(passwordErr);
       return;
     }
     if (roleSlug === "technician" && createForm.evolveTechnicianNo == null) {
@@ -1115,6 +1141,7 @@ function UsersTab() {
     });
     setEditAvatarPreview(user.avatarUrl ?? null);
     setEditUsernameError("");
+    setEditPasswordError("");
     setEditModalOpen(true);
     if (user.role.slug === "technician") loadTechnicianLookups();
     if (user.role.slug === "service-advisor") void loadEvolveServiceAdvisors();
@@ -1126,6 +1153,16 @@ function UsersTab() {
     if (usernameErr) {
       setEditUsernameError(usernameErr);
       return;
+    }
+    // Only when the admin actually typed one — blank means "keep current"
+    // (see the password spread below). Without this the request went out and
+    // came back 400 from the schema, which is how the rule was being enforced.
+    if (editForm.password) {
+      const passwordErr = validatePassword(editForm.password);
+      if (passwordErr) {
+        setEditPasswordError(passwordErr);
+        return;
+      }
     }
     if (editForm.roleSlug === "technician" && editForm.evolveTechnicianNo == null) {
       toast.error("Please select an Evolve Technician");
@@ -1535,10 +1572,17 @@ function UsersTab() {
               type="password"
               placeholder="Min. 8 characters"
               value={createForm.password}
-              onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-              className={inputClass}
+              onChange={(e) => {
+                setCreateForm((f) => ({ ...f, password: e.target.value }));
+                setCreatePasswordError("");
+              }}
+              className={createPasswordError ? inputErrorClass : inputClass}
             />
-            <p className="text-[11px] text-[#999] mt-1">Min. 8 chars, with upper, lower &amp; a number</p>
+            {createPasswordError ? (
+              <p className="text-[11px] text-[#FE2B73] mt-1">{createPasswordError}</p>
+            ) : (
+              <p className="text-[11px] text-[#999] mt-1">Min. 8 chars, with a lowercase letter &amp; a number</p>
+            )}
           </div>
           <div>
             <label className={labelClass}>Role</label>
@@ -1735,10 +1779,17 @@ function UsersTab() {
               type="password"
               placeholder="Leave blank to keep current"
               value={editForm.password}
-              onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
-              className={inputClass}
+              onChange={(e) => {
+                setEditForm((f) => ({ ...f, password: e.target.value }));
+                setEditPasswordError("");
+              }}
+              className={editPasswordError ? inputErrorClass : inputClass}
             />
-            <p className="text-[11px] text-[#999] mt-1">Min. 8 chars, with upper, lower &amp; a number</p>
+            {editPasswordError ? (
+              <p className="text-[11px] text-[#FE2B73] mt-1">{editPasswordError}</p>
+            ) : (
+              <p className="text-[11px] text-[#999] mt-1">Min. 8 chars, with a lowercase letter &amp; a number</p>
+            )}
           </div>
           <div>
             <label className={labelClass}>Role</label>

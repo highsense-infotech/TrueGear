@@ -73,8 +73,14 @@ const Profile: React.FC = () => {
     if (!email.trim()) next.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = "Invalid email address";
     if (password) {
+      // Mirrors the server's passwordStrength (auth/dto.ts): >= 8 chars, one
+      // lowercase, one number. No uppercase rule.
+      //
+      // These agree as of the change that removed .regex(/[A-Z]/) from that
+      // schema. Before it, this comment claimed both sides had dropped the
+      // rule while the server still enforced it, so this screen accepted
+      // passwords the API then rejected with a 400.
       if (password.length < 8) next.password = "At least 8 characters";
-      else if (!/[A-Z]/.test(password)) next.password = "Include an uppercase letter";
       else if (!/[a-z]/.test(password)) next.password = "Include a lowercase letter";
       else if (!/[0-9]/.test(password)) next.password = "Include a number";
       else if (password !== confirm) next.confirm = "Passwords do not match";
