@@ -26,6 +26,7 @@ import {
 } from "../../api/serviceAdvisor.api";
 import { listServiceTypes } from "../../api/serviceType.api";
 import { listJobTypes, type JobTypeItem } from "../../api/jobType.api";
+import { listRoStatuses, type RoStatusItem } from "../../api/roStatus.api";
 import { listCustomerArAccounts, type ArAccount } from "../../api/customer.api";
 import {
   listActiveLabourDescriptions,
@@ -92,6 +93,13 @@ const CreateJobCard: React.FC = () => {
   // configured (client-dependent), in which case each job's Job Type control is
   // hidden and the RO push falls back to the 'INT' default.
   const [jobTypeOptions, setJobTypeOptions] = useState<JobTypeItem[]>([]);
+  // Evolve RO Status — the state the RO opens in. Options are per-dealer master
+  // data from Evolve (ro_statuses cache); nothing is hardcoded here. Required
+  // when the list is non-empty, matching the backend rule: an empty cache must
+  // not block job-card creation on a deployment that has not synced yet.
+  const [roStatusOptions, setRoStatusOptions] = useState<RoStatusItem[]>([]);
+  const [roStatus, setRoStatus] = useState<string>("");
+  const [roStatusError, setRoStatusError] = useState<string>("");
   // Customer's Evolve AR accounts, fetched live when a job needs one (CST).
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [arAccounts, setArAccounts] = useState<ArAccount[]>([]);
@@ -171,7 +179,7 @@ const CreateJobCard: React.FC = () => {
         // Franchise / Service Dept is NOT fetched here: it depends on the
         // vehicle's company, which only the vehicle-detail response knows.
         // It has its own effect, keyed on that company.
-        const [vehicleRes, suggestedRes, stRes, jtRes, labourRes] =
+        const [vehicleRes, suggestedRes, stRes, jtRes, rsRes, labourRes] =
           await Promise.all([
             getVehicleDetail(vehicleId),
             getSuggestedJobs(vehicleId),
@@ -179,6 +187,10 @@ const CreateJobCard: React.FC = () => {
             // Job Types (AI-1). Best-effort: on any failure the dropdown falls back
             // to the empty "No Job Types configured." state and booking proceeds.
             listJobTypes().catch(() => null),
+            // RO Statuses. Best-effort like the others: on failure the dropdown
+            // stays empty and, matching the backend rule, the field is not
+            // enforced — so a lookup outage cannot block job-card creation.
+            listRoStatuses().catch(() => null),
             // Labour Master (Phase 3). Best-effort — empty leaves the Labour
             // dropdown blank while the Description textbox stays fully editable.
             listActiveLabourDescriptions().catch(() => null),
@@ -193,6 +205,13 @@ const CreateJobCard: React.FC = () => {
         // Populate the Job Type dropdown from the backend lookup (may be empty).
         if (jtRes?.success && Array.isArray(jtRes.data)) {
           setJobTypeOptions(jtRes.data);
+        }
+
+        // Populate the RO Status dropdown (may be empty until master-data sync
+        // has run). No default is pre-selected: the advisor states the RO's
+        // opening state deliberately rather than accepting a value we guessed.
+        if (rsRes?.success && Array.isArray(rsRes.data)) {
+          setRoStatusOptions(rsRes.data);
         }
 
         // Populate the Labour dropdown from the Labour Master (may be empty).
@@ -269,6 +288,13 @@ const CreateJobCard: React.FC = () => {
             setFranchiseServiceDeptId(
               jobCardRes.data.jobCard.franchiseServiceDeptId,
             );
+          }
+          // Prefill the saved RO Status. Without this the dropdown reopened on
+          // "Select RO status…" for an existing card, and because the field is
+          // required the advisor had to re-pick it on every edit — silently
+          // risking a different value than the one the RO was created with.
+          if (jobCardRes.data.jobCard?.roStatus) {
+            setRoStatus(jobCardRes.data.jobCard.roStatus);
           }
           const existingItems = jobCardRes.data.items;
           if (existingItems.length > 0) {
@@ -855,6 +881,16 @@ const CreateJobCard: React.FC = () => {
       return false;
     }
 
+    // RO Status is required only while the lookup has options — the same
+    // condition the backend enforces. With an unsynced (empty) cache there is
+    // nothing to choose, so blocking here would make job cards uncreatable.
+    if (roStatusOptions.length > 0 && !roStatus) {
+      setRoStatusError("RO status is required");
+      toast.error("Please select an RO status");
+      return false;
+    }
+    setRoStatusError("");
+
     const errors: Record<number, JobErrors> = {};
     let hasError = false;
 
@@ -1033,6 +1069,10 @@ const CreateJobCard: React.FC = () => {
           jobType: cardJobType,
           // Franchise / Service Dept selection (AI-3). Empty → undefined preserves.
           franchiseServiceDeptId: franchiseServiceDeptId || undefined,
+          // RO Status. Sent on update too: the selection is authoritative for
+          // Evolve, so changing it here changes what the RO push carries.
+          // Empty → undefined preserves the stored value.
+          roStatus: roStatus || undefined,
         });
         if (res.success) {
           toast.success("Job card updated successfully");
@@ -1051,6 +1091,11 @@ const CreateJobCard: React.FC = () => {
           jobType: cardJobType,
           // Franchise / Service Dept selection (AI-3). Empty → NULL → '1'/'1'.
           franchiseServiceDeptId: franchiseServiceDeptId || undefined,
+          // RO Status for the Evolve CREATE push. Empty → NULL → the proven
+          // WIP/W default. Sent on CREATE only: on UPDATE the vehicle's real
+          // workshop position drives the Evolve status, so sending a value
+          // chosen here would be overwritten anyway.
+          roStatus: roStatus || undefined,
         });
         if (res.success && res.data) {
           toast.success("Job card saved as draft");
@@ -1446,6 +1491,48 @@ const CreateJobCard: React.FC = () => {
           ) : (
             <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
               No Franchises configured.
+            </div>
+          )}
+        </div>
+
+        {/* RO Status — the state the RO opens in on Evolve. The list is
+            per-dealer master data (ro_statuses, synced from Evolve), so it is
+            never hardcoded. Required only while the list is non-empty, mirroring
+            the backend rule: an unsynced deployment must not be blocked from
+            creating job cards. */}
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 md:p-5">
+          <label className="block text-[13px] font-semibold text-[#333] mb-1.5">
+            RO Status
+            {roStatusOptions.length > 0 && (
+              <span className="text-[#FE2B73]"> *</span>
+            )}
+          </label>
+          {roStatusOptions.length > 0 ? (
+            <>
+              <select
+                value={roStatus}
+                onChange={(e) => {
+                  setRoStatus(e.target.value);
+                  setRoStatusError("");
+                }}
+                className={`w-full border rounded-lg px-3 py-2 text-[13px] text-[#333] bg-white focus:outline-none focus:border-[#ff4f31] ${
+                  roStatusError ? "border-[#FE2B73]" : "border-[#e5e7eb]"
+                }`}
+              >
+                <option value="">Select RO status…</option>
+                {roStatusOptions.map((o) => (
+                  <option key={o.id} value={o.code}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+              {roStatusError && (
+                <p className="text-[11px] text-[#FE2B73] mt-1">{roStatusError}</p>
+              )}
+            </>
+          ) : (
+            <div className="w-full border border-dashed border-[#e5e7eb] rounded-lg px-3 py-2 text-[13px] text-[#999] bg-[#fafafa]">
+              No RO Statuses configured.
             </div>
           )}
         </div>

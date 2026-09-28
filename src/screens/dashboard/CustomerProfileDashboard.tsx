@@ -9,6 +9,7 @@ import { AssetsTab } from "../../components/customer-profile/AssetsTab";
 import { FinancialTab } from "../../components/customer-profile/FinancialTab";
 import { IntegrationTab } from "../../components/customer-profile/IntegrationTab";
 import { EditProfileModal } from "../../components/customer-profile/EditProfileModal";
+import { EditVehicleModal } from "../../components/customer-profile/EditVehicleModal";
 import { EditAddressesModal } from "../../components/customer-profile/EditAddressesModal";
 import { AddNotesModal } from "../../components/customer-profile/AddNotesModal";
 import { lookupCustomerBySequence, addCustomerNote } from "../../api/customer.api";
@@ -17,10 +18,10 @@ import { getVehiclesByCustomer, type VehicleListItem } from "../../api/appointme
 
 const tabs = [
   { id: "overview", label: "Overview" },
-  { id: "service", label: "Service & Operations" },
+  // { id: "service", label: "Service & Operations" },
   { id: "assets", label: "Assets & Vehicles" },
-  { id: "financial", label: "Financial" },
-  { id: "integration", label: "Integration" },
+  // { id: "financial", label: "Financial" },
+  // { id: "integration", label: "Integration" },
 ];
 
 function CustomerProfileDashboard() {
@@ -36,6 +37,24 @@ function CustomerProfileDashboard() {
   const [internalNotes, setInternalNotes] = useState<string | null>(null);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [customerVehicles, setCustomerVehicles] = useState<VehicleListItem[]>([]);
+  /**
+   * Vehicle paging. getVehiclesByCustomer defaults to limit=10, and this
+   * screen previously called it with no options — so a customer with 23
+   * vehicles showed 10 with nothing indicating the rest existed. Fleet
+   * customers can have hundreds, so the list is paged rather than fetched
+   * whole; `total` drives the count shown in the Asset Management card.
+   */
+  const [vehiclePage, setVehiclePage] = useState(1);
+  const [vehiclePageSize, setVehiclePageSize] = useState(10);
+  const [vehicleTotal, setVehicleTotal] = useState(0);
+  const [vehicleTotalPages, setVehicleTotalPages] = useState(1);
+  /**
+   * The resolved local customer id, kept separately from `customer` so the
+   * vehicle-paging effect below has a single primitive dependency. Depending
+   * on the `customer` OBJECT would refire the fetch on every unrelated
+   * refetch, because a fresh object is never referentially equal.
+   */
+  const [vehicleCustomerId, setCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!custSequenceId) return;
@@ -53,10 +72,9 @@ function CustomerProfileDashboard() {
           setCustomer(localCustomer);
           setInternalNotes(localCustomer.notes ?? null);
           setNotesForm({ notes: localCustomer.notes ?? "" });
-          // Fetch customer's vehicles
-          getVehiclesByCustomer(localCustomer.id)
-            .then((vRes) => setCustomerVehicles(vRes.data?.data ?? []))
-            .catch(() => {});
+          // Fetch the first page of this customer's vehicles. Paging state is
+          // applied by the effect below, which also handles page changes.
+          setCustomerId(localCustomer.id);
         }
         }
       } catch {
@@ -65,6 +83,32 @@ function CustomerProfileDashboard() {
       setLoading(false);
     })();
   }, [custSequenceId]);
+
+  /**
+   * Load one page of vehicles whenever the customer, page or page size
+   * changes. Separate from the main load effect so paging does not re-run the
+   * Evolve lookup (which is a live IRM call plus a full persist).
+   */
+  useEffect(() => {
+    if (!vehicleCustomerId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const vRes = await getVehiclesByCustomer(vehicleCustomerId, {
+          page: vehiclePage,
+          limit: vehiclePageSize,
+        });
+        if (cancelled) return;
+        setCustomerVehicles(vRes.data?.data ?? []);
+        setVehicleTotal(vRes.data?.pagination?.total ?? 0);
+        setVehicleTotalPages(vRes.data?.pagination?.totalPages ?? 1);
+      } catch {
+        // Non-fatal: the rest of the profile still renders.
+      }
+    })();
+    // A page change that lands after a later one must not overwrite it.
+    return () => { cancelled = true; };
+  }, [vehicleCustomerId, vehiclePage, vehiclePageSize]);
 
   const handleSaveNotes = async () => {
     if (!customer) return;
@@ -84,15 +128,79 @@ function CustomerProfileDashboard() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isEditAddressesOpen, setIsEditAddressesOpen] = useState(false);
   const [isAddNotesOpen, setIsAddNotesOpen] = useState(false);
+  // Vehicle being edited from the Assets tab; null closes the modal.
+  const [editingVehicle, setEditingVehicle] = useState<VehicleListItem | null>(null);
+
+  /**
+   * Refetch the customer after a profile edit, so the header and tabs show
+   * the saved values. Re-runs the same lookup the page loads with; the app
+   * has no query cache, so an explicit refetch is the convention here.
+   */
+  const refetchCustomer = async () => {
+    if (!custSequenceId) return;
+    try {
+      const res = await lookupCustomerBySequence(custSequenceId);
+      if (!res.data) return;
+
+      /**
+       * Refresh irmData TOO, not just localData.
+       *
+       * Every displayed value prefers irmDetail over customer (displayName,
+       * displayEmail, the address blocks, and the Edit modal's own
+       * hydration). Updating only `customer` left the STALE Evolve snapshot
+       * from page load still winning, so a saved edit appeared to do nothing
+       * until a full reload cleared it — even though the write had succeeded.
+       *
+       * The initial load sets both; a refetch that sets one is what caused
+       * the mismatch. Assigned unconditionally so a customer that has since
+       * stopped resolving in Evolve clears the old snapshot instead of
+       * keeping it forever.
+       */
+      setIrmDetail(res.data.irmData?.CustomerDetail ?? null);
+      setIrmAr(res.data.irmData?.AccountsReceivable ?? null);
+
+      const localCustomer = res.data.localData as CustomerFullDetail | undefined;
+      if (localCustomer) {
+        setCustomer(localCustomer);
+        setInternalNotes(localCustomer.notes ?? null);
+      }
+    } catch {
+      // Non-fatal: the save succeeded and was confirmed by a toast. The
+      // screen keeps its previous values until the next load.
+    }
+  };
+
+  /**
+   * Refetch this customer's vehicles after a vehicle edit, so the Assets tab
+   * shows the new values — same explicit-refetch convention.
+   */
+  const refetchVehicles = async () => {
+    if (!customer) return;
+    try {
+      // Keep the CURRENT page and size: editing a vehicle on page 3 must not
+      // silently jump the list back to page 1. Omitting these was what made
+      // the list show only the first 10 of 23 in the first place.
+      const vRes = await getVehiclesByCustomer(customer.id, {
+        page: vehiclePage,
+        limit: vehiclePageSize,
+      });
+      setCustomerVehicles(vRes.data?.data ?? []);
+      setVehicleTotal(vRes.data?.pagination?.total ?? 0);
+      setVehicleTotalPages(vRes.data?.pagination?.totalPages ?? 1);
+    } catch {
+      // Non-fatal, as above.
+    }
+  };
 
   // Form states
-  const [profileForm, setProfileForm] = useState({
-    fullName: "Anderson Automotive Solutions Inc",
-    primaryContact: "Michael Anderson",
-    email: "michaelanderson@andersonauto.com",
-    phone: "+1 (555) 123-4567",
-    alternatePhone: "+1 (555) 123-4568",
-  });
+  // profileForm removed: it held hardcoded demo values ("Anderson Automotive
+  // Solutions Inc" and a fictional US contact) that were shown for EVERY
+  // customer and never replaced with loaded data. EditProfileModal now
+  // hydrates from the real `customer` object instead.
+  //
+  // addressForm below is still demo data, but remains because
+  // EditAddressesModal is deferred, not rewritten — its Edit button is hidden
+  // so these values cannot reach the backend.
 
   const [addressForm, setAddressForm] = useState({
     billingAddress:
@@ -254,12 +362,12 @@ function CustomerProfileDashboard() {
   //   </svg>
   // );
 
-  const tagIcon = (
-    <svg className="size-6" fill="none" viewBox="0 0 16 16">
-      <path d="M2 2H7.5L14 8.5L8.5 14L2 7.5V2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
-      <circle cx="5" cy="5" r="1" fill="currentColor" />
-    </svg>
-  );
+  // const tagIcon = (
+  //   <svg className="size-6" fill="none" viewBox="0 0 16 16">
+  //     <path d="M2 2H7.5L14 8.5L8.5 14L2 7.5V2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+  //     <circle cx="5" cy="5" r="1" fill="currentColor" />
+  //   </svg>
+  // );
 
   const relationshipFields = [
     // {
@@ -277,11 +385,11 @@ function CustomerProfileDashboard() {
     //   value: irmDetail?.LeadSource || "—",
     //   icon: arrowIcon,
     // },
-    {
-      label: "Loyalty Program Status",
-      value: "—",
-      icon: tagIcon,
-    },
+    // {
+    //   label: "Loyalty Program Status",
+    //   value: "—",
+    //   icon: tagIcon,
+    // },
   ];
 
   const marketingConsent = {
@@ -313,22 +421,54 @@ function CustomerProfileDashboard() {
       "—"
     : "—";
 
-  // Resolve display values: IRM takes priority, local is fallback
-  const displayName = irmDetail
-    ? [irmDetail.FirstName, irmDetail.LastName].filter(Boolean).join(" ") ||
-      irmDetail.CompanyName ||
-      "—"
-    : customer
-      ? [customer.firstName, customer.lastName].filter(Boolean).join(" ") ||
-        customer.companyName ||
-        "—"
-      : "-";
+  /**
+   * The customer's own name. IRM takes priority, local is the fallback.
+   *
+   * DRIVEN BY CustomerType, NOT BY WHICH FIELD HAPPENS TO BE POPULATED.
+   * A company record in Evolve can also carry a contact person's FirstName
+   * (e.g. 20EC0001242: CustomerType=C, CompanyName="SHAMFAM LOGISTICS C.C.",
+   * FirstName="Samantha"). Preferring the person name whenever it was present
+   * showed "Samantha" as the customer instead of the company. The person is
+   * still shown, as the Primary Contact — a separate field.
+   *
+   * 'C' is the company discriminator on both sides (Evolve CustomerType and
+   * our customers.customer_type). Anything else is treated as a person, with
+   * the opposite field as a fallback so a mistyped record still renders a
+   * name rather than an em dash.
+   */
+  const isCompanyRecord =
+    (irmDetail?.CustomerType ?? customer?.customerType ?? "") === "C";
+
+  const personName = irmDetail
+    ? [irmDetail.FirstName, irmDetail.LastName].filter(Boolean).join(" ")
+    : [customer?.firstName, customer?.lastName].filter(Boolean).join(" ");
+  const companyName = irmDetail
+    ? irmDetail.CompanyName || irmDetail.TradingAs || ""
+    : customer?.companyName || "";
+
+  const displayName = !irmDetail && !customer
+    ? "-"
+    : isCompanyRecord
+      ? companyName || personName || "—"
+      : personName || companyName || "—";
 
   const displayEmail =
     irmDetail?.PrimaryEmail ??
     irmDetail?.Email ??
     customer?.primaryEmail ??
     "—";
+
+  /**
+   * Fleet number for the header badge. Evolve is authoritative; the local
+   * mirror is the fallback for when the IRM lookup fails.
+   *
+   * Trimmed and falsy-checked because Evolve returns the element as
+   * whitespace rather than omitting it when the customer has no fleet number
+   * (`<FleetNo>\n  </FleetNo>`) — an untrimmed value would render an empty
+   * badge reading "Fleet No:".
+   */
+  const displayFleetNo =
+    (irmDetail?.FleetNo ?? customer?.fleetNo ?? "").trim() || null;
 
   const mobileContact = customer?.contacts?.find(
     (c) => c.contactType === "MOBILE",
@@ -368,14 +508,14 @@ function CustomerProfileDashboard() {
         </button>
       </div>
 
-      <h2 className="text-[13px] sm:text-[14px] md:text-[16px] mb-2 font-semibold text-[#333] truncate">
+      {/* <h2 className="text-[13px] sm:text-[14px] md:text-[16px] mb-2 font-semibold text-[#333] truncate">
         {displayName}
       </h2>
       <div className="flex flex-wrap items-center gap-x-1.5 sm:gap-x-2 md:gap-x-4 text-[10px] sm:text-[11px] md:text-[12px] text-[#999]">
         <p className="truncate">{displayId}</p>
         <span className="hidden sm:inline">•</span>
         <p className="truncate">{overviewAccountNumber !== "—" ? `Account ${overviewAccountNumber}` : "Account —"}</p>
-      </div>
+      </div> */}
       {/* Profile Header */}
       <div className="mb-6">
         <CustomerProfile
@@ -384,6 +524,7 @@ function CustomerProfileDashboard() {
           accountNumber={overviewAccountNumber !== "—" ? `Account ${overviewAccountNumber}` : "Account —"}
           address1={displayEmail}
           phone1={displayPhone}
+          fleetNo={displayFleetNo}
           onEditClick={() => setIsEditProfileOpen(true)}
         />
       </div>
@@ -412,7 +553,6 @@ function CustomerProfileDashboard() {
           addressFields={addressFields}
           relationshipFields={relationshipFields}
           marketingConsent={marketingConsent}
-          onEditAddresses={() => setIsEditAddressesOpen(true)}
           onAddNotes={() => setIsAddNotesOpen(true)}
           internalNotes={internalNotes}
           customerId={overviewCustomerId}
@@ -428,7 +568,22 @@ function CustomerProfileDashboard() {
 
       {activeTab === "service" && <ServiceTab />}
 
-      {activeTab === "assets" && <AssetsTab vehicles={customerVehicles} />}
+      {activeTab === "assets" && (
+        <AssetsTab
+          vehicles={customerVehicles}
+          onEditVehicle={(v) => setEditingVehicle(v)}
+          // Paging is owned by the parent, which does the fetching.
+          page={vehiclePage}
+          pageSize={vehiclePageSize}
+          total={vehicleTotal}
+          totalPages={vehicleTotalPages}
+          onPageChange={setVehiclePage}
+          onPageSizeChange={(l) => {
+            setVehiclePageSize(l);
+            setVehiclePage(1); // a new size invalidates the current offset
+          }}
+        />
+      )}
 
       {activeTab === "financial" && <FinancialTab />}
 
@@ -438,8 +593,8 @@ function CustomerProfileDashboard() {
       <EditProfileModal
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
-        profileForm={profileForm}
-        setProfileForm={setProfileForm}
+        customer={customer}
+        onSaved={refetchCustomer}
       />
 
       <EditAddressesModal
@@ -456,6 +611,13 @@ function CustomerProfileDashboard() {
         setNotesForm={setNotesForm}
         onSave={handleSaveNotes}
         isSaving={isSavingNotes}
+      />
+
+      <EditVehicleModal
+        isOpen={editingVehicle !== null}
+        onClose={() => setEditingVehicle(null)}
+        vehicle={editingVehicle}
+        onSaved={refetchVehicles}
       />
     </div>
   );

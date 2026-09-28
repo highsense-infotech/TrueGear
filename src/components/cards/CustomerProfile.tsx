@@ -7,6 +7,11 @@ interface ProfileHeaderProps {
   accountNumber: string;
   address1: string;
   phone1: string;
+  /**
+   * Evolve's <FleetNo>. Optional and falsy-checked at the render site: a
+   * customer without one shows no badge at all.
+   */
+  fleetNo?: string | null;
   onEditClick?: () => void;
 }
 
@@ -16,6 +21,7 @@ export function CustomerProfile({
   accountNumber,
   address1,
   phone1,
+  fleetNo,
   onEditClick,
 }: ProfileHeaderProps) {
   return (
@@ -48,14 +54,24 @@ export function CustomerProfile({
                 <p className="truncate">{phone1}</p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 mt-1.5 sm:mt-2">
-              <span className="bg-[#e8f5e9] px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-[4px] text-[10px] sm:text-[11px] md:text-[12px] font-medium text-[#2e7d32] whitespace-nowrap">
-                Fleet/Commercial
-              </span>
-              <span className="bg-[#fff3e0] px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-[4px] text-[10px] sm:text-[11px] md:text-[12px] font-medium text-[#f57c00] whitespace-nowrap">
-                Gold Member
-              </span>
-            </div>
+            {/* Fleet number from Evolve's <FleetNo>. Rendered ONLY when the
+                customer actually has one — the row disappears entirely
+                otherwise, rather than showing an empty badge.
+
+                This replaces two hardcoded badges ("Fleet/Commercial" and
+                "Gold Member") that were shown for EVERY customer. Neither had
+                any source: Evolve's CustomerDetail carries no loyalty,
+                membership or segment field, so "Gold Member" in particular
+                asserted a tier the system cannot determine — next to a real
+                credit limit, that invites staff to extend benefits that do
+                not exist. */}
+            {fleetNo && (
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 mt-1.5 sm:mt-2">
+                <span className="bg-[#e8f5e9] px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-[4px] text-[10px] sm:text-[11px] md:text-[12px] font-medium text-[#2e7d32] whitespace-nowrap">
+                  Fleet No: {fleetNo}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -186,11 +186,56 @@ export interface CustomerFullDetail {
   companyName: string | null;
   primaryEmail: string | null;
   activeCustomer: boolean;
+  /**
+   * Type-specific identifiers: regNo for a company, idNumber for an individual.
+   * getCustomerDetails uses a bare .select(), so both are already returned —
+   * these are declared so the edit modal can hydrate from real values rather
+   * than render blank and wipe them on save.
+   */
+  regNo: string | null;
+  idNumber: string | null;
+  /** Evolve's <FleetNo>, shown as a badge on the profile header. */
+  fleetNo: string | null;
   notes: string | null;
   contacts: CustomerContact[];
   addresses: CustomerAddress[];
   profile: Record<string, unknown> | null;
 }
+
+/**
+ * Editable customer fields. Deliberately a SUBSET of CustomerFullDetail:
+ * `id`, `crmReferenceNo` and `custSequenceId` are omitted because the backend
+ * update schema is strict() and rejects them by name — the latter two are
+ * Evolve identity keys and must never change from a UI edit.
+ *
+ * `addresses` and `contacts` are updated transactionally by the same endpoint,
+ * so a future address editor reuses this rather than needing its own.
+ */
+export interface UpdateCustomerPayload {
+  customerType?: string;
+  title?: string | null;
+  initial?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  companyName?: string | null;
+  primaryEmail?: string | null;
+  secondaryEmail?: string | null;
+  idNumber?: string | null;
+  regNo?: string | null;
+  taxNo?: string | null;
+  notes?: string | null;
+  activeCustomer?: boolean;
+  addresses?: CustomerAddressPayload[];
+  contacts?: CustomerContactPayload[];
+}
+
+export const updateCustomer = async (
+  customerId: string,
+  payload: UpdateCustomerPayload
+): Promise<ApiResponse<CustomerFullDetail>> => {
+  const { data } = await api.put(`/customers/${customerId}`, payload);
+  return data;
+};
 
 export const getCustomerDetails = async (
   customerId: string

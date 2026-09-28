@@ -230,6 +230,9 @@ export interface SAJobCard {
   jobType: string | null;
   // Evolve RO Franchise / Service Dept selection (AI-3) — chosen labeled pair id.
   franchiseServiceDeptId: string | null;
+  // Evolve RO <ROStatus> chosen at creation ("Wait Parts"). Returned so the
+  // edit screen can prefill the dropdown instead of reopening it blank.
+  roStatus: string | null;
   // Set when an estimate-affecting edit invalidated the parts confirmation while
   // status was preserved — blocks sharing until parts are re-confirmed.
   partsReconfirmationRequired?: boolean;
@@ -305,6 +308,11 @@ export interface CreateJobCardPayload {
   // Evolve RO Franchise / Service Dept (AI-3) — selected labeled pair id.
   // Optional — omitted → NULL → '1'/'1' default at RO push.
   franchiseServiceDeptId?: string | null;
+  // Evolve RO <ROStatus> — the ROStatus TEXT from the ro-statuses lookup
+  // ("Wait Parts"), which is what Evolve expects back. Optional in the type so
+  // an unsynced deployment still compiles; the backend requires it once the
+  // lookup is populated. Omitted → NULL → the proven WIP/W default at RO push.
+  roStatus?: string | null;
 }
 
 export const createJobCard = async (
@@ -380,6 +388,8 @@ export interface UpdateJobCardPayload {
   jobType?: string | null;
   // Evolve RO Franchise / Service Dept (AI-3). Optional; omitted → preserved.
   franchiseServiceDeptId?: string | null;
+  // Evolve RO <ROStatus>. Optional; omitted → existing value preserved.
+  roStatus?: string | null;
 }
 
 export const updateJobCard = async (

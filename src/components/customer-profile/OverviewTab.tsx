@@ -3,7 +3,7 @@ import {
   Pen,
   Mail,
   Globe,
-  History,
+  // History,
   FileText,
 } from "lucide-react";
 import Button from "../common/Button";
@@ -30,7 +30,8 @@ interface OverviewTabProps {
   addressFields: AddressField[];
   relationshipFields: RelationshipField[];
   marketingConsent: MarketingConsent;
-  onEditAddresses: () => void;
+  /** Optional: omitted while address editing is deferred, which hides the button. */
+  onEditAddresses?: () => void;
   onAddNotes: () => void;
   internalNotes?: string | null;
   // Identity fields
@@ -44,12 +45,30 @@ interface OverviewTabProps {
   preferredLanguage?: string;
 }
 
-const dash = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
+/**
+ * Render a value, or an em dash when it is empty.
+ *
+ * COERCES RATHER THAN ASSUMING A STRING. Values reaching here come from the
+ * Evolve IRM response, and the AccountsReceivable block is passed through with
+ * its RAW parsed types (unlike CustomerDetail, which is String()-coerced by
+ * flattenToStrings). fast-xml-parser turns an all-digit tag into a NUMBER, so
+ * an account number like <ArAccountNumber>6600063</ArAccountNumber> arrived as
+ * 6600063 and `v.trim()` threw "v.trim is not a function" — crashing the whole
+ * profile screen into the error boundary.
+ *
+ * Customers whose account number contains letters (201KLH01, 201JCT01) parsed
+ * as strings and were unaffected, which is why this only hit some profiles.
+ */
+const dash = (v: unknown): string => {
+  if (v === null || v === undefined) return "—";
+  const s = String(v).trim();
+  return s ? s : "—";
+};
 
 export function OverviewTab({
   addressFields,
   relationshipFields,
-  marketingConsent,
+  // marketingConsent,
   onEditAddresses,
   onAddNotes,
   internalNotes,
@@ -133,15 +152,25 @@ export function OverviewTab({
             <h3 className="text-[14px] md:text-[16px] font-semibold text-[#333]">
               Addresses & Location
             </h3>
-            <Button
-              variant="outline"
-              onClick={onEditAddresses}
-              className="text-xs md:text-sm self-start sm:self-auto"
-            >
-              <Pen className="w-4 h-4 md:w-6 md:h-6" />
-              <span className="hidden sm:inline">Edit Addresses</span>
-              <span className="sm:hidden">Edit</span>
-            </Button>
+            {/* Hidden while address editing is deferred. The modal behind
+                this button uses four free-text strings (billing / shipping /
+                service / geo) while the backend stores structured
+                CustomerAddress[] rows — there is no defined mapping between
+                the two, so wiring it would either save nothing or save the
+                wrong thing. Showing a button that cannot save is worse than
+                showing none. Restore by passing onEditAddresses again once
+                the mapping is decided. */}
+            {onEditAddresses && (
+              <Button
+                variant="outline"
+                onClick={onEditAddresses}
+                className="text-xs md:text-sm self-start sm:self-auto"
+              >
+                <Pen className="w-4 h-4 md:w-6 md:h-6" />
+                <span className="hidden sm:inline">Edit Addresses</span>
+                <span className="sm:hidden">Edit</span>
+              </Button>
+            )}
           </div>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
@@ -254,7 +283,7 @@ export function OverviewTab({
                 {dash(preferredLanguage)}
               </p>
             </div>
-            <div>
+            {/* <div>
               <span className="text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#999] flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                 <History
                   className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0"
@@ -265,8 +294,8 @@ export function OverviewTab({
               <p className="text-[11px] sm:text-[12px] md:text-[14px] bg-[#F6F6F6] border border-[#E5E7EB] rounded-[5px] px-2.5 sm:px-3 md:px-5 py-2 sm:py-2.5 text-[#333] font-medium">
                 9 AM - 5 PM (Business Hours)
               </p>
-            </div>
-            <div>
+            </div> */}
+            {/* <div>
               <span className="text-[12px] sm:text-[14px] md:text-[16px] font-medium text-[#999] flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                 <History
                   className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-6 md:h-6 shrink-0"
@@ -282,10 +311,10 @@ export function OverviewTab({
                   v2.1
                 </p>
               </div>
-            </div>
+            </div> */}
           </div>
           {/* Second Row - Marketing Consent */}
-          <div>
+          {/* <div>
             <p className="text-[10px] sm:text-[11px] md:text-[12px] text-[#999] mb-2 sm:mb-3">
               Marketing Consent
             </p>
@@ -409,7 +438,7 @@ export function OverviewTab({
                 </span>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </>

@@ -35,6 +35,17 @@ const NAV_ITEMS: NavItem[] = [
   // and reachable directly (Route: ROUTES.VEHICLE_OUT_DASHBOARD).
   // { route: ROUTES.VEHICLE_OUT_DASHBOARD, icon: CarFront, label: "Vehicle Out", resource: MODULES.VEHICLE_OUT, action: ACTIONS.VIEW },
   { route: ROUTES.VEHICLE_360_DASHBOARD, icon: Globe, label: "Vehicle 360", resource: MODULES.VEHICLE_360, action: ACTIONS.VIEW },
+  // Customer Profile — HIDDEN from the sidebar deliberately.
+  //
+  // The screen loads entirely from ?custSequenceId=, so clicking a plain nav
+  // link opened it with no customer: an empty shell showing "—" for every
+  // field and a placeholder id (CUST-2024-1847), which reads as a broken page.
+  //
+  // It is reached instead by selecting a customer (search / appointment /
+  // Vehicle 360), which supplies the query parameter. The ROUTE still exists
+  // and works — only the nav entry is removed. Restore this line if the screen
+  // ever gains a customer picker of its own.
+  // { route: ROUTES.CUSTOMER_PROFILE_DASHBOARD, icon: User, label: "Customer Profile", resource: MODULES.CUSTOMER_PROFILE, action: ACTIONS.VIEW },
   { route: ROUTES.MODEL_SERVICE_TYPE, icon: Wrench, label: "Model Service Types", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
   { route: ROUTES.LABOUR_MASTER, icon: Wrench, label: "Labour Master", resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW },
   { route: ROUTES.TECHNICIAN_DASHBOARD, icon: Wrench, label: "Technician", resource: MODULES.TECHNICIAN, action: ACTIONS.VIEW },

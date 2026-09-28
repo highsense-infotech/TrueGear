@@ -3,19 +3,59 @@ import {
   CarIcon,
   CalendarDays,
   Home,
+  Pencil,
   SquareArrowOutUpRight,
 } from "lucide-react";
 import Button from "../common/Button";
 import { StatCard } from "../cards/StatCard";
+import { Pagination } from "../common/Pagination";
 import type { VehicleListItem } from "../../api/appointment.api";
 
 interface AssetsTabProps {
   vehicles: VehicleListItem[];
   lastService?: string | null;
   nextService?: string | null;
+  /**
+   * Opens the vehicle editor. Optional so the Edit action only appears where
+   * the parent actually wires it — the tab stays usable read-only elsewhere.
+   */
+  onEditVehicle?: (vehicle: VehicleListItem) => void;
+  /**
+   * Paging, owned by the parent because it does the fetching. All optional so
+   * callers that pass a complete list (no paging) render exactly as before —
+   * the controls are hidden unless there is more than one page.
+   *
+   * `total` is the count across ALL pages, which is what the Total Vehicles
+   * card must show: `vehicles.length` is only the current page, so a customer
+   * with 23 vehicles read "10".
+   */
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (limit: number) => void;
 }
 
-export function AssetsTab({ vehicles, lastService, nextService }: AssetsTabProps) {
+export function AssetsTab({
+  vehicles,
+  lastService,
+  nextService,
+  onEditVehicle,
+  page,
+  pageSize,
+  total,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: AssetsTabProps) {
+  // Fall back to the list length when the parent does not page.
+  const vehicleCount = total ?? vehicles.length;
+  const showPager =
+    page !== undefined &&
+    pageSize !== undefined &&
+    onPageChange !== undefined &&
+    (totalPages ?? 1) > 1;
   return (
     <div className="bg-white rounded-[10px] border border-[#e5e7eb]">
       <div className="p-3 sm:p-4 md:p-5 lg:p-6">
@@ -25,7 +65,7 @@ export function AssetsTab({ vehicles, lastService, nextService }: AssetsTabProps
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-7.5">
           <StatCard
             title="Total Vehicles"
-            value={vehicles.length > 0 ? String(vehicles.length) : "—"}
+            value={vehicleCount > 0 ? String(vehicleCount) : "—"}
             icon={
               <Truck
                 className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-[#BFBFBF]"
@@ -92,6 +132,18 @@ export function AssetsTab({ vehicles, lastService, nextService }: AssetsTabProps
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {/* Rendered only when a handler is supplied, so a parent that
+                      does not support editing is unchanged. */}
+                  {onEditVehicle && (
+                    <Button
+                      variant="outline"
+                      onClick={() => onEditVehicle(vehicle)}
+                      className="text-[11px] sm:text-xs md:text-sm h-auto py-1 sm:py-1.5 px-2.5 sm:px-3 border-0!"
+                    >
+                      <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      Edit
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     className="text-[11px] sm:text-xs md:text-sm h-auto py-1 sm:py-1.5 px-2.5 sm:px-3 border-0!"
@@ -102,6 +154,20 @@ export function AssetsTab({ vehicles, lastService, nextService }: AssetsTabProps
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Paging. Hidden on a single page so short lists look unchanged. */}
+        {showPager && (
+          <div className="mt-4 border border-[#e5e7eb] rounded-lg px-3 sm:px-5 bg-[#fafafa]">
+            <Pagination
+              currentPage={page!}
+              totalPages={totalPages ?? 1}
+              totalItems={vehicleCount}
+              itemsPerPage={pageSize!}
+              onPageChange={onPageChange!}
+              onItemsPerPageChange={onPageSizeChange}
+            />
           </div>
         )}
       </div>

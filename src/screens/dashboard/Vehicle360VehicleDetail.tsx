@@ -31,10 +31,17 @@ function maskContact(contact: string | null): string {
   return "●".repeat(digits.length - 4) + digits.slice(-4);
 }
 
+/**
+ * Used only by the "Warranty & Insurance" section, which is currently
+ * commented out further down this file. Kept rather than deleted so that block
+ * can be restored without rewriting the helper — see the `void` below, which
+ * satisfies noUnusedLocals without changing behaviour.
+ */
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-CA"); // YYYY-MM-DD
 }
+void formatDate; // referenced so noUnusedLocals passes; see comment above
 
 // ── sub-components ────────────────────────────────────────────────────────────
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -199,9 +206,33 @@ const Vehicle360VehicleDetail: React.FC = () => {
             <InfoRow label="VIN"           value={vehicle.vin} />
             <InfoRow label="Engine No."    value={vehicle.engineNumber} />
             <InfoRow label="Make / Model"  value={`${vehicle.brand} ${vehicle.model}`} />
-            <InfoRow label="Variant"       value={vehicle.transmissionType} />
-            <InfoRow label="Fuel"          value={vehicle.fuelType ? vehicle.fuelType.charAt(0).toUpperCase() + vehicle.fuelType.slice(1) : null} />
-            <InfoRow label="Emission"      value={null} />
+            {/* Variant shows Evolve's ModelDescription — the readable build
+                name ("JH6 28.500FT A/T T/T C/C") rather than the numeric
+                ModelCode (18667525), which means nothing to staff reading the
+                screen. Falls back to a locally-entered modelVariant, then to
+                the code, so the row still says something when the description
+                is missing.
+
+                It was previously wired to transmissionType, which Evolve never
+                populates — so this row read "—" for every vehicle. */}
+            <InfoRow
+              label="Variant"
+              value={vehicle.modelDescription || vehicle.modelVariant || vehicle.modelCode}
+            />
+            {/* FUEL and EMISSION rows removed — neither has a source, so both
+                showed an em dash on every vehicle.
+
+                IRM_Customer_VehicleLookup returns only RegistrationNo,
+                VehVinNumber, EngineNumber, ModelCode, Make, Series,
+                ModelDescription, RegistrationDate/Year, SellingDate/Dealer and
+                Colour. There is no fuel or emission element, so
+                mapEvolveVehicleFields cannot populate vehicles.fuel_type, and
+                no emission column exists at all.
+
+                Restoring them needs a real source first: a fuel input on the
+                vehicle form, or a ModelCode → fuel/emission lookup table.
+                Showing a permanently blank row implies data is on its way when
+                nothing will ever fill it. */}
             <InfoRow label="Odometer"      value={vehicle.odometerLast ? `${vehicle.odometerLast.toLocaleString()} km` : null} />
           </Section>
 
@@ -210,7 +241,13 @@ const Vehicle360VehicleDetail: React.FC = () => {
             <Section title="Customer">
               <InfoRow label="Name"      value={customer.fullName} />
               {/* <InfoRow label="Code"      value={customer.crmReferenceNo} /> */}
-              <InfoRow label="Fleet"     value={customer.companyName} />
+              {/* Labelled "Fleet" but it is the COMPANY NAME — nothing to do
+                  with fleets. The real fleet field is Evolve's <FleetNo>
+                  (customers.fleet_no), shown as a badge on the customer
+                  profile header. The old label collided with the "Ownership"
+                  row below, which renders the literal word "Fleet" for a
+                  company — two rows saying "Fleet" for unrelated reasons. */}
+              <InfoRow label="Company"   value={customer.companyName} />
               <InfoRow label="Ownership" value={customer.customerType === "C" ? "Fleet" : "Individual"} />
               <InfoRow label="Contact"   value={maskContact(customer.contactNumber)} />
               <div className="pt-3 pb-1">
@@ -226,7 +263,7 @@ const Vehicle360VehicleDetail: React.FC = () => {
           )}
 
           {/* Warranty & Insurance */}
-          <Section title="Warranty & Insurance">
+          {/* <Section title="Warranty & Insurance">
             <InfoRow
               label="Warranty"
               value={
@@ -249,7 +286,7 @@ const Vehicle360VehicleDetail: React.FC = () => {
             <InfoRow label="AMC"        value={vehicle.certifiedPreOwned ? "Premium AMC - 3 Yea" : null} />
             <InfoRow label="Insurance"  value={null} />
             <InfoRow label="Valid Till" value={formatDate(vehicle.oemWarrantyEnd)} />
-          </Section>
+          </Section> */}
         </>
       )}
 
