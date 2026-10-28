@@ -24,6 +24,12 @@ interface Props {
       shown in the fallback (native input) path. Existing callers omit this and
       behave exactly as before. */
   overlay?: ReactNode;
+  /** Hide the Capture button for auto-scan flows (e.g. the plate scanner, which
+      searches as soon as the overlay confirms a plate). The native-camera
+      fallback is unaffected. */
+  hideCaptureButton?: boolean;
+  /** Hide the footer Cancel button (the modal header's close button remains). */
+  hideCancelButton?: boolean;
 }
 
 /**
@@ -45,7 +51,15 @@ interface Props {
 // silently-queued prompt doesn't leave the modal spinning forever.
 const CAMERA_START_TIMEOUT_MS = 20000;
 
-export default function LiveCameraCapture({ isOpen, title, onClose, onCapture, overlay }: Props) {
+export default function LiveCameraCapture({
+  isOpen,
+  title,
+  onClose,
+  onCapture,
+  overlay,
+  hideCaptureButton = false,
+  hideCancelButton = false,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fallbackInputRef = useRef<HTMLInputElement>(null);
@@ -291,39 +305,46 @@ export default function LiveCameraCapture({ isOpen, title, onClose, onCapture, o
         )}
 
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            onClick={onClose}
-            disabled={capturing}
-          >
-            <X className="w-4 h-4 mr-1 inline" /> Cancel
-          </Button>
+          {!hideCancelButton && (
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={onClose}
+              disabled={capturing}
+            >
+              <X className="w-4 h-4 mr-1 inline" /> Cancel
+            </Button>
+          )}
           {!fallbackMode && (
             <>
+              {/* When it's the only footer button, give it a label and full width. */}
               <Button
                 variant="secondary"
                 onClick={toggleFacing}
                 disabled={capturing || starting || !!error}
                 title="Switch camera"
+                className={hideCancelButton && hideCaptureButton ? "flex-1" : undefined}
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4 inline" />
+                {hideCancelButton && hideCaptureButton && <span className="ml-1">Switch camera</span>}
               </Button>
-              <Button
-                onClick={handleCapture}
-                className="flex-1"
-                disabled={capturing || starting || !!error}
-              >
-                {capturing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1 inline animate-spin" /> Capturing...
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-4 h-4 mr-1 inline" /> Capture
-                  </>
-                )}
-              </Button>
+              {!hideCaptureButton && (
+                <Button
+                  onClick={handleCapture}
+                  className="flex-1"
+                  disabled={capturing || starting || !!error}
+                >
+                  {capturing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1 inline animate-spin" /> Capturing...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4 mr-1 inline" /> Capture
+                    </>
+                  )}
+                </Button>
+              )}
             </>
           )}
         </div>

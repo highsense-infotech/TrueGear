@@ -152,21 +152,31 @@ type FrameStatus = "idle" | "checking" | "plate";
 // something well-lit and detailed in the box, so empty/dark frames cost nothing.
 const PROBE_INTERVAL_MS = 2500;
 
+// Pause after a confirmed plate before auto-searching, so the officer sees the
+// green frame + registration that was read.
+const AUTO_SEARCH_DELAY_MS = 800;
+
 // Real-time guide frame. A cheap client heuristic (brightness + edge density)
 // only decides WHETHER to probe; the GREEN state is driven by the actual
 // server-side detector so it turns green only for a genuine, readable number
-// plate — not for a face or any detailed object. The full validation still runs
-// again on Capture.
-function PlateGuideFrame() {
+// plate — not for a face or any detailed object. Like a QR scanner, a confirmed
+// plate is handed straight to `onPlateFound` (no Capture tap needed); Capture
+// stays available as a manual fallback.
+function PlateGuideFrame({ onPlateFound }: { onPlateFound: (registration: string) => void }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<FrameStatus>("idle");
+  const [foundReg, setFoundReg] = useState<string | null>(null);
   const probingRef = useRef(false);
   const lastProbeRef = useRef(0);
+  // Latest callback without re-running the probe loop effect.
+  const onFoundRef = useRef(onPlateFound);
+  onFoundRef.current = onPlateFound;
 
   useEffect(() => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     let timer: ReturnType<typeof setTimeout>;
+    let foundTimer: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
 
     // The overlay is wrapped by LiveCameraCapture in its own <div>, so the
@@ -230,7 +240,18 @@ function PlateGuideFrame() {
         const res = await scanPlate(file);
         if (cancelled) return;
         const d = res.data;
-        setStatus(d && d.isPlate && d.reason === null && d.registration ? "plate" : "idle");
+        if (d && d.isPlate && d.reason === null && d.registration) {
+          // Lock the loop (cancelled) so no further probes fire, show the
+          // registration briefly so the officer sees what was read, then search.
+          const registration = d.registration;
+          cancelled = true;
+          clearTimeout(timer);
+          setStatus("plate");
+          setFoundReg(registration);
+          foundTimer = setTimeout(() => onFoundRef.current(registration), AUTO_SEARCH_DELAY_MS);
+          return;
+        }
+        setStatus("idle");
       } catch {
         if (!cancelled) setStatus("idle");
       } finally {
@@ -240,6 +261,7 @@ function PlateGuideFrame() {
     };
 
     const tick = () => {
+      if (cancelled) return;
       const video = findVideo();
       if (video && video.videoWidth > 0) {
         if (candidatePresent(video)) {
@@ -260,6 +282,7 @@ function PlateGuideFrame() {
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      if (foundTimer) clearTimeout(foundTimer); // modal closed before the search fired
     };
   }, []);
 
@@ -269,7 +292,9 @@ function PlateGuideFrame() {
     status === "plate" ? "bg-[#16a34a]/85" : status === "checking" ? "bg-[#d97706]/85" : "bg-black/60";
   const message =
     status === "plate"
-      ? "Number plate detected — tap Capture"
+      ? foundReg
+        ? `${foundReg} detected — searching…`
+        : "Number plate detected"
       : status === "checking"
         ? "Checking…"
         : "Position the vehicle number plate inside the frame";
@@ -353,7 +378,17 @@ export default function PlateCaptureModal({ isOpen, onClose, onDetected }: Props
         title="Capture Number Plate"
         onClose={resetAndClose}
         onCapture={(file, _meta, rawFile) => handleCapture(rawFile ?? file)}
-        overlay={<PlateGuideFrame />}
+        hideCaptureButton
+        hideCancelButton
+        overlay={
+          <PlateGuideFrame
+            onPlateFound={(reg) => {
+              setStage("camera");
+              setRegistration("");
+              onDetected(reg); // parent closes the modal and runs the search
+            }}
+          />
+        }
       />
     );
   }

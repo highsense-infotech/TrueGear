@@ -135,6 +135,13 @@ const AddVehicle: React.FC = () => {
   const odoCaptureIdRef = useRef(0);
   const odoUserTouchedRef = useRef(false);
 
+  // Licence protections. `licenceAutoFillRef` remembers the exact values the
+  // last scan wrote, so a re-scan (or removing the photo) may replace/clear
+  // them — but anything the user typed or edited still always wins.
+  // `licenceCaptureIdRef` discards a superseded scan response.
+  const licenceAutoFillRef = useRef<{ name: string | null; number: string | null }>({ name: null, number: null });
+  const licenceCaptureIdRef = useRef(0);
+
   // Driver-licence photo captured at Gate Entry. Persisted as the
   // "Driver Licence" vehicle image, matching the reference implementation.
   const [licenceImg, setLicenceImg] = useState<{ imageId: string | null; url: string | null; uploading: boolean }>(
@@ -497,6 +504,13 @@ const AddVehicle: React.FC = () => {
     }
     setLicenceImg({ imageId: null, url: null, uploading: false });
     setLicenceScanStatus("idle");
+
+    // Clear the values this photo auto-filled, unless the user has since edited them.
+    licenceCaptureIdRef.current++; // drop any scan still in flight
+    const { name, number } = licenceAutoFillRef.current;
+    if (name !== null) setDriverName((prev) => (prev === name ? "" : prev));
+    if (number !== null) setDriverLicenceNo((prev) => (prev === number ? "" : prev));
+    licenceAutoFillRef.current = { name: null, number: null };
   };
 
   /**
@@ -542,25 +556,44 @@ const AddVehicle: React.FC = () => {
   const handleLicenceCapture = async (file: File, captured: CapturedPhoto, rawFile?: File) => {
     setLicenceCameraOpen(false);
     setLicenceScanStatus("scanning");
+    const captureId = ++licenceCaptureIdRef.current;
 
     // OCR on the RAW frame, in parallel with the upload below.
     void (async () => {
       try {
         const res = await scanLicence(rawFile ?? file);
+        if (captureId !== licenceCaptureIdRef.current) return; // superseded / removed
         const d = res.data;
         if (!d || !d.isLicence || d.reason !== null) {
           setLicenceScanStatus("error");
           return;
         }
-        // Functional updates guarantee we read the latest value and never
-        // clobber an existing entry.
-        if (d.name) setDriverName((prev) => (prev.trim() ? prev : d.name!));
+        // Fill when the field is empty OR still holds the previous scan's value;
+        // never clobber something the user typed or a restored check-in value.
+        // Snapshot (not a reference): the updaters below mutate the ref and may
+        // run twice under StrictMode.
+        const prevAuto = { ...licenceAutoFillRef.current };
+        const canFill = (prev: string, auto: string | null) => !prev.trim() || prev === auto;
+        if (d.name) {
+          const name = d.name;
+          setDriverName((prev) => {
+            if (!canFill(prev, prevAuto.name)) return prev;
+            licenceAutoFillRef.current.name = name;
+            return name;
+          });
+        }
         if (d.licenceNumber) {
-          setDriverLicenceNo((prev) => (prev.trim() ? prev : d.licenceNumber!));
+          const number = d.licenceNumber;
+          setDriverLicenceNo((prev) => {
+            if (!canFill(prev, prevAuto.number)) return prev;
+            licenceAutoFillRef.current.number = number;
+            return number;
+          });
         }
         const complete = !!d.name && !!d.licenceNumber;
         setLicenceScanStatus(complete ? "success" : "partial");
       } catch {
+        if (captureId !== licenceCaptureIdRef.current) return;
         setLicenceScanStatus("error");
       }
     })();
