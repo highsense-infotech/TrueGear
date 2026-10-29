@@ -36,7 +36,7 @@ export function RatingButtons({
         <button
           key={option}
           onClick={() => handleSelect(option)}
-          className={`px-8 h-12.5 rounded-[10px] text-[14px] font-medium transition-all ${
+          className={`px-8 h-12.5 rounded-[10px] text-[14px] font-medium transition-all cursor-pointer ${
             currentValue === option
               ? "bg-linear-to-r from-[#7CE000] to-[#03A800] text-white shadow-[2px_4px_8px_0px_rgba(58,164,0,0.3)]"
               : "bg-white border border-[#e5e7eb] text-[#333] hover:bg-gray-50"

@@ -1,6 +1,8 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
+import toast from "react-hot-toast";
 import { Truck, Armchair, Gauge, Settings, Camera, Trash2, Upload, Check } from "lucide-react";
 import { cn } from "../utils/cn";
+import LiveCameraCapture from "../common/LiveCameraCapture";
 
 interface UploadCategoryCardsProps {
   uploadedImages?: Record<string, string | null>;
@@ -12,8 +14,8 @@ export const UploadCategoryCards = ({
   onImagesChange 
 }: UploadCategoryCardsProps) => {
   const [activeTab, setActiveTab] = useState("Exterior");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
+  const [cameraOpen, setCameraOpen] = useState(false);
+
   // State to track uploaded images for each category
   const [internalUploadedImages, setInternalUploadedImages] = useState<Record<string, string | null>>({
     Exterior: null,
@@ -43,26 +45,25 @@ export const UploadCategoryCards = ({
   ];
 
   const handleUploadClick = () => {
-    fileInputRef.current?.click();
+    setCameraOpen(true);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newImages: Record<string, string | null> = {
-          ...currentUploadedImages,
-          [activeTab]: reader.result as string,
-        };
-        setUploadedImages(newImages);
+  // Live-camera capture only (gallery blocked). Receives a JPEG File from
+  // LiveCameraCapture and stores it as a data URL, same as before.
+  const handleCameraCapture = (file: File) => {
+    setCameraOpen(false);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const newImages: Record<string, string | null> = {
+        ...currentUploadedImages,
+        [activeTab]: reader.result as string,
       };
-      reader.readAsDataURL(file);
-    }
-    // Reset input value to allow uploading same file again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+      setUploadedImages(newImages);
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read the captured image.");
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRemoveImage = () => {
@@ -121,13 +122,11 @@ export const UploadCategoryCards = ({
 
   return (
     <>
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept="image/*"
-        className="hidden"
+      <LiveCameraCapture
+        isOpen={cameraOpen}
+        title={`Capture ${activeTab} Photo`}
+        onClose={() => setCameraOpen(false)}
+        onCapture={handleCameraCapture}
       />
 
       {/* categories section */}

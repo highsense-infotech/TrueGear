@@ -1,11 +1,18 @@
 import { cn } from '../utils/cn';
 
-export const FindingsSection = () => {
+interface FindingsSectionProps {
+  passCount?: number;
+  failCount?: number;
+  naCount?: number;
+  pendingCount?: number;
+}
+
+export const FindingsSection = ({ passCount = 0, failCount = 0, naCount = 0, pendingCount = 0 }: FindingsSectionProps) => {
   const stats = [
-    { label: 'Pass', count: 25, color: 'text-green-500', gradient: 'from-[#7ce000] to-[#03a800]' },
-    { label: 'Failed', count: '02', color: 'text-red-500', gradient: 'from-red-500 to-red-600' },
-    { label: 'N/A', count: '01', color: 'text-gray-400', gradient: null },
-    { label: 'Pending', count: '01', color: 'text-orange-400', gradient: null },
+    { label: 'Pass', count: String(passCount).padStart(2, '0'), color: 'text-green-500', gradient: 'from-[#7ce000] to-[#03a800]' },
+    { label: 'Failed', count: String(failCount).padStart(2, '0'), color: 'text-red-500', gradient: 'from-red-500 to-red-600' },
+    { label: 'N/A', count: String(naCount).padStart(2, '0'), color: 'text-gray-400', gradient: null },
+    { label: 'Pending', count: String(pendingCount).padStart(2, '0'), color: 'text-orange-400', gradient: null },
   ];
 
   return (

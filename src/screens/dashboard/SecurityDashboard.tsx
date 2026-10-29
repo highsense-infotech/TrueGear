@@ -1,25 +1,74 @@
-import React, { useState } from "react";
-import { useNavigate, Outlet, useLocation } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import { StatCard } from "../../components/cards/StatCard.tsx";
 import { VehicleLookup } from "../../components/cards/VehicleLookup.tsx";
+import { TodaysAppointments } from "../../components/cards/TodaysAppointments.tsx";
 import { Truck } from "lucide-react";
-import { VehicleTable } from "../../components/cards/VehicleTable.tsx.tsx";
+import { VehicleTable } from "../../components/cards/VehicleTable.tsx";
+import { ShopScopeBadge } from "../../components/common/ShopScopeBadge.tsx";
 import { ROUTES } from "../../constants/routes.ts";
+import PlateCaptureModal from "../../components/common/PlateCaptureModal.tsx";
+import type { VehicleStats } from "../../api/vehicle.api";
 
 const SecurityDashboard: React.FC = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [addVehicleSignal, setAddVehicleSignal] = useState(0);
+  const [lookupSignal, setLookupSignal] = useState(0);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [plateModalOpen, setPlateModalOpen] = useState(false);
+  const [stats, setStats] = useState<VehicleStats>({
+    vehiclesEnteredToday: 0,
+    vehiclesEnteredYesterday: 0,
+    currentlyInside: 0,
+    currentlyInsideYesterday: 0,
+    pendingInspection: 0,
+    pendingExitYesterday: 0,
+    inProgress: 0,
+    completed: 0,
+    avgTimeInside: "0h 0m",
+    avgTimeInsideYesterday: "0h 0m",
+  });
+
+  const formatChange = (today: number, yesterday: number): string => {
+    const diff = today - yesterday;
+    if (diff === 0) return "";
+    return diff > 0 ? `+${diff}` : `${diff}`;
+  };
+
+  const formatTimeChange = (today: string, yesterday: string): string => {
+    const parseMinutes = (t: string) => {
+      const hMatch = t.match(/(\d+)h/);
+      const mMatch = t.match(/(\d+)m/);
+      return (hMatch ? parseInt(hMatch[1]) * 60 : 0) + (mMatch ? parseInt(mMatch[1]) : 0);
+    };
+    const diff = parseMinutes(today) - parseMinutes(yesterday);
+    if (diff === 0) return "";
+    const sign = diff > 0 ? "+" : "-";
+    const absDiff = Math.abs(diff);
+    const h = Math.floor(absDiff / 60);
+    const m = absDiff % 60;
+    return h > 0 ? `${sign}${h}h ${m}m` : `${sign}${m}m`;
+  };
 
   const isIndexRoute = location.pathname === ROUTES.SECURITY_DASHBOARD;
+  const wasOnChildRoute = useRef(false);
+
+  // Clear search query when returning from a child route (e.g. VehicleEntrySuccess)
+  useEffect(() => {
+    if (isIndexRoute && wasOnChildRoute.current) {
+      setSearchQuery("");
+      wasOnChildRoute.current = false;
+    } else if (!isIndexRoute) {
+      wasOnChildRoute.current = true;
+    }
+  }, [isIndexRoute]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    console.log("Search triggered with query:", query);
-  };
-
-  const handleAddVehicle = () => {
-    navigate(ROUTES.ADD_VEHICLE);
+    if (query.trim()) {
+      setLookupSignal((s) => s + 1);
+    }
   };
 
   return (
@@ -27,45 +76,71 @@ const SecurityDashboard: React.FC = () => {
       {/* Dashboard Content - Only show on index route */}
       {isIndexRoute && (
         <>
+          <ShopScopeBadge className="mb-4" />
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-7.5">
             <StatCard
               title="Vehicles Entered Today"
-              value="05"
-              change="+12%"
+              value={String(stats.vehiclesEnteredToday).padStart(2, "0")}
+              change={formatChange(stats.vehiclesEnteredToday, stats.vehiclesEnteredYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
             <StatCard
               title="Currently Inside"
-              value="12"
-              change="+12%"
+              value={String(stats.currentlyInside).padStart(2, "0")}
+              change={formatChange(stats.currentlyInside, stats.currentlyInsideYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
             <StatCard
               title="Pending Exit"
-              value="05"
-              change="+12%"
+              value={String(stats.pendingInspection).padStart(2, "0")}
+              change={formatChange(stats.pendingInspection, stats.pendingExitYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
             <StatCard
               title="Avg. Time Inside"
-              value="3h 41m"
-              change="+12%"
+              value={stats.avgTimeInside}
+              change={formatTimeChange(stats.avgTimeInside, stats.avgTimeInsideYesterday)}
               icon={<Truck className="w-7 h-7 sm:w-8 sm:h-8 text-[#BFBFBF]" strokeWidth={1.5} />}
             />
+          </div>
+
+          {/* Today's Appointments — quick pick for booked vehicles */}
+          <div className="mb-6 lg:mb-7.5">
+            <TodaysAppointments />
           </div>
 
           {/* Vehicle Lookup */}
           <div className="mb-6 lg:mb-7.5">
             <VehicleLookup
+              value={searchQuery}
               onSearch={handleSearch}
-              onAddVehicle={handleAddVehicle}
+              onAddNewVehicle={() => setAddVehicleSignal((s) => s + 1)}
+              loading={lookupBusy}
+              onCapturePlate={() => setPlateModalOpen(true)}
             />
           </div>
 
+          {/* Capture Number Plate — on a validated plate, reuse the existing
+              handleSearch() flow (no new search API). */}
+          <PlateCaptureModal
+            isOpen={plateModalOpen}
+            onClose={() => setPlateModalOpen(false)}
+            onDetected={(registration) => {
+              setPlateModalOpen(false);
+              handleSearch(registration);
+            }}
+          />
+
           {/* Vehicle Table */}
           <div className="overflow-x-auto">
-            <VehicleTable searchQuery={searchQuery} />
+            <VehicleTable
+              onStatsLoaded={setStats}
+              addVehicleSignal={addVehicleSignal}
+              lookupSignal={lookupSignal}
+              lookupQuery={searchQuery}
+              onLookingUpChange={setLookupBusy}
+            />
           </div>
         </>
       )}
@@ -77,4 +152,3 @@ const SecurityDashboard: React.FC = () => {
 };
 
 export default SecurityDashboard;
-

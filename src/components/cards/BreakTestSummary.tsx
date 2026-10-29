@@ -3,13 +3,29 @@ import { cn } from "../utils/cn";
 interface BreakTestSummarySectionProps {
   title: string;
   description: string;
+  performance?: string | null;
+  noise?: string | null;
+  vibration?: string | null;
 }
 
-export function BreakTestSummary({ title, description }: BreakTestSummarySectionProps) {
+function getColor(value: string | null | undefined): string {
+  if (!value) return 'text-gray-400';
+  const v = value.toUpperCase();
+  if (v === 'NONE' || v === 'GOOD') return 'text-green-500';
+  if (v === 'AVERAGE' || v === 'MILD') return 'text-orange-400';
+  return 'text-red-500';
+}
+
+function formatValue(value: string | null | undefined): string {
+  if (!value) return '—';
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+export function BreakTestSummary({ title, description, performance, noise, vibration }: BreakTestSummarySectionProps) {
   const items = [
-    { label: 'Performance', value: 'Average', color: 'text-orange-400' },
-    { label: 'Noise', value: 'None', color: 'text-green-500' },
-    { label: 'Vibration', value: 'None', color: 'text-green-500' },
+    { label: 'Performance', value: formatValue(performance), color: getColor(performance) },
+    { label: 'Noise', value: formatValue(noise), color: getColor(noise) },
+    { label: 'Vibration', value: formatValue(vibration), color: getColor(vibration) },
   ];
   return (
     <div className="bg-white border border-[#ebebeb] rounded-[10px] mb-4 sm:mb-5">

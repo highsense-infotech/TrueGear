@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Bell, Settings, LogOut, Menu, ChevronDown } from "lucide-react";
-import user from "../../assets/user.jpg";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Bell, Settings, LogOut, Menu, ChevronDown, Loader2, User } from "lucide-react";
+import NotificationBell from "../common/NotificationBell";
+import Avatar from "../common/Avatar";
 import Button from "../common/Button";
 import { ROUTES } from "../../constants/routes";
+import { useAuth } from "../../context/AuthContext";
 
 interface Props {
   toggleSidebar: () => void;
@@ -11,7 +13,17 @@ interface Props {
 
 export function Header({ toggleSidebar }: Props) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    await logout();
+    navigate(ROUTES.LOGIN, { replace: true });
+  };
 
   const routeTitles: Record<string, { title: string; description: string }> = {
     [ROUTES.SECURITY_DASHBOARD]: {
@@ -26,10 +38,14 @@ export function Header({ toggleSidebar }: Props) {
       title: "Service Advisor Dashboard",
       description: "Manage vehicle service and job cards",
     },
+    [ROUTES.SPARE_PARTS_DASHBOARD]: {
+      title: "Spare Parts Manager",
+      description: "Manage parts availability and dispatch",
+    },
   };
 
   const currentRoute = routeTitles[location.pathname] || {
-    title: "TrueGear",
+    title: "ELT Group",
     description: "",
   };
 
@@ -66,46 +82,45 @@ export function Header({ toggleSidebar }: Props) {
 
       {/* Right - Desktop */}
       <div className="hidden md:flex items-center gap-4 lg:gap-5">
-        {/* User */}
-        <div className="flex items-center gap-2">
-          <div className="relative w-9 h-9 lg:w-10 lg:h-10 rounded-[10px] overflow-hidden">
-            <img
-              src={user}
-              alt="User avatar"
-              className="w-full h-full object-cover"
-            />
+        {/* User — click to open My Profile */}
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.PROFILE)}
+          className="flex items-center gap-2 rounded-lg hover:bg-gray-50 px-1.5 py-1 transition-colors"
+          title="My Profile"
+        >
+          <Avatar
+            src={user?.avatarUrl}
+            name={user?.fullName}
+            fallback={user?.username}
+            size={40}
+          />
+          <div className="hidden lg:block text-left">
+            <p className="text-sm text-[#333]">{user?.fullName || user?.username || 'User'}</p>
+            <p className="text-[11px] text-[#999]">{user?.role?.name || 'Staff'}</p>
           </div>
-          <div className="hidden lg:block">
-            <p className="text-sm text-[#333]">Jothivelu</p>
-            <p className="text-[11px] text-[#999]">Senior Manager</p>
-          </div>
-        </div>
+        </button>
 
         {/* Icons */}
-        <Button
-          variant="outline"
-          className="p-2! h-10!"
-          icon={<Bell className="w-5 h-5 text-[#8C8C8C]" />}
-        />
+        <NotificationBell />
         <Button
           variant="outline"
           className="p-2! h-10!"
           icon={<Settings className="w-5 h-5 text-[#8C8C8C]" />}
+          onClick={() => navigate(ROUTES.SETTINGS)}
         />
         <Button
           variant="outline"
           className="bg-[#faedee] p-2! h-10! border-[#ffc0d1] hover:bg-[#ffe5ed]"
-          icon={<LogOut className="w-5 h-5 text-[#FE306C]" />}
+          icon={loggingOut ? <Loader2 className="w-5 h-5 text-[#FE306C] animate-spin" /> : <LogOut className="w-5 h-5 text-[#FE306C]" />}
+          onClick={handleLogout}
+          disabled={loggingOut}
         />
       </div>
 
       {/* Mobile Right Icons */}
       <div className="flex md:hidden items-center gap-2">
-        <Button
-          variant="outline"
-          className="p-2!"
-          icon={<Bell className="w-5 h-5 text-[#8C8C8C]" />}
-        />
+        <NotificationBell />
         <Button
           className="p-2!"
           variant="outline"
@@ -128,21 +143,28 @@ export function Header({ toggleSidebar }: Props) {
           <div className="px-4 py-4 space-y-3">
             {/* User Info */}
             <div className="flex items-center gap-3 pb-3 border-b border-[#ebebeb]">
-              <div className="relative w-12 h-12 rounded-[10px] overflow-hidden">
-                <img
-                  src={user}
-                  alt="User avatar"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <Avatar
+                src={user?.avatarUrl}
+                name={user?.fullName}
+                fallback={user?.username}
+                size={48}
+              />
               <div>
-                <p className="text-sm font-medium text-[#333]">Jothivelu</p>
-                <p className="text-xs text-[#999]">Senior Manager</p>
+                <p className="text-sm font-medium text-[#333]">{user?.fullName || user?.username || 'User'}</p>
+                <p className="text-xs text-[#999]">{user?.role?.name || 'Staff'}</p>
               </div>
             </div>
 
             {/* Menu Actions */}
             <div className="space-y-2 pt-2">
+              <Button
+                className="w-full justify-start gap-3 px-3 py-3! bg-transparent hover:bg-gray-50"
+                icon={<User className="w-5 h-5 text-[#8C8C8C]" />}
+                onClick={() => { navigate(ROUTES.PROFILE); setMobileMenuOpen(false); }}
+              >
+                <span className="text-sm text-[#333]">My Profile</span>
+              </Button>
+
               <Button
                 className="w-full justify-start gap-3 px-3 py-3! bg-transparent hover:bg-gray-50"
                 icon={<Bell className="w-5 h-5 text-[#8C8C8C]" />}
@@ -153,15 +175,18 @@ export function Header({ toggleSidebar }: Props) {
               <Button
                 className="w-full justify-start gap-3 px-3 py-3! bg-transparent hover:bg-gray-50"
                 icon={<Settings className="w-5 h-5 text-[#8C8C8C]" />}
+                onClick={() => { navigate(ROUTES.SETTINGS); setMobileMenuOpen(false); }}
               >
                 <span className="text-sm text-[#333]">Settings</span>
               </Button>
 
               <Button
                 className="w-full justify-start gap-3 px-3 py-3! bg-[#faedee] hover:bg-[#ffe5ed]"
-                icon={<LogOut className="w-5 h-5 text-[#FE306C]" />}
+                icon={loggingOut ? <Loader2 className="w-5 h-5 text-[#FE306C] animate-spin" /> : <LogOut className="w-5 h-5 text-[#FE306C]" />}
+                onClick={handleLogout}
+                disabled={loggingOut}
               >
-                <span className="text-sm text-[#FE306C]">Logout</span>
+                <span className="text-sm text-[#FE306C]">{loggingOut ? 'Logging out...' : 'Logout'}</span>
               </Button>
             </div>
           </div>

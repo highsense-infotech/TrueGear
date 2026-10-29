@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Check, Plus } from "lucide-react";
 import { ROUTES } from "../../constants/routes";
 import { Breadcrumb } from "../../components/common/Breadcrumb";
@@ -7,6 +7,11 @@ import Button from "../../components/common/Button";
 
 const VehicleEntrySuccess: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // The Receiving Number is passed in via navigation state by AddVehicle
+  // after the confirm-entry call returns successfully.
+  const receivingNo =
+    (location.state as { receivingNo?: string | null } | null)?.receivingNo ?? null;
 
   const vehicleNumber = "KA-";
 
@@ -44,11 +49,21 @@ const VehicleEntrySuccess: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Receiving Number (Phase 1) */}
+                {receivingNo && (
+                  <div className="bg-[#fff5f2] flex flex-col items-center justify-center px-4 py-2 rounded-[10px] border border-[#ff4f31]/30">
+                    <p className="text-[11px] text-[#666] mb-0.5">Receiving Number</p>
+                    <p className="font-['Poppins',sans-serif] font-bold text-[#ff4f31] text-[20px] tracking-wide">
+                      {receivingNo}
+                    </p>
+                  </div>
+                )}
+
                 {/* Status Badge */}
                 <div className="bg-[rgba(77,0,193,0.1)] flex items-center justify-center px-4 py-2 rounded-[40px] border border-[rgba(77,0,193,0.4)]">
                   <p className="font-['Poppins',sans-serif] text-[#4d00c1] text-[12px]">
                     <span className="font-bold">Status:</span>
-                    <span className="font-medium"> Awaiting Quality Check</span>
+                    <span className="font-medium"> Arrived · Awaiting Quality Check</span>
                   </p>
                 </div>
               </div>
