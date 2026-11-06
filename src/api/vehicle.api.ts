@@ -655,3 +655,25 @@ export interface FuelScanResult {
 
 export const scanFuel = (file: File): Promise<ApiResponse<FuelScanResult>> =>
   postScan<FuelScanResult>("/vehicles/fuel-scan", file);
+
+// ---- VIN Scan (vision auto-fill — Vehicle Sales arrival) ----
+
+/** Mirrors the backend rejection enum (vinScan.dto.ts). */
+export type VinRejectionReason =
+  | "NO_VIN"
+  | "NOT_READABLE"
+  | "INVALID_VIN"
+  | "LOW_CONFIDENCE"
+  | "PROCESSING_ERROR"
+  | "IMAGE_TOO_LARGE"
+  | "UNSUPPORTED_FORMAT";
+
+export interface VinScanResult {
+  /** Normalised 17-character VIN, or null when unread. */
+  vin: string | null;
+  confidence: number;
+  reason: VinRejectionReason | null;
+}
+
+export const scanVin = (file: File): Promise<ApiResponse<VinScanResult>> =>
+  postScan<VinScanResult>("/vehicles/vin-scan", file);

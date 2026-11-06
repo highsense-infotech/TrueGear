@@ -27,6 +27,8 @@ export interface ManagedUser {
   evolveTechnicianNo?: number | null;
   // Evolve service-advisor mapping (only set for service-advisor users).
   evolveSaNumber?: number | null;
+  // Vehicle Sales: Evolve salesperson (sales rep / manager / F&I number).
+  evolveSalesPersonNo?: string | null;
   // Technician profile (only set for technician users). ability may serialize as
   // a string from the DB numeric column. designationId → designations master.
   ability?: number | string | null;
@@ -92,6 +94,8 @@ export const createUser = (data: {
   warrantyOnly?: boolean;
   evolveTechnicianNo?: number | null;
   evolveSaNumber?: number | null;
+  // Vehicle Sales: Evolve salesperson (sales rep / manager / F&I number).
+  evolveSalesPersonNo?: string | null;
   ability?: number | null;
   designationId?: string | null;
 }): Promise<ApiResponse<ManagedUser>> =>
@@ -111,6 +115,8 @@ export const updateUser = (
     warrantyOnly?: boolean;
     evolveTechnicianNo?: number | null;
     evolveSaNumber?: number | null;
+    // Vehicle Sales: Evolve salesperson (sales rep / manager / F&I number).
+    evolveSalesPersonNo?: string | null;
     ability?: number | null;
     designationId?: string | null;
   },
@@ -135,6 +141,18 @@ export const uploadUserAvatar = (
 
 // ─── Evolve Service Advisor Mapping (admin-only) ───────────────────────────────
 // Maps local service-advisor users to their Evolve SANumber (RO ServiceAdvisorNumber).
+
+// Evolve salespeople for a Vehicle Sales role (07 SalesReps / SalesManagers /
+// FIManagers), active only.
+export interface EvolveSalesPerson {
+  number: string;
+  displayName: string;
+}
+export type SalesRoleSlug = "sales-executive" | "sales-manager" | "fi-manager";
+export const SALES_ROLE_SLUGS: SalesRoleSlug[] = ["sales-executive", "sales-manager", "fi-manager"];
+
+export const listEvolveSalesPeople = (role: SalesRoleSlug): Promise<ApiResponse<EvolveSalesPerson[]>> =>
+  api.get('/user-management/evolve-sales-people', { params: { role } }).then((res) => res.data);
 
 export interface EvolveServiceAdvisor {
   saNumber: number;

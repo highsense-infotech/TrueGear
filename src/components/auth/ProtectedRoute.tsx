@@ -6,9 +6,11 @@ import { ROUTES } from '../../constants/routes';
 interface Props {
   children: React.ReactNode;
   requiredPermission?: { resource: string; action: string };
+  // Passes when the user has at least one of these (e.g. any Vehicle Sales module).
+  anyPermission?: { resource: string; action: string }[];
 }
 
-const ProtectedRoute: React.FC<Props> = ({ children, requiredPermission }) => {
+const ProtectedRoute: React.FC<Props> = ({ children, requiredPermission, anyPermission }) => {
   const { isAuthenticated, hasPermission } = useAuth();
   const location = useLocation();
 
@@ -19,6 +21,9 @@ const ProtectedRoute: React.FC<Props> = ({ children, requiredPermission }) => {
 
   // Permission check — if requiredPermission specified, verify user has it (super-admin bypasses via hasPermission)
   if (requiredPermission && !hasPermission(requiredPermission.resource, requiredPermission.action)) {
+    return <Navigate to={ROUTES.NO_ACCESS} replace />;
+  }
+  if (anyPermission && !anyPermission.some((p) => hasPermission(p.resource, p.action))) {
     return <Navigate to={ROUTES.NO_ACCESS} replace />;
   }
 

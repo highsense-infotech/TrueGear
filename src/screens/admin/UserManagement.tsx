@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Loader2,
@@ -34,6 +34,10 @@ import {
   updateRolePermissions,
   listEvolveTechnicians,
   listEvolveServiceAdvisors,
+  listEvolveSalesPeople,
+  SALES_ROLE_SLUGS,
+  type SalesRoleSlug,
+  type EvolveSalesPerson,
   type ManagedRole,
   type ManagedUser,
   type RolePermission,
@@ -42,7 +46,7 @@ import {
   type EvolveServiceAdvisor,
 } from "../../api/userManagement.api.ts";
 import { listActiveDesignations, type Designation } from "../../api/designation.api.ts";
-import { MODULES, ACTIONS } from "../../constants/permissions.ts";
+import { MODULES, ACTIONS, VEHICLE_SALES_MODULES } from "../../constants/permissions.ts";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -205,6 +209,9 @@ const ALL_MODULES = [
   { key: MODULES.GATE_RELEASE, label: "Gate Release" },
 ];
 
+// Vehicle Sales: one row per module, listed under their own heading.
+const VEHICLE_SALES_ROWS = VEHICLE_SALES_MODULES.map((m) => ({ key: m.key, label: m.label }));
+
 const ALL_ACTIONS = [
   { key: ACTIONS.VIEW, label: "View" },
   { key: ACTIONS.CREATE, label: "Create" },
@@ -253,7 +260,13 @@ function PermissionsGrid({ checkedPerms, onToggle, loading, isSuperAdmin }: Perm
           </tr>
         </thead>
         <tbody>
-          {ALL_MODULES.map((mod, idx) => (
+          {[...ALL_MODULES.map((m) => ({ ...m, section: "" })), ...VEHICLE_SALES_ROWS.map((m, i) => ({ ...m, section: i === 0 ? "Vehicle Sales" : "" }))].map((mod, idx) => (
+            <Fragment key={mod.key}>
+            {mod.section && (
+              <tr className="bg-[#fff1ee] border-b border-[#f0f0f0]">
+                <td colSpan={ALL_ACTIONS.length + 1} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#ff4f31]">{mod.section}</td>
+              </tr>
+            )}
             <tr
               key={mod.key}
               className={`border-b border-[#f0f0f0] last:border-0 ${idx % 2 === 0 ? "bg-white" : "bg-[#fafafa]"}`}
@@ -273,6 +286,7 @@ function PermissionsGrid({ checkedPerms, onToggle, loading, isSuperAdmin }: Perm
                 );
               })}
             </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -838,6 +852,7 @@ function UsersTab() {
     warrantyOnly: false,
     evolveTechnicianNo: null as number | null,
     evolveSaNumber: null as number | null,
+    evolveSalesPersonNo: null as string | null,
     ability: "",
     designationId: "",
   });
@@ -860,6 +875,7 @@ function UsersTab() {
     warrantyOnly: false,
     evolveTechnicianNo: null as number | null,
     evolveSaNumber: null as number | null,
+    evolveSalesPersonNo: null as string | null,
     ability: "",
     designationId: "",
   });
@@ -879,6 +895,11 @@ function UsersTab() {
   const [evolveSAs, setEvolveSAs] = useState<EvolveServiceAdvisor[]>([]);
   const [evolveSAsLoading, setEvolveSAsLoading] = useState(false);
   const [evolveSAsLoaded, setEvolveSAsLoaded] = useState(false);
+
+  // Evolve salespeople for the Vehicle Sales roles — lazy-loaded per role:
+  // sales-executive → SalesReps, sales-manager → SalesManagers, fi-manager → FIManagers.
+  const [salesPeople, setSalesPeople] = useState<Partial<Record<SalesRoleSlug, EvolveSalesPerson[]>>>({});
+  const [salesPeopleLoading, setSalesPeopleLoading] = useState<SalesRoleSlug | null>(null);
 
   // Active designations — lazy-loaded when a technician role is selected. The
   // dropdown lists only active designations; an existing user's inactive
@@ -997,6 +1018,32 @@ function UsersTab() {
     }
   };
 
+  const isSalesRole = (slug: string): slug is SalesRoleSlug => (SALES_ROLE_SLUGS as string[]).includes(slug);
+  const loadSalesPeople = async (role: string) => {
+    if (!isSalesRole(role) || salesPeople[role] || salesPeopleLoading === role) return;
+    setSalesPeopleLoading(role);
+    try {
+      const res = await listEvolveSalesPeople(role);
+      setSalesPeople((m) => ({ ...m, [role]: res.data ?? [] }));
+    } catch {
+      toast.error("Failed to load Evolve salespeople");
+    } finally {
+      setSalesPeopleLoading(null);
+    }
+  };
+  // Options for a role; a saved number Evolve no longer lists is kept so it still shows.
+  const salesPersonOptions = (role: string, current: string | null) => {
+    const list = isSalesRole(role) ? salesPeople[role] ?? [] : [];
+    const opts = list.map((p) => ({ id: p.number, name: `${p.displayName} · #${p.number}` }));
+    if (current && !opts.some((o) => o.id === current)) opts.unshift({ id: current, name: `#${current} (not in Evolve's active list)` });
+    return opts;
+  };
+  const SALES_PERSON_LABEL: Record<SalesRoleSlug, string> = {
+    "sales-executive": "Evolve Sales Rep",
+    "sales-manager": "Evolve Sales Manager",
+    "fi-manager": "Evolve F&I Manager",
+  };
+
   const saOptions = evolveSAs.map((s) => ({
     id: String(s.saNumber),
     name: `${s.displayName} · #${s.saNumber}`,
@@ -1035,6 +1082,7 @@ function UsersTab() {
       warrantyOnly: false,
       evolveTechnicianNo: null,
       evolveSaNumber: null,
+      evolveSalesPersonNo: null,
       ability: "",
       designationId: "",
     });
@@ -1044,6 +1092,7 @@ function UsersTab() {
     setCreateModalOpen(true);
     if (initialRole === "technician") loadTechnicianLookups();
     if (initialRole === "service-advisor") void loadEvolveServiceAdvisors();
+    void loadSalesPeople(initialRole);
   };
 
   // Upload an avatar image for the Add/Edit forms. Stores the returned path on
@@ -1136,6 +1185,7 @@ function UsersTab() {
       warrantyOnly: user.warrantyOnly ?? false,
       evolveTechnicianNo: user.evolveTechnicianNo ?? null,
       evolveSaNumber: user.evolveSaNumber ?? null,
+      evolveSalesPersonNo: user.evolveSalesPersonNo ?? null,
       ability: user.ability != null ? String(user.ability) : "",
       designationId: user.designationId ?? "",
     });
@@ -1145,6 +1195,7 @@ function UsersTab() {
     setEditModalOpen(true);
     if (user.role.slug === "technician") loadTechnicianLookups();
     if (user.role.slug === "service-advisor") void loadEvolveServiceAdvisors();
+    void loadSalesPeople(user.role.slug);
   };
 
   const handleEdit = async () => {
@@ -1597,11 +1648,14 @@ function UsersTab() {
                   roleSlug,
                   evolveTechnicianNo: isTech ? f.evolveTechnicianNo : null,
                   evolveSaNumber: isSA ? f.evolveSaNumber : null,
+                  // Each sales role has its own Evolve list, so a role change clears it.
+                  evolveSalesPersonNo: roleSlug === f.roleSlug ? f.evolveSalesPersonNo : null,
                   ability: isTech ? f.ability : "",
                   designationId: isTech ? f.designationId : "",
                 }));
                 if (isTech) loadTechnicianLookups();
                 if (isSA) void loadEvolveServiceAdvisors();
+                void loadSalesPeople(roleSlug);
               }}
               className={inputClass}
             >
@@ -1612,6 +1666,23 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          {isSalesRole(createForm.roleSlug) && (
+            <div>
+              <label className={labelClass}>{SALES_PERSON_LABEL[createForm.roleSlug]}</label>
+              <SearchableDropdown
+                options={salesPersonOptions(createForm.roleSlug, createForm.evolveSalesPersonNo)}
+                value={createForm.evolveSalesPersonNo ?? ""}
+                onChange={(id) => setCreateForm((f) => ({ ...f, evolveSalesPersonNo: id || null }))}
+                placeholder="Select from Evolve"
+                loading={salesPeopleLoading === createForm.roleSlug}
+              />
+              <p className="text-[11px] text-[#999] mt-1">
+                {!salesPeopleLoading && salesPeople[createForm.roleSlug]?.length === 0
+                  ? "Evolve has no active entries in this list for the current company — leave blank for now."
+                  : "Sent to Evolve on this user's sales orders (Vehicle Sales). Optional."}
+              </p>
+            </div>
+          )}
           {createForm.roleSlug === "service-advisor" && (
             <div>
               <label className={labelClass}>Evolve Service Advisor</label>
@@ -1804,11 +1875,14 @@ function UsersTab() {
                   roleSlug,
                   evolveTechnicianNo: isTech ? f.evolveTechnicianNo : null,
                   evolveSaNumber: isSA ? f.evolveSaNumber : null,
+                  // Each sales role has its own Evolve list, so a role change clears it.
+                  evolveSalesPersonNo: roleSlug === f.roleSlug ? f.evolveSalesPersonNo : null,
                   ability: isTech ? f.ability : "",
                   designationId: isTech ? f.designationId : "",
                 }));
                 if (isTech) loadTechnicianLookups();
                 if (isSA) void loadEvolveServiceAdvisors();
+                void loadSalesPeople(roleSlug);
               }}
               className={inputClass}
             >
@@ -1819,6 +1893,23 @@ function UsersTab() {
               ))}
             </select>
           </div>
+          {isSalesRole(editForm.roleSlug) && (
+            <div>
+              <label className={labelClass}>{SALES_PERSON_LABEL[editForm.roleSlug]}</label>
+              <SearchableDropdown
+                options={salesPersonOptions(editForm.roleSlug, editForm.evolveSalesPersonNo)}
+                value={editForm.evolveSalesPersonNo ?? ""}
+                onChange={(id) => setEditForm((f) => ({ ...f, evolveSalesPersonNo: id || null }))}
+                placeholder="Select from Evolve"
+                loading={salesPeopleLoading === editForm.roleSlug}
+              />
+              <p className="text-[11px] text-[#999] mt-1">
+                {!salesPeopleLoading && salesPeople[editForm.roleSlug]?.length === 0
+                  ? "Evolve has no active entries in this list for the current company — leave blank for now."
+                  : "Sent to Evolve on this user's sales orders (Vehicle Sales). Optional."}
+              </p>
+            </div>
+          )}
           {editForm.roleSlug === "service-advisor" && (
             <div>
               <label className={labelClass}>Evolve Service Advisor</label>

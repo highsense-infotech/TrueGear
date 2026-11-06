@@ -28,7 +28,7 @@ import MainLayout from '../layouts/MainLayout.tsx';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../constants/routes';
-import { MODULES, ACTIONS } from '../constants/permissions';
+import { MODULES, ACTIONS, VEHICLE_SALES_MODULES } from '../constants/permissions';
 import { SendEstimate } from '../screens/vehicles/SendEstimate.tsx';
 import UserManagement from '../screens/admin/UserManagement.tsx';
 import TechnicianMapping from '../screens/admin/TechnicianMapping.tsx';
@@ -54,6 +54,7 @@ import AppointmentServiceDetails from '../screens/appointments/AppointmentServic
 import AppointmentSlotSelection from '../screens/appointments/AppointmentSlotSelection.tsx';
 import AppointmentReview from '../screens/appointments/AppointmentReview.tsx';
 import AppointmentSuccess from '../screens/appointments/AppointmentSuccess.tsx';
+import VehicleSalesRoutes from '../screens/vehicle-sales/VehicleSalesRoutes.tsx';
 
 // Ordered list of routes — first one the user has view permission for becomes their home
 const PERMISSION_ROUTES = [
@@ -86,7 +87,13 @@ function RootRedirect() {
   }
 
   const target = PERMISSION_ROUTES.find((r) => hasPermission(r.resource, r.action));
-  return <Navigate to={target?.path ?? ROUTES.NO_ACCESS} replace />;
+  if (target) return <Navigate to={target.path} replace />;
+  // Vehicle Sales is role-based per module, so it is a home for any role that
+  // can view at least one of its modules (Sales Executive / Manager / F&I).
+  if (VEHICLE_SALES_MODULES.some((m) => hasPermission(m.key, ACTIONS.VIEW))) {
+    return <Navigate to={ROUTES.VEHICLE_SALES} replace />;
+  }
+  return <Navigate to={ROUTES.NO_ACCESS} replace />;
 }
 
 const AppRoutes: React.FC = () => (
@@ -361,6 +368,18 @@ const AppRoutes: React.FC = () => (
           element={
             <ProtectedRoute requiredPermission={{ resource: MODULES.ROLE_MANAGEMENT, action: ACTIONS.VIEW }}>
               <LabourMaster />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Vehicle Sales — 12 modules / 68 screens nested inside
+            VehicleSalesRoutes. Needs view on at least one Vehicle Sales
+            module; each module and screen is checked again inside. */}
+        <Route
+          path={`${ROUTES.VEHICLE_SALES.slice(1)}/*`}
+          element={
+            <ProtectedRoute anyPermission={VEHICLE_SALES_MODULES.map((m) => ({ resource: m.key, action: ACTIONS.VIEW }))}>
+              <VehicleSalesRoutes />
             </ProtectedRoute>
           }
         />

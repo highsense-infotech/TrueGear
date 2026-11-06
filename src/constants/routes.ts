@@ -47,6 +47,9 @@ export const ROUTES = {
   WARRANTY_STORE: '/warranty',
   FINANCE_INVOICE_DETAIL: '/finance-billing-dashboard/invoice/:id',
   GATE_RELEASE: '/gate-release',
+  // Vehicle Sales (Phase 1 static UI) — nested screens live under this prefix,
+  // see src/screens/vehicle-sales/registry.ts.
+  VEHICLE_SALES: '/vehicle-sales',
   NO_ACCESS: '/no-access',
 };
 
